@@ -263,6 +263,14 @@ export default defineConfig([
     }
   },
 
+  // Standalone scripts override (CLI output is their job)
+  {
+    files: ['scripts/**/*.{js,mjs}'],
+    rules: {
+      'no-console': 'off'
+    }
+  },
+
   // Jest test files override
   {
     files: ['**/*.test.{cjs,js,mjs,ts}'],

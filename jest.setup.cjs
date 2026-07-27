@@ -14,6 +14,10 @@ process.env.REDIS_KEY_PREFIX = 'forms-identity-ui:'
 process.env.USE_SINGLE_INSTANCE_CACHE = 'true'
 process.env.REDIS_TLS = 'false'
 
+process.env.IDENTITY_API_URL = 'http://localhost:4001'
+process.env.IDENTITY_API_TIMEOUT_MS = '10000'
+process.env.OIDC_ISSUER = 'http://localhost:3002'
+
 process.env.SESSION_CACHE_ENGINE = 'memory'
 process.env.SESSION_COOKIE_PASSWORD =
   'the-test-session-cookie-password-at-least-32-characters-long'

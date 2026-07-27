@@ -224,6 +224,36 @@ export const config = convict({
   },
 
   /**
+   * Identity API (private OIDC provider this façade fronts)
+   */
+  identityApi: {
+    url: {
+      doc: 'Base URL of the private forms-identity-api (no public ingress)',
+      format: String,
+      default: 'http://localhost:4001',
+      env: 'IDENTITY_API_URL'
+    },
+    timeoutMs: {
+      doc: 'Timeout in milliseconds for requests to the identity API',
+      format: Number,
+      default: 10000,
+      env: 'IDENTITY_API_TIMEOUT_MS'
+    }
+  },
+
+  /**
+   * OIDC
+   */
+  oidc: {
+    issuer: {
+      doc: "This façade's own public URL - the OIDC issuer advertised to relying parties. Drives the X-Forwarded-Proto/Host headers sent to the identity API",
+      format: String,
+      default: 'http://localhost:3002',
+      env: 'OIDC_ISSUER'
+    }
+  },
+
+  /**
    * Networking
    */
   httpProxy: {
