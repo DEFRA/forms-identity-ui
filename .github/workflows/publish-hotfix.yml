@@ -1,12 +1,23 @@
 name: Publish Hot Fix
 
 on:
+  push:
+    branches:
+      - 'releases/**'
+
+    paths:
+      - '.browserslistrc'
+      - 'babel.config.*'
+      - 'postcss.config.*'
+      - 'webpack.config.*'
+      - 'Dockerfile'
+      - 'src/**'
+      - '!**/*.test.*'
+
   workflow_dispatch:
 
 concurrency:
-  group: $${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: false
-  queue: max
+  group: publish-hotfix
 
 permissions:
   id-token: write
@@ -19,33 +30,15 @@ env:
 
 jobs:
   build:
-    name: CDP-build-hotfix-workflow
-    runs-on: ubuntu-latest
+    name: CDP-build-workflow
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Depth 0 is required for branch-based versioning
 
-      - name: Test code and Create Test Coverage Reports
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: |
-          npm ci
-          npm run build:frontend
-          npm run format:check
-          npm run lint
-          npm test
-
-      - name: Publish Hot Fix
+      - name: Build and Publish Hot Fix
         uses: DEFRA/cdp-build-action/build-hotfix@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-#      - name: SonarCloud Scan
-#        uses: SonarSource/sonarqube-scan-action@v5.3.1 #  (or check latest version on https://github.com/marketplace/actions/official-sonarqube-scan)
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

@@ -1,0 +1,15 @@
+{% extends "layouts/page.html" %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <h1 class="govuk-heading-l">{{ message }}</h1>
+      {% if statusCode == 404 %}
+        <p class="govuk-body">If you typed the web address, check it is correct.</p>
+        <p class="govuk-body">If you pasted the web address, check you copied the entire address.</p>
+      {% else %}
+        <p class="govuk-body">Try again later.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

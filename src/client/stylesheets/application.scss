@@ -1,7 +1,11 @@
-@use "govuk-frontend";
+@use "pkg:govuk-frontend";
 
-@use "variables";
-@use "helpers";
-@use "core";
-@use "components";
-@use "partials";
+// Application-specific styles
+.app-visually-hidden {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

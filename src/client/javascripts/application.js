@@ -1,14 +1,3 @@
-import {
-  createAll,
-  Button,
-  Checkboxes,
-  ErrorSummary,
-  Radios,
-  SkipLink
-} from 'govuk-frontend'
+import { initAll } from 'govuk-frontend'
 
-createAll(Button)
-createAll(Checkboxes)
-createAll(ErrorSummary)
-createAll(Radios)
-createAll(SkipLink)
+initAll()

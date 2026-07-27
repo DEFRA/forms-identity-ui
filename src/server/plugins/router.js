@@ -1,43 +1,52 @@
-import inert from '@hapi/inert'
+import { StatusCodes } from 'http-status-codes'
 
-import { home } from '../routes/home/index.js'
-import { about } from '../routes/about/index.js'
-import { health } from '../routes/health/index.js'
-import { serveStaticFiles } from './serve-static-files.js'
-import { config } from '#/config/config.js'
+import { config } from '~/src/config/index.js'
+import { healthRoute, homeRoute } from '~/src/server/routes/index.js'
 
-export const router = {
+const assetPath = config.get('assetPath')
+
+/**
+ * Registers the application routes and static asset handling
+ * @satisfies {ServerRegisterPluginObject<void>}
+ */
+export default {
   plugin: {
     name: 'router',
-    async register(server) {
-      await server.register([inert])
+    /**
+     * @param {Server} server
+     */
+    register(server) {
+      server.route([healthRoute, homeRoute])
 
-      // Health-check route. Used by platform to check if service is running, do not remove!
-      await server.register([health])
-
-      // Application specific routes, add your own routes here
-      await server.register([home, about])
-
-      // Static assets
-      if (!config.get('isProduction') && !config.get('isTest')) {
-        await (async () => {
-          const createViteServer = (await import('vite')).createServer
-          const vite = await createViteServer({
-            server: { middlewareMode: true },
-            appType: 'custom'
-          })
-
-          await server.register({
-            plugin: (await import('@defra/hapi-connect')).default,
-            options: {
-              path: '/public',
-              middleware: [vite.middlewares]
+      // Static assets built by webpack into `.public`
+      server.route({
+        method: 'GET',
+        path: `${assetPath}/{param*}`,
+        options: {
+          cache: {
+            expiresIn: config.get('staticCacheTimeout'),
+            privacy: 'private'
+          },
+          handler: {
+            directory: {
+              path: '.',
+              redirectToSlash: true
             }
-          })
-        })()
-      } else {
-        server.register(serveStaticFiles)
-      }
+          }
+        }
+      })
+
+      server.route({
+        method: 'GET',
+        path: '/favicon.ico',
+        handler(_, h) {
+          return h.response().code(StatusCodes.NO_CONTENT).type('image/x-icon')
+        }
+      })
     }
   }
 }
+
+/**
+ * @import { Server, ServerRegisterPluginObject } from '@hapi/hapi'
+ */

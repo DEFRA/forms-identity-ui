@@ -1,0 +1,42 @@
+{% extends "govuk/template.njk" %}
+
+{% from "govuk/components/footer/macro.njk" import govukFooter -%}
+{% from "govuk/components/header/macro.njk" import govukHeader -%}
+{% from "govuk/components/service-navigation/macro.njk" import govukServiceNavigation -%}
+
+{% block head %}
+  <link rel="preload" as="font" href="{{ assetPath }}/fonts/bold-b542beb274-v2.woff2" type="font/woff2" crossorigin="anonymous">
+  <link rel="preload" as="font" href="{{ assetPath }}/fonts/light-94a07e06a1-v2.woff2" type="font/woff2" crossorigin="anonymous">
+  <link rel="stylesheet" href="{{ getAssetPath("application.css") }}">
+{% endblock %}
+
+{% block pageTitle -%}
+  {{ pageTitle + " - " if pageTitle }}{{ serviceName }} - GOV.UK
+{%- endblock %}
+
+{% block header %}
+  {{ govukHeader({
+    homepageUrl: "https://www.gov.uk",
+    containerClasses: "govuk-width-container",
+    classes: "govuk-header--full-width-border"
+  }) }}
+  {{ govukServiceNavigation({
+    serviceName: serviceName,
+    serviceUrl: "/"
+  }) }}
+{% endblock %}
+
+{% block bodyEnd %}
+  <script type="module" nonce="{{ cspNonce }}" src="{{ getAssetPath("application.js") }}"></script>
+{% endblock %}
+
+{% block footer %}
+  {{ govukFooter({
+    contentLicence: {
+      html: 'All content is available under the <a class="govuk-footer__link" href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" rel="license">Open Government Licence v3.0</a>, except where otherwise stated'
+    },
+    copyright: {
+      text: "© Crown copyright"
+    }
+  }) }}
+{% endblock %}

@@ -1,15 +1,16 @@
-import hapiPulse from 'hapi-pulse'
+import pulse from 'hapi-pulse'
 
-import { createLogger } from '../common/helpers/logging/logger.js'
-
-const tenSeconds = 10 * 1000
-
-const pulse = {
-  plugin: hapiPulse,
+/**
+ * Graceful shutdown on SIGINT/SIGTERM
+ * @satisfies {ServerRegisterPluginObject<{ timeout: number }>}
+ */
+export default {
+  plugin: pulse,
   options: {
-    logger: createLogger(),
-    timeout: tenSeconds
+    timeout: 800
   }
 }
 
-export { pulse }
+/**
+ * @import { ServerRegisterPluginObject } from '@hapi/hapi'
+ */

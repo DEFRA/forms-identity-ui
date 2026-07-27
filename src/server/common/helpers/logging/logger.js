@@ -1,11 +1,11 @@
 import { pino } from 'pino'
 
-import { loggerOptions } from '../../../plugins/logger-options.js'
+import { loggerOptions } from '~/src/server/common/helpers/logging/logger-options.js'
 
-const logger = pino(loggerOptions)
-
-function createLogger() {
-  return logger
+function createPinoLogger() {
+  return pino(loggerOptions)
 }
 
-export { createLogger }
+// Singleton logger instance - pino adds 'exit' listeners to process,
+// so we reuse a single instance to avoid MaxListenersExceededWarning
+export const logger = createPinoLogger()

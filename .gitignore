@@ -2,11 +2,12 @@
 .npm/
 .vscode
 .idea
-.public
 node_modules
 npm-debug.log
 coverage
+.public
+.server
 .cache
-.envrc
-tsconfig.tsbuildinfo
 .env
+tsconfig.tsbuildinfo
+.worktrees/

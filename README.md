@@ -1,221 +1,67 @@
 # forms-identity-ui
 
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_forms-identity-ui&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=DEFRA_forms-identity-ui)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_forms-identity-ui&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=DEFRA_forms-identity-ui)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_forms-identity-ui&metric=coverage)](https://sonarcloud.io/summary/new_code?id=DEFRA_forms-identity-ui)
-
-Core delivery platform Node.js Frontend Template.
-
-- [Requirements](#requirements)
-  - [Node.js](#nodejs)
-- [Server-side Caching](#server-side-caching)
-- [Redis](#redis)
-- [Local Development](#local-development)
-  - [Setup](#setup)
-  - [Development](#development)
-  - [Production](#production)
-  - [Npm scripts](#npm-scripts)
-  - [Update dependencies](#update-dependencies)
-  - [Formatting](#formatting)
-    - [Windows prettier issue](#windows-prettier-issue)
-- [Docker](#docker)
-  - [Development image](#development-image)
-  - [Production image](#production-image)
-  - [Docker Compose](#docker-compose)
-  - [Dependabot](#dependabot)
-  - [SonarCloud](#sonarcloud)
-- [Licence](#licence)
-  - [About the licence](#about-the-licence)
+Defra Forms identity frontend — the public sign-in façade for Defra Forms identity. A Hapi + nunjucks GOV.UK frontend service.
 
 ## Requirements
 
-### Node.js
+- Node.js `^22.11.0` — install via [nvm](https://github.com/nvm-sh/nvm) with `nvm use` (see `.nvmrc`)
+- npm `>=10.9.0`
 
-Please install Node Version Manager [nvm](https://github.com/creationix/nvm)
+## Setup
 
-To use the correct version of Node.js for this application, via nvm:
-
-```bash
-cd forms-identity-ui
+```sh
 nvm use
-```
-
-## Server-side Caching
-
-We use Catbox for server-side caching. By default the service will use CatboxRedis when deployed and CatboxMemory for
-local development.
-You can override the default behaviour by setting the `SESSION_CACHE_ENGINE` environment variable to either `redis` or
-`memory`.
-
-Please note: CatboxMemory (`memory`) is _not_ suitable for production use! The cache will not be shared between each
-instance of the service and it will not persist between restarts.
-
-## Redis
-
-Redis is an in-memory key-value store. Every instance of a service has access to the same Redis key-value store similar
-to how services might have a database (or MongoDB). All frontend services are given access to a namespaced prefixed that
-matches the service name. e.g. `my-service` will have access to everything in Redis that is prefixed with `my-service`.
-
-If your service does not require a session cache to be shared between instances or if you don't require Redis, you can
-disable setting `SESSION_CACHE_ENGINE=false` or changing the default value in `src/config/index.js`.
-
-## Proxy
-
-We are using forward-proxy which is set up by default. To make use of this: `import { fetch } from 'undici'` then
-because of the `setGlobalDispatcher(new ProxyAgent(proxyUrl))` calls will use the ProxyAgent Dispatcher
-
-If you are not using Wreck, Axios or Undici or a similar http that uses `Request`. Then you may have to provide the
-proxy dispatcher:
-
-To add the dispatcher to your own client:
-
-```javascript
-import { ProxyAgent } from 'undici'
-
-return await fetch(url, {
-  dispatcher: new ProxyAgent({
-    uri: proxyUrl,
-    keepAliveTimeout: 10,
-    keepAliveMaxTimeout: 10
-  })
-})
-```
-
-## Local Development
-
-### Setup
-
-Install application dependencies:
-
-```bash
 npm install
 ```
 
-### Git hooks
+Configuration is via environment variables — see `.env.sample` for the available options. All have sensible defaults for local development, so no `.env` file is needed to get started.
 
-Install git hooks (optional)
+## Development
 
-```bash
-npm run git:hooks
-```
-
-### Development
-
-To run the application in `development` mode run:
-
-```bash
+```sh
 npm run dev
 ```
 
-### Production
+Runs the webpack client watch and the server (via `tsx watch`) concurrently on http://localhost:3002.
 
-To mimic the application running in `production` mode locally run:
+### Local Redis
 
-```bash
-npm start
+The session cache uses an in-memory engine by default in development. To use Redis instead:
+
+```sh
+docker compose up -d redis
 ```
 
-### Npm scripts
+then set `SESSION_CACHE_ENGINE=redis` in your `.env` file.
 
-All available Npm scripts can be seen in [package.json](./package.json)
-To view them in your command line run:
+## Testing and linting
 
-```bash
-npm run
+```sh
+npm test          # jest with coverage
+npm run lint      # editorconfig + eslint + tsc
+npm run lint:scss # stylelint
+npm run format    # prettier write
 ```
 
-### Update dependencies
+## Production build
 
-To update dependencies use [npm-check-updates](https://github.com/raineorshine/npm-check-updates):
-
-> The following script is a good start. Check out all the options on
-> the [npm-check-updates](https://github.com/raineorshine/npm-check-updates)
-
-```bash
-ncu --interactive --format group
+```sh
+npm run build # babel server build to .server, webpack client build to .public
+npm start     # build then serve on PORT (default 3002)
 ```
-
-### Formatting
-
-#### Windows prettier issue
-
-If you are having issues with formatting of line breaks on Windows update your global git config by running:
-
-```bash
-git config --global core.autocrlf false
-```
-
-## Docker
-
-### Development image
-
-> [!TIP]
-> For Apple Silicon users, you may need to add `--platform linux/amd64` to the `docker run` command to ensure
-> compatibility fEx: `docker build --platform=linux/arm64 --no-cache --tag forms-identity-ui`
-
-Build:
-
-```bash
-docker build --target development --no-cache --tag forms-identity-ui:development .
-```
-
-Run:
-
-```bash
-docker run -p 3000:3000 forms-identity-ui:development
-```
-
-### Production image
-
-Build:
-
-```bash
-docker build --no-cache --tag forms-identity-ui .
-```
-
-Run:
-
-```bash
-docker run -p 3000:3000 forms-identity-ui
-```
-
-### Docker Compose
-
-A local environment with:
-
-- Floci (replacing Localstack) for AWS services (S3, SQS)
-- Redis
-- MongoDB
-- This service.
-- A commented out backend example.
-
-```bash
-docker compose up --build -d
-```
-
-### Dependabot
-
-We have added an example dependabot configuration file to the repository. You can enable it by renaming
-the [.github/example.dependabot.yml](.github/example.dependabot.yml) to `.github/dependabot.yml`
-
-### SonarCloud
-
-Instructions for setting up SonarCloud can be found in [sonar-project.properties](./sonar-project.properties).
 
 ## Licence
 
 THIS INFORMATION IS LICENSED UNDER THE CONDITIONS OF THE OPEN GOVERNMENT LICENCE found at:
 
-<http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3>
+http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3
 
 The following attribution statement MUST be cited in your products and applications when using this information.
 
-> Contains public sector information licensed under the Open Government license v3
+> Contains public sector information licensed under the Open Government licence v3
 
 ### About the licence
 
-The Open Government Licence (OGL) was developed by the Controller of Her Majesty's Stationery Office (HMSO) to enable
-information providers in the public sector to license the use and re-use of their information under a common open
-licence.
+The Open Government Licence (OGL) was developed by the Controller of Her Majesty's Stationery Office (HMSO) to enable information providers in the public sector to license the use and re-use of their information under a common open licence.
 
 It is designed to encourage use and re-use of information freely and flexibly, with only a few conditions.

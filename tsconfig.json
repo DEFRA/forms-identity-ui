@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "module": "NodeNext",
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "es2022",
+    "baseUrl": "./",
+    "paths": {
+      "~/*": ["./*"]
+    },
+    "types": ["@testing-library/jest-dom", "jest"]
+  },
+  "include": [
+    "**/*.cjs",
+    "**/*.js",
+    "**/*.mjs",
+    ".lintstagedrc.js",
+    ".prettierrc.cjs",
+    "globals.d.ts",
+    "src/typings/**/*.d.ts",
+    "node_modules/@types/jest/index.d.ts"
+  ],
+  "exclude": ["coverage", "node_modules", ".public", ".server"]
+}
