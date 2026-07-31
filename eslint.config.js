@@ -288,6 +288,14 @@ export default defineConfig([
     }
   },
 
+  // Local scripts (e.g. the e2e driver) are allowed to log
+  {
+    files: ['scripts/**'],
+    rules: {
+      'no-console': 'off'
+    }
+  },
+
   // Prettier must be last
   prettierConfig
 ])
