@@ -13,6 +13,12 @@ describe('i18n', () => {
     it('returns the key when there is no translation', () => {
       expect(t('missing.key', 'en-GB')).toBe('missing.key')
     })
+
+    it('interpolates the check-your-email inset text', () => {
+      expect(t('signin.code.sentTo', 'en-GB', { email: 'a@b.com' })).toBe(
+        'We have sent an email to: a@b.com'
+      )
+    })
   })
 
   describe('resolveLanguage()', () => {
