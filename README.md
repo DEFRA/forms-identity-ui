@@ -50,6 +50,26 @@ npm run build # babel server build to .server, webpack client build to .public
 npm start     # build then serve on PORT (default 3011)
 ```
 
+## Trying the journey in a browser (example RP)
+
+A minimal relying party (never deployed — lives outside `src/`) signs in the
+way forms-runner will: authorization code + PKCE, confidential client, then
+userinfo. Run it with both dev servers up:
+
+```sh
+node example/rp/index.mjs   # then open http://localhost:3901
+```
+
+After signing in, the home page shows the ID-token claims, a token response
+summary and userinfo, with links to repeat sign-in (SSO) and sign out at the
+provider.
+
+Note: without a real `NOTIFY_API_KEY` the email step fails loudly on the
+provider's error page. Either use a real key, or overwrite the stored
+`otps` record's `codeHash` with a known code's argon2 hash (the technique
+`scripts/e2e.mjs` uses) and continue from
+`/ui/interaction/<uid>/code?email=<email>`.
+
 ## Sign-in end-to-end check
 
 Drives the full OIDC + OTP sign-in journey (both the JIT-signup and

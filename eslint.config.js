@@ -288,9 +288,9 @@ export default defineConfig([
     }
   },
 
-  // Local scripts (e.g. the e2e driver) are allowed to log
+  // Local tooling (e2e driver, dev RP) is allowed to log
   {
-    files: ['scripts/**'],
+    files: ['scripts/**', 'example/**'],
     rules: {
       'no-console': 'off'
     }
