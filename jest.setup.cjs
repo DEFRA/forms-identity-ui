@@ -1,5 +1,5 @@
 process.env.NODE_ENV = 'test'
-process.env.PORT = '3002'
+process.env.PORT = '3011'
 
 process.env.LOG_ENABLED = 'false'
 process.env.LOG_LEVEL = 'silent'

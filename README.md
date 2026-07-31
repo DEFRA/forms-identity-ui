@@ -22,7 +22,7 @@ Configuration is via environment variables — see `.env.sample` for the availab
 npm run dev
 ```
 
-Runs the webpack client watch and the server (via `tsx watch`) concurrently on http://localhost:3002.
+Runs the webpack client watch and the server (via `tsx watch`) concurrently on http://localhost:3011.
 
 ### Local Redis
 
@@ -47,7 +47,7 @@ npm run format    # prettier write
 
 ```sh
 npm run build # babel server build to .server, webpack client build to .public
-npm start     # build then serve on PORT (default 3002)
+npm start     # build then serve on PORT (default 3011)
 ```
 
 ## Licence

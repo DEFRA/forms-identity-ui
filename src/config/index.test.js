@@ -7,7 +7,7 @@ describe('Config', () => {
 
   test('provides expected test environment defaults', () => {
     expect(config.get('serviceName')).toBe('forms-identity-ui')
-    expect(config.get('port')).toBe(3002)
+    expect(config.get('port')).toBe(3011)
     expect(config.get('isTest')).toBe(true)
     expect(config.get('isProduction')).toBe(false)
     expect(config.get('session.cache.engine')).toBe('memory')

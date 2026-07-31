@@ -32,7 +32,7 @@ export const config = convict({
   },
   port: {
     format: 'port',
-    default: 3002,
+    default: 3011,
     env: 'PORT'
   },
   env: {
