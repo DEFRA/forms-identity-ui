@@ -9,7 +9,7 @@ const MAX_OK_STATUS = 299
  * @param {string} method - HTTP method
  * @param {URL} url - URL object
  * @param {object} options - Request options
- * @returns {Promise<{response: object, body: any}>}
+ * @returns {Promise<{response: object, body: unknown}>}
  */
 export async function request(method, url, options) {
   const response = await Wreck.request(method, url.href, options)
@@ -37,7 +37,7 @@ export async function request(method, url, options) {
  * GET request
  * @param {URL} url - URL object
  * @param {object} options - Request options
- * @returns {Promise<{response: object, body: any}>}
+ * @returns {Promise<{response: object, body: unknown}>}
  */
 export function get(url, options) {
   return request('get', url, options)
@@ -47,7 +47,7 @@ export function get(url, options) {
  * POST request
  * @param {URL} url - URL object
  * @param {object} options - Request options
- * @returns {Promise<{response: object, body: any}>}
+ * @returns {Promise<{response: object, body: unknown}>}
  */
 export function post(url, options) {
   return request('post', url, options)
@@ -57,7 +57,7 @@ export function post(url, options) {
  * PUT request
  * @param {URL} url - URL object
  * @param {object} options - Request options
- * @returns {Promise<{response: object, body: any}>}
+ * @returns {Promise<{response: object, body: unknown}>}
  */
 export function put(url, options) {
   return request('put', url, options)
@@ -67,7 +67,7 @@ export function put(url, options) {
  * PATCH request
  * @param {URL} url - URL object
  * @param {object} options - Request options
- * @returns {Promise<{response: object, body: any}>}
+ * @returns {Promise<{response: object, body: unknown}>}
  */
 export function patch(url, options) {
   return request('patch', url, options)
@@ -77,7 +77,7 @@ export function patch(url, options) {
  * DELETE request
  * @param {URL} url - URL object
  * @param {object} options - Request options
- * @returns {Promise<{response: object, body: any}>}
+ * @returns {Promise<{response: object, body: unknown}>}
  */
 export function del(url, options) {
   return request('delete', url, options)
@@ -87,7 +87,7 @@ export function del(url, options) {
  * GET request with JSON parsing
  * @param {URL} url - URL object
  * @param {object} options - Request options
- * @returns {Promise<{response: object, body: any}>}
+ * @returns {Promise<{response: object, body: unknown}>}
  */
 export function getJson(url, options = {}) {
   return get(url, { json: true, ...options })
@@ -97,7 +97,7 @@ export function getJson(url, options = {}) {
  * POST request with JSON parsing
  * @param {URL} url - URL object
  * @param {object} options - Request options
- * @returns {Promise<{response: object, body: any}>}
+ * @returns {Promise<{response: object, body: unknown}>}
  */
 export function postJson(url, options = {}) {
   return post(url, { json: true, ...options })
@@ -107,7 +107,7 @@ export function postJson(url, options = {}) {
  * PUT request with JSON parsing
  * @param {URL} url - URL object
  * @param {object} options - Request options
- * @returns {Promise<{response: object, body: any}>}
+ * @returns {Promise<{response: object, body: unknown}>}
  */
 export function putJson(url, options = {}) {
   return put(url, { json: true, ...options })
@@ -117,7 +117,7 @@ export function putJson(url, options = {}) {
  * PATCH request with JSON parsing
  * @param {URL} url - URL object
  * @param {object} options - Request options
- * @returns {Promise<{response: object, body: any}>}
+ * @returns {Promise<{response: object, body: unknown}>}
  */
 export function patchJson(url, options = {}) {
   return patch(url, { json: true, ...options })
@@ -127,7 +127,7 @@ export function patchJson(url, options = {}) {
  * DELETE request with JSON parsing
  * @param {URL} url - URL object
  * @param {object} options - Request options
- * @returns {Promise<{response: object, body: any}>}
+ * @returns {Promise<{response: object, body: unknown}>}
  */
 export function delJson(url, options = {}) {
   return del(url, { json: true, ...options })
