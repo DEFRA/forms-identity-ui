@@ -57,14 +57,14 @@ existing-account arms, SSO, CSRF and client auth) against local dev servers.
 
 Prerequisites:
 
-1. `forms-identity-api` running (`npm run dev`, with its docker-compose mongo
-   up) — its `.env` needs the Notify variables set (dummy-format values work;
-   the driver captures the code from the database when delivery fails).
-2. This repo's `.env` populated: `OIDC_JWKS` (`node scripts/generate-jwks.mjs`),
-   `OIDC_COOKIE_KEYS` and `OIDC_CLIENT_SECRET` (`openssl rand -hex 32`), and
-   `OIDC_RUNNER_REDIRECT_URIS` including the driver's callback
-   `http://localhost:3901/callback`.
-3. This repo running (`npm run dev`).
+- `forms-identity-api` running (`npm run dev`, with its docker-compose mongo
+  up) — its `.env` needs the Notify variables set (dummy-format values work;
+  the driver captures the code from the database when delivery fails)
+- this repo's `.env` populated: `OIDC_JWKS` (`node scripts/generate-jwks.mjs`),
+  `OIDC_COOKIE_KEYS` and `OIDC_CLIENT_SECRET` (`openssl rand -hex 32`), and
+  `OIDC_RUNNER_REDIRECT_URIS` including the driver's callback
+  `http://localhost:3901/callback`
+- this repo running (`npm run dev`)
 
 ```sh
 node scripts/e2e.mjs
