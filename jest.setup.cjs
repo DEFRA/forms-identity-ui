@@ -38,3 +38,9 @@ process.env.OIDC_JWKS = JSON.stringify({
 })
 process.env.OIDC_COOKIE_KEYS = 'test-cookie-key-1,test-cookie-key-2'
 process.env.OIDC_CLIENT_SECRET = 'test-client-secret'
+// Pin values a local .env could otherwise leak into tests (dotenv does not
+// override variables that are already set)
+process.env.OIDC_ISSUER = 'http://localhost:3011'
+process.env.IDENTITY_API_URL = 'http://localhost:3010'
+process.env.OIDC_RUNNER_REDIRECT_URIS =
+  'http://localhost:3009/callback,http://localhost:3000/callback'
