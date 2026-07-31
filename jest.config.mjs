@@ -40,7 +40,12 @@ export default {
   transformIgnorePatterns: [
     `node_modules/(?!${[
       '@defra/hapi-tracing', // Supports ESM only
-      'nanoid' // Supports ESM only
+      'nanoid', // Supports ESM only
+      'oidc-provider', // Supports ESM only
+      'quick-lru', // Supports ESM only
+      'raw-body', // Supports ESM only
+      'eta', // Supports ESM only
+      'jose' // Supports ESM only
     ].join('|')}/)`
   ],
   testEnvironment: 'node',

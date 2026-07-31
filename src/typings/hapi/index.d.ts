@@ -1,5 +1,6 @@
 import { type Plugin } from '@hapi/hapi'
 import { type ServerYar, type Yar } from '@hapi/yar'
+import type OidcProvider from 'oidc-provider'
 import { type Logger } from 'pino'
 
 declare module '@hapi/hapi' {
@@ -22,6 +23,10 @@ declare module '@hapi/hapi' {
   interface Server {
     logger: Logger
     yar: ServerYar
+  }
+
+  interface ServerApplicationState {
+    oidcProvider: OidcProvider
   }
 }
 
