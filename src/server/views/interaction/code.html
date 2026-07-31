@@ -1,0 +1,41 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+
+{% set pageTitle = t('signin.code.title') %}
+{% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorKey %}
+        {{ govukErrorSummary({
+          titleText: t('signin.errorSummaryTitle'),
+          errorList: [{ text: t(errorKey), href: "#code" }]
+        }) }}
+      {% endif %}
+      <h1 class="govuk-heading-l">{{ t('signin.code.title') }}</h1>
+      {{ govukInsetText({ text: t('signin.code.sentTo', { email: email }) }) }}
+      <p class="govuk-body">{{ t('signin.code.body') }}</p>
+      <form method="post" action="/ui/interaction/{{ uid }}/code" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+        <input type="hidden" name="email" value="{{ email }}">
+        {{ govukInput({
+          label: { text: t('signin.code.label') },
+          classes: "govuk-input--width-5 govuk-input--extra-letter-spacing",
+          id: "code",
+          name: "code",
+          type: "text",
+          inputmode: "numeric",
+          autocomplete: "one-time-code",
+          spellcheck: false,
+          errorMessage: errorMessage
+        }) }}
+        {{ govukButton({ text: t('signin.code.continue') }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

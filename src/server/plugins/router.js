@@ -2,6 +2,7 @@ import { StatusCodes } from 'http-status-codes'
 
 import { config } from '~/src/config/index.js'
 import { healthRoute, homeRoute } from '~/src/server/routes/index.js'
+import { interactionRoutes } from '~/src/server/routes/interaction/index.js'
 
 const assetPath = config.get('assetPath')
 
@@ -17,6 +18,7 @@ export default {
      */
     register(server) {
       server.route([healthRoute, homeRoute])
+      server.route(interactionRoutes())
 
       // Static assets built by webpack into `.public`
       server.route({
