@@ -3,6 +3,7 @@ import { basename, join } from 'node:path'
 
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
+import { resolveLanguage, t } from '~/src/server/i18n/index.js'
 
 const assetPath = config.get('assetPath')
 
@@ -26,10 +27,18 @@ export function context(request) {
     }
   }
 
+  const language = resolveLanguage(request?.query, request?.yar)
+
   return {
     assetPath: `${assetPath}/assets`,
-    serviceName: 'Sign in to Defra Forms',
+    serviceName: t('service.name', language),
     cspNonce: request?.plugins.blankie?.nonces?.script,
+
+    /**
+     * @param {string} key
+     * @param {Record<string, unknown>} [opts]
+     */
+    t: (key, opts) => t(key, language, opts),
 
     /**
      * @param {string} asset - webpack asset name

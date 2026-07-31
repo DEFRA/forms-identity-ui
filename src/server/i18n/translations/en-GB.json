@@ -1,0 +1,34 @@
+{
+  "service": {
+    "name": "Sign in to Defra Forms"
+  },
+  "home": {
+    "underDevelopment": "This service is under development."
+  },
+  "layout": {
+    "footer": {
+      "contentLicenceHtml": "All content is available under the <a class=\"govuk-footer__link\" href=\"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/\" rel=\"license\">Open Government Licence v3.0</a>, except where otherwise stated",
+      "copyright": "© Crown copyright"
+    }
+  },
+  "errors": {
+    "notFound": {
+      "title": "Page not found",
+      "typed": "If you typed the web address, check it is correct.",
+      "pasted": "If you pasted the web address, check you copied the entire address."
+    },
+    "forbidden": {
+      "title": "Forbidden"
+    },
+    "unauthorized": {
+      "title": "Unauthorized"
+    },
+    "badRequest": {
+      "title": "Bad request"
+    },
+    "serverError": {
+      "title": "Sorry, there is a problem with the service",
+      "tryLater": "Try again later."
+    }
+  }
+}

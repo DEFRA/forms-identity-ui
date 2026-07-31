@@ -1,20 +1,22 @@
 import { StatusCodes } from 'http-status-codes'
 
+import { resolveLanguage, t } from '~/src/server/i18n/index.js'
+
 /**
  * @param {number} statusCode
  */
-function statusCodeMessage(statusCode) {
+function statusCodeMessageKey(statusCode) {
   switch (statusCode) {
     case StatusCodes.NOT_FOUND.valueOf():
-      return 'Page not found'
+      return 'errors.notFound.title'
     case StatusCodes.FORBIDDEN.valueOf():
-      return 'Forbidden'
+      return 'errors.forbidden.title'
     case StatusCodes.UNAUTHORIZED.valueOf():
-      return 'Unauthorized'
+      return 'errors.unauthorized.title'
     case StatusCodes.BAD_REQUEST.valueOf():
-      return 'Bad request'
+      return 'errors.badRequest.title'
     default:
-      return 'Sorry, there is a problem with the service'
+      return 'errors.serverError.title'
   }
 }
 
@@ -43,7 +45,10 @@ export default {
           }
 
           const statusCode = response.output.statusCode
-          const message = statusCodeMessage(statusCode)
+          const message = t(
+            statusCodeMessageKey(statusCode),
+            resolveLanguage(request.query, request.yar)
+          )
 
           if (statusCode >= StatusCodes.INTERNAL_SERVER_ERROR.valueOf()) {
             request.logger.error(
