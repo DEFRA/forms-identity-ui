@@ -18,3 +18,23 @@ process.env.SESSION_CACHE_ENGINE = 'memory'
 process.env.SESSION_COOKIE_PASSWORD =
   'the-test-session-cookie-password-at-least-32-characters-long'
 process.env.SESSION_COOKIE_SECURE = 'false'
+
+// OIDC provider secrets — throwaway per-run keys (tests are not a deployment;
+// deployed environments must supply stable keys via CDP secrets)
+const crypto = require('node:crypto')
+
+const { privateKey } = crypto.generateKeyPairSync('rsa', {
+  modulusLength: 2048
+})
+process.env.OIDC_JWKS = JSON.stringify({
+  keys: [
+    {
+      ...privateKey.export({ format: 'jwk' }),
+      use: 'sig',
+      alg: 'RS256',
+      kid: 'sig-1'
+    }
+  ]
+})
+process.env.OIDC_COOKIE_KEYS = 'test-cookie-key-1,test-cookie-key-2'
+process.env.OIDC_CLIENT_SECRET = 'test-client-secret'

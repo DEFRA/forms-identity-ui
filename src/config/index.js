@@ -224,6 +224,60 @@ export const config = convict({
   },
 
   /**
+   * OIDC provider (this service is the issuer; secrets are required and
+   * never boot-generated — boot-generated keys break horizontal scaling)
+   */
+  oidc: {
+    issuer: {
+      doc: 'Public issuer origin (this service). TLS is terminated upstream.',
+      format: String,
+      default: 'http://localhost:3011',
+      env: 'OIDC_ISSUER'
+    },
+    jwks: {
+      doc: 'Private JWKS JSON (run `node scripts/generate-jwks.mjs`). Required.',
+      format: String,
+      default: '',
+      sensitive: true,
+      env: 'OIDC_JWKS'
+    },
+    cookieKeys: {
+      doc: 'Comma-separated cookie signing keys, identical across containers. Required.',
+      format: String,
+      default: '',
+      sensitive: true,
+      env: 'OIDC_COOKIE_KEYS'
+    },
+    cookieSecure: {
+      doc: 'Secure flag on provider cookies (off for local http)',
+      format: Boolean,
+      default: isProduction,
+      env: 'OIDC_COOKIE_SECURE'
+    },
+    clientSecret: {
+      doc: 'client_secret for the `runner` confidential client. Required.',
+      format: String,
+      default: '',
+      sensitive: true,
+      env: 'OIDC_CLIENT_SECRET'
+    },
+    runnerRedirectUris: {
+      doc: 'Comma-separated redirect_uris for the runner client',
+      format: String,
+      default: 'http://localhost:3009/callback,http://localhost:3000/callback',
+      env: 'OIDC_RUNNER_REDIRECT_URIS'
+    }
+  },
+  identityApi: {
+    url: {
+      doc: 'Internal base URL of forms-identity-api',
+      format: String,
+      default: 'http://localhost:3010',
+      env: 'IDENTITY_API_URL'
+    }
+  },
+
+  /**
    * Networking
    */
   httpProxy: {
