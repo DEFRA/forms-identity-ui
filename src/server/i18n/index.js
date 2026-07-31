@@ -1,7 +1,6 @@
 import i18next from 'i18next'
 
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
-import cy from '~/src/server/i18n/translations/cy.json' with { type: 'json' }
 import enGB from '~/src/server/i18n/translations/en-GB.json' with { type: 'json' }
 
 export const i18n = i18next.createInstance()
@@ -9,8 +8,7 @@ export const i18n = i18next.createInstance()
 i18n
   .init({
     resources: {
-      'en-GB': { translation: enGB },
-      cy: { translation: cy }
+      'en-GB': { translation: enGB }
     },
     fallbackLng: 'en-GB',
     interpolation: {

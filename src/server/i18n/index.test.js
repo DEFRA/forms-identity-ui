@@ -10,10 +10,6 @@ describe('i18n', () => {
       expect(t('errors.notFound.title', 'unkno')).toBe('Page not found')
     })
 
-    it('falls back to en-GB for keys missing a Welsh translation', () => {
-      expect(t('errors.notFound.title', 'cy')).toBe('Page not found')
-    })
-
     it('returns the key when there is no translation', () => {
       expect(t('missing.key', 'en-GB')).toBe('missing.key')
     })
