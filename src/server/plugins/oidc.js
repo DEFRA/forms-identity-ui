@@ -11,6 +11,7 @@ import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
  * the RP, client auth at the token endpoint) and /token is a server-to-server
  * POST that could never carry a crumb. GET routes must not set payload
  * options, so methods are listed explicitly rather than via '*'.
+ * @type {{ methods: RouteDefMethods[], path: string, payload: boolean }[]}
  */
 const PROTOCOL_ROUTES = [
   { methods: ['GET'], path: '/auth', payload: false },
@@ -89,5 +90,5 @@ export default {
 }
 
 /**
- * @import { Request, ResponseToolkit, Server, ServerRegisterPluginObject } from '@hapi/hapi'
+ * @import { Request, ResponseToolkit, RouteDefMethods, Server, ServerRegisterPluginObject } from '@hapi/hapi'
  */

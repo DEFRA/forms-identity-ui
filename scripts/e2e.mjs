@@ -56,7 +56,7 @@ async function disco() {
 const pending = new Map()
 
 const rp = http.createServer((request, res) => {
-  const url = new URL(request.url, RP)
+  const url = new URL(request.url ?? '/', RP)
   if (url.pathname === '/login') {
     disco()
       .then((d) => {
@@ -99,12 +99,18 @@ const rp = http.createServer((request, res) => {
   res.writeHead(404)
   res.end()
 })
-await new Promise((resolve) => rp.listen(RP_PORT, resolve))
+await new Promise((resolve) => {
+  rp.listen(RP_PORT, () => {
+    resolve(undefined)
+  })
+})
 
+/** @type {Map<string, string>} */
 const jar = new Map()
+/** @param {Response} res */
 function absorb(res) {
-  for (const c of res.headers.getSetCookie?.() ?? []) {
-    const p = String(c).split(';')[0]
+  for (const c of res.headers.getSetCookie()) {
+    const p = c.split(';')[0]
     const i = p.indexOf('=')
     const n = p.slice(0, i).trim()
     const v = p.slice(i + 1).trim()
@@ -117,6 +123,10 @@ function absorb(res) {
 }
 const cookieHeader = () => [...jar].map(([k, v]) => `${k}=${v}`).join('; ')
 
+/**
+ * @param {string} url
+ * @param {{ method?: string, headers?: Record<string, string>, body?: URLSearchParams }} [opts]
+ */
 async function req(url, opts = {}) {
   assert.ok(!url.includes(API_HOST), `browser touched the private API: ${url}`)
   const res = await fetch(url, {
@@ -131,6 +141,10 @@ async function req(url, opts = {}) {
   return res
 }
 
+/**
+ * @param {string} url
+ * @param {{ stopBefore?: string }} [options]
+ */
 async function follow(url, { stopBefore } = {}) {
   for (let i = 0; i < 15; i++) {
     if (stopBefore && url.startsWith(stopBefore)) {
@@ -138,7 +152,7 @@ async function follow(url, { stopBefore } = {}) {
     }
     const res = await req(url)
     if (res.status >= 300 && res.status < 400) {
-      url = new URL(res.headers.get('location'), url).toString()
+      url = new URL(String(res.headers.get('location')), url).toString()
       continue
     }
     return { kind: 'page', url, res }
@@ -146,11 +160,17 @@ async function follow(url, { stopBefore } = {}) {
   throw new Error('too many redirects')
 }
 
+/** @param {string} html */
 const crumbFrom = (html) =>
-  html.match(/name="crumb" value="([^"]+)"/)?.[1] ??
+  /name="crumb" value="([^"]+)"/.exec(html)?.[1] ??
   assert.fail('no crumb field found in page')
 
-/** Requests a code for the email, then swaps in the known-code hash */
+/**
+ * Requests a code for the email, then swaps in the known-code hash
+ * @param {string} uid
+ * @param {string} email
+ * @param {string} crumb
+ */
 async function requestAndCaptureCode(uid, email, crumb) {
   const emailRes = await req(`${ISSUER}/ui/interaction/${uid}/email`, {
     method: 'POST',
@@ -187,12 +207,17 @@ async function requestAndCaptureCode(uid, email, crumb) {
   return `/ui/interaction/${uid}/code?email=${encodeURIComponent(email)}`
 }
 
+/**
+ * @param {string} callbackUrl
+ * @param {{ auth?: boolean }} [options]
+ */
 async function exchangeCode(callbackUrl, { auth = true } = {}) {
   const url = new URL(callbackUrl)
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
   assert.ok(code, `no code on callback: ${callbackUrl}`)
   const d = await disco()
+  /** @type {Record<string, string>} */
   const headers = { 'content-type': 'application/x-www-form-urlencoded' }
   if (auth) {
     headers.authorization =
@@ -205,7 +230,7 @@ async function exchangeCode(callbackUrl, { auth = true } = {}) {
       grant_type: 'authorization_code',
       code,
       redirect_uri: `${RP}/callback`,
-      code_verifier: pending.get(state),
+      code_verifier: String(pending.get(state)),
       ...(auth ? {} : { client_id: 'runner' })
     })
   })
@@ -224,6 +249,7 @@ try {
   const step = await follow(`${RP}/login`)
   assert.ok(step.url.startsWith(`${ISSUER}/ui/interaction/`), step.url)
   const uid = step.url.split('/ui/interaction/')[1].split('?')[0].split('/')[0]
+  assert.ok(step.kind === 'page' && step.res, 'expected the sign-in page')
   const crumb = crumbFrom(await step.res.text())
   console.log(`1. sign-in UI reached; uid=${uid}`)
 
@@ -249,7 +275,9 @@ try {
   })
   assert.equal(right.status, 302)
   assert.ok(
-    right.headers.get('location').endsWith(`/ui/interaction/${uid}/phone`)
+    String(right.headers.get('location')).endsWith(
+      `/ui/interaction/${uid}/phone`
+    )
   )
   console.log('4. valid code → phone page (no account exists)')
 
@@ -272,7 +300,10 @@ try {
     goodPhone.status === 302 || goodPhone.status === 303,
     `expected completion redirect, got ${goodPhone.status}`
   )
-  const resume = new URL(goodPhone.headers.get('location'), ISSUER).toString()
+  const resume = new URL(
+    String(goodPhone.headers.get('location')),
+    ISSUER
+  ).toString()
   const done = await follow(resume, { stopBefore: `${RP}/callback` })
   assert.equal(done.kind, 'stopped', `expected RP callback, got ${done.url}`)
   console.log('5. landline rejected; valid mobile completed the interaction')
@@ -282,7 +313,7 @@ try {
   const tokens = await tokenRes.json()
   assert.ok(tokens.id_token, `token exchange failed: ${JSON.stringify(tokens)}`)
   const claims = JSON.parse(
-    Buffer.from(tokens.id_token.split('.')[1], 'base64url')
+    Buffer.from(tokens.id_token.split('.')[1], 'base64url').toString()
   )
   assert.equal(claims.iss, ISSUER)
   assert.match(
@@ -311,6 +342,7 @@ try {
     .split('/ui/interaction/')[1]
     .split('?')[0]
     .split('/')[0]
+  assert.ok(step2.kind === 'page' && step2.res, 'expected the sign-in page')
   const crumb2 = crumbFrom(await step2.res.text())
   await requestAndCaptureCode(uid2, EMAIL, crumb2)
   const signin2 = await req(`${ISSUER}/ui/interaction/${uid2}/code`, {
@@ -323,7 +355,7 @@ try {
     signin2.status === 302 || signin2.status === 303,
     `expected completion redirect, got ${signin2.status}`
   )
-  const loc2 = signin2.headers.get('location')
+  const loc2 = String(signin2.headers.get('location'))
   assert.ok(
     !loc2.includes('/phone'),
     `existing account must skip the phone page, got ${loc2}`
@@ -335,7 +367,7 @@ try {
   const tokens2 = await (await exchangeCode(done2.url)).json()
   assert.ok(tokens2.id_token, 'second sign-in token exchange failed')
   const claims2 = JSON.parse(
-    Buffer.from(tokens2.id_token.split('.')[1], 'base64url')
+    Buffer.from(tokens2.id_token.split('.')[1], 'base64url').toString()
   )
   assert.equal(claims2.sub, claims.sub, 'same account across sign-ins')
   console.log('8. existing-account arm: no phone page, same sub')
@@ -360,6 +392,7 @@ try {
     .split('/ui/interaction/')[1]
     .split('?')[0]
     .split('/')[0]
+  assert.ok(step3.kind === 'page' && step3.res, 'expected the sign-in page')
   const crumb3 = crumbFrom(await step3.res.text())
   await requestAndCaptureCode(uid3, EMAIL, crumb3)
   const signin3 = await req(`${ISSUER}/ui/interaction/${uid3}/code`, {
@@ -368,7 +401,7 @@ try {
     body: new URLSearchParams({ code: KNOWN_CODE, email: EMAIL, crumb: crumb3 })
   })
   const done3 = await follow(
-    new URL(signin3.headers.get('location'), ISSUER).toString(),
+    new URL(String(signin3.headers.get('location')), ISSUER).toString(),
     {
       stopBefore: `${RP}/callback`
     }

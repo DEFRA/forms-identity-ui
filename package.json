@@ -84,6 +84,7 @@
     "@types/jsdom": "^28.0.3",
     "@types/node": "^25.9.1",
     "@types/nunjucks": "^3.2.6",
+    "@types/oidc-provider": "^9.11.0",
     "autoprefixer": "^10.5.2",
     "babel-loader": "^10.1.1",
     "babel-plugin-module-resolver": "^5.0.3",

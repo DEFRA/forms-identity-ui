@@ -32,13 +32,21 @@ describe('interaction pages', () => {
     )
     finishedSpy = jest
       .spyOn(provider, 'interactionFinished')
-      .mockImplementation((_req, res) => {
-        // the real provider writes the resume redirect itself; the handler
-        // then returns h.abandon, so the mock must end the response
-        res.writeHead(302, { Location: '/auth/uid-1' })
-        res.end()
-        return Promise.resolve(/** @type {never} */ (undefined))
-      })
+      .mockImplementation(
+        /** @type {never} */ (
+          /**
+           * @param {unknown} _req
+           * @param {import('node:http').ServerResponse} res
+           */
+          (_req, res) => {
+            // the real provider writes the resume redirect itself; the handler
+            // then returns h.abandon, so the mock must end the response
+            res.writeHead(302, { Location: '/auth/uid-1' })
+            res.end()
+            return Promise.resolve()
+          }
+        )
+      )
   })
 
   afterEach(() => {

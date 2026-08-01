@@ -81,14 +81,16 @@ describe('buildProviderConfig', () => {
     ['oidc.clientSecret', /OIDC_CLIENT_SECRET/]
   ])('fails loud when %s is missing', (key, message) => {
     const realGet = config.get.bind(config)
-    const spy = jest
-      .spyOn(config, 'get')
-      .mockImplementation((/** @type {string} */ k) => {
-        if (k === key) {
-          return ''
+    const spy = jest.spyOn(config, 'get').mockImplementation(
+      /** @type {never} */ (
+        (/** @type {string} */ k) => {
+          if (k === key) {
+            return ''
+          }
+          return realGet(/** @type {never} */ (k))
         }
-        return realGet(/** @type {never} */ (k))
-      })
+      )
+    )
 
     expect(() => buildProviderConfig(config, fakeAdapter)).toThrow(message)
     spy.mockRestore()

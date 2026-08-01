@@ -19,9 +19,11 @@ describe('http adapter', () => {
 
     await adapter.upsert('id-1', { foo: 'bar' }, 60)
 
-    const [url, options] = jest.mocked(putJson).mock.calls[0]
+    const [url, options] = /** @type {[URL, { payload: object }]} */ (
+      jest.mocked(putJson).mock.calls[0]
+    )
     expect(url.href).toBe(`${API}/oidc/authorization_code/id-1`)
-    expect(options?.payload).toEqual({
+    expect(options.payload).toEqual({
       payload: { foo: 'bar' },
       expiresIn: 60
     })
