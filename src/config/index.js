@@ -9,7 +9,6 @@ const isDev = process.env.NODE_ENV !== 'production'
 const isTest = process.env.NODE_ENV === 'test'
 
 const fourHoursMs = 14400000
-const oneWeekMs = 604800000
 
 export const config = convict({
   appDir: {
@@ -205,22 +204,6 @@ export const config = convict({
         env: 'SESSION_COOKIE_SECURE'
       }
     }
-  },
-
-  /**
-   * Static assets
-   */
-  assetPath: {
-    doc: 'Asset path',
-    format: String,
-    default: '/public',
-    env: 'ASSET_PATH'
-  },
-  staticCacheTimeout: {
-    doc: 'Static cache timeout in milliseconds',
-    format: Number,
-    default: oneWeekMs,
-    env: 'STATIC_CACHE_TIMEOUT'
   },
 
   /**

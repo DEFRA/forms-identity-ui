@@ -5,8 +5,6 @@ import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { resolveLanguage, t } from '~/src/server/i18n/index.js'
 
-const assetPath = config.get('assetPath')
-
 /** @type {Record<string, string> | undefined} */
 let webpackManifest
 
@@ -30,7 +28,7 @@ export function context(request) {
   const language = resolveLanguage(request?.query, request?.yar)
 
   return {
-    assetPath: `${assetPath}/assets`,
+    assetPath: '/assets',
     serviceName: t('service.name', language),
     cspNonce: request?.plugins.blankie?.nonces?.script,
 
@@ -44,7 +42,7 @@ export function context(request) {
      * @param {string} asset - webpack asset name
      */
     getAssetPath(asset = '') {
-      return `${assetPath}/${webpackManifest?.[asset] ?? asset}`
+      return `/${webpackManifest?.[asset] ?? asset}`
     }
   }
 }

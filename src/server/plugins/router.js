@@ -1,10 +1,13 @@
 import { StatusCodes } from 'http-status-codes'
 
-import { config } from '~/src/config/index.js'
-import { healthRoute, homeRoute } from '~/src/server/routes/index.js'
+import {
+  healthRoute,
+  homeRoute,
+  publicRoutes
+} from '~/src/server/routes/index.js'
 import { interactionRoutes } from '~/src/server/routes/interaction/index.js'
 
-const assetPath = config.get('assetPath')
+const routes = [...publicRoutes, healthRoute, homeRoute]
 
 /**
  * Registers the application routes and static asset handling
@@ -17,26 +20,8 @@ export default {
      * @param {Server} server
      */
     register(server) {
-      server.route([healthRoute, homeRoute])
+      server.route(routes)
       server.route(interactionRoutes())
-
-      // Static assets built by webpack into `.public`
-      server.route({
-        method: 'GET',
-        path: `${assetPath}/{param*}`,
-        options: {
-          cache: {
-            expiresIn: config.get('staticCacheTimeout'),
-            privacy: 'private'
-          },
-          handler: {
-            directory: {
-              path: '.',
-              redirectToSlash: true
-            }
-          }
-        }
-      })
 
       server.route({
         method: 'GET',

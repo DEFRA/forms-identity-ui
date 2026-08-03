@@ -27,13 +27,7 @@ const formatters = {
  */
 export const loggerOptions = {
   enabled: logConfig.enabled,
-  ignorePaths: ['/health', '/favicon.ico'],
-  /**
-   * @param {Options} _options
-   * @param {Request} request
-   */
-  ignoreFunc: (_options, request) =>
-    request.path.startsWith(`${config.get('assetPath')}/`),
+  ignorePaths: ['/health'],
   redact: {
     paths: logConfig.redact,
     remove: true
@@ -55,7 +49,6 @@ export const loggerOptions = {
 }
 
 /**
- * @import { Request } from '@hapi/hapi'
  * @import { Options } from 'hapi-pino'
  * @import { LoggerOptions, TransportSingleOptions } from 'pino'
  */
