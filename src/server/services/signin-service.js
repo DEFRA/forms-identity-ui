@@ -59,6 +59,13 @@ export async function submitCode(uid, code) {
     return { outcome: 'invalid-code', errorKey: 'signin.code.errorRequired' }
   }
 
+  // shape check before the downstream call — the API's route validation
+  // rejects malformed codes as a 400 (client bug), so they must never
+  // leave this service
+  if (!/^\d{6}$/.test(trimmed)) {
+    return { outcome: 'invalid-code', errorKey: 'signin.code.errorInvalid' }
+  }
+
   const result = await identityApi.verifyOtp({ uid, code: trimmed })
 
   if (result.status === 'signed-in') {

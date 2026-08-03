@@ -238,6 +238,25 @@ describe('interaction pages', () => {
     expect(res.payload).toContain('There is a problem')
   })
 
+  it('POST a malformed or empty code re-renders without calling the API', async () => {
+    const { crumb, cookie } = await getWithCrumb(
+      '/interaction/uid-1/code?email=a%40b.com'
+    )
+
+    for (const code of ['12345', 'abc123', '']) {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/interaction/uid-1/code',
+        headers: { cookie },
+        payload: { crumb, code, email: 'a@b.com' }
+      })
+
+      expect(res.statusCode).toBe(200)
+      expect(res.payload).toContain('There is a problem')
+    }
+    expect(identityApi.verifyOtp).not.toHaveBeenCalled()
+  })
+
   it('POST phone finishes the interaction on success', async () => {
     jest
       .mocked(identityApi.completeSignup)
