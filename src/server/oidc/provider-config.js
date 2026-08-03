@@ -1,7 +1,7 @@
-import { getJson } from '~/src/server/common/helpers/fetch.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
 import { view } from '~/src/server/plugins/nunjucks/render.js'
+import { getAccount } from '~/src/server/repositories/identity-api.js'
 
 /**
  * Build the oidc-provider configuration from convict config. All secrets are
@@ -37,7 +37,6 @@ export function buildProviderConfig(config, adapter) {
 
   const jwks = /** @type {{ keys: JWK[] }} */ (JSON.parse(jwksRaw))
   const cookieSecure = config.get('oidc.cookieSecure')
-  const apiBaseUrl = config.get('identityApi.url')
 
   return {
     adapter,
@@ -70,23 +69,10 @@ export function buildProviderConfig(config, adapter) {
     },
     claims: { openid: ['sub'], email: ['email', 'email_verified'] },
     async findAccount(_ctx, id) {
-      /** @type {{ id: string, email: string }} */
-      let account
+      const account = await getAccount(id)
 
-      try {
-        const { body } = await getJson(new URL(`/accounts/${id}`, apiBaseUrl))
-        account = /** @type {{ id: string, email: string }} */ (body)
-      } catch (err) {
-        if (
-          err instanceof Error &&
-          'isBoom' in err &&
-          'output' in err &&
-          /** @type {{ output: { statusCode: number } }} */ (err).output
-            .statusCode === 404
-        ) {
-          return undefined
-        }
-        throw err
+      if (!account) {
+        return undefined
       }
 
       return {

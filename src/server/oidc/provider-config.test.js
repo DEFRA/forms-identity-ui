@@ -1,8 +1,10 @@
 import { config } from '~/src/config/index.js'
-import { getJson } from '~/src/server/common/helpers/fetch.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
+import { getAccount } from '~/src/server/repositories/identity-api.js'
 
-jest.mock('~/src/server/common/helpers/fetch.js')
+jest.mock('~/src/server/repositories/identity-api.js', () => ({
+  getAccount: jest.fn()
+}))
 
 const fakeAdapter = /** @type {import('oidc-provider').AdapterConstructor} */ (
   /** @type {unknown} */ (jest.fn())
@@ -49,11 +51,7 @@ describe('buildProviderConfig', () => {
 
   it('findAccount resolves claims from the API and undefined on 404', async () => {
     const cfg = buildProviderConfig(config, fakeAdapter)
-    jest
-      .mocked(getJson)
-      .mockResolvedValue(
-        /** @type {never} */ ({ body: { id: 'acc-1', email: 'a@b.com' } })
-      )
+    jest.mocked(getAccount).mockResolvedValue({ id: 'acc-1', email: 'a@b.com' })
 
     const account = await cfg.findAccount?.(fakeCtx, 'acc-1', undefined)
     expect(account?.accountId).toBe('acc-1')
@@ -65,11 +63,7 @@ describe('buildProviderConfig', () => {
       email_verified: true
     })
 
-    const notFound = Object.assign(new Error('Not Found'), {
-      isBoom: true,
-      output: { statusCode: 404 }
-    })
-    jest.mocked(getJson).mockRejectedValue(notFound)
+    jest.mocked(getAccount).mockResolvedValue(null)
     await expect(
       cfg.findAccount?.(fakeCtx, 'gone', undefined)
     ).resolves.toBeUndefined()

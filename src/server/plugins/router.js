@@ -3,11 +3,11 @@ import { StatusCodes } from 'http-status-codes'
 import {
   healthRoute,
   homeRoute,
+  interactionRoutes,
   publicRoutes
 } from '~/src/server/routes/index.js'
-import { interactionRoutes } from '~/src/server/routes/interaction/index.js'
 
-const routes = [...publicRoutes, healthRoute, homeRoute]
+const routes = [...publicRoutes, healthRoute, homeRoute, ...interactionRoutes]
 
 /**
  * Registers the application routes and static asset handling
@@ -21,7 +21,6 @@ export default {
      */
     register(server) {
       server.route(routes)
-      server.route(interactionRoutes())
 
       server.route({
         method: 'GET',

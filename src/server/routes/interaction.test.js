@@ -1,9 +1,14 @@
 import { errors } from 'oidc-provider'
 
-import { postJson } from '~/src/server/common/helpers/fetch.js'
 import { createServer } from '~/src/server/index.js'
+import * as identityApi from '~/src/server/repositories/identity-api.js'
 
-jest.mock('~/src/server/common/helpers/fetch.js')
+jest.mock('~/src/server/repositories/identity-api.js', () => ({
+  requestOtp: jest.fn(),
+  verifyOtp: jest.fn(),
+  completeSignup: jest.fn(),
+  getAccount: jest.fn()
+}))
 
 describe('interaction pages', () => {
   /** @type {import('@hapi/hapi').Server} */
@@ -110,7 +115,7 @@ describe('interaction pages', () => {
   })
 
   it('POST email requests a code and redirects to the code page', async () => {
-    jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
+    jest.mocked(identityApi.requestOtp).mockResolvedValue(undefined)
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1')
 
     const res = await server.inject({
@@ -124,7 +129,10 @@ describe('interaction pages', () => {
     expect(res.headers.location).toBe(
       '/interaction/uid-1/code?email=Citizen%40Example.com'
     )
-    expect(jest.mocked(postJson).mock.calls[0][0].pathname).toBe('/otp/request')
+    expect(identityApi.requestOtp).toHaveBeenCalledWith({
+      uid: 'uid-1',
+      email: 'Citizen@Example.com'
+    })
   })
 
   it('POST email re-renders with a GDS error for an invalid email', async () => {
@@ -139,7 +147,7 @@ describe('interaction pages', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.payload).toContain('There is a problem')
-    expect(postJson).not.toHaveBeenCalled()
+    expect(identityApi.requestOtp).not.toHaveBeenCalled()
   })
 
   it('POST email without a crumb is rejected', async () => {
@@ -153,11 +161,9 @@ describe('interaction pages', () => {
   })
 
   it('POST code finishes the interaction when signed in', async () => {
-    jest.mocked(postJson).mockResolvedValue(
-      /** @type {never} */ ({
-        body: { status: 'signed-in', accountId: 'acc-1' }
-      })
-    )
+    jest
+      .mocked(identityApi.verifyOtp)
+      .mockResolvedValue({ status: 'signed-in', accountId: 'acc-1' })
     const { crumb, cookie } = await getWithCrumb(
       '/interaction/uid-1/code?email=a%40b.com'
     )
@@ -179,10 +185,8 @@ describe('interaction pages', () => {
 
   it('POST code redirects to the phone page when phone-required', async () => {
     jest
-      .mocked(postJson)
-      .mockResolvedValue(
-        /** @type {never} */ ({ body: { status: 'phone-required' } })
-      )
+      .mocked(identityApi.verifyOtp)
+      .mockResolvedValue({ status: 'phone-required' })
     const { crumb, cookie } = await getWithCrumb(
       '/interaction/uid-1/code?email=a%40b.com'
     )
@@ -199,9 +203,7 @@ describe('interaction pages', () => {
   })
 
   it('POST code redirects to the expiration page on expiry', async () => {
-    jest
-      .mocked(postJson)
-      .mockResolvedValue(/** @type {never} */ ({ body: { status: 'expired' } }))
+    jest.mocked(identityApi.verifyOtp).mockResolvedValue({ status: 'expired' })
     const { crumb, cookie } = await getWithCrumb(
       '/interaction/uid-1/code?email=a%40b.com'
     )
@@ -220,9 +222,7 @@ describe('interaction pages', () => {
   })
 
   it('POST code re-renders with an error on an invalid code', async () => {
-    jest
-      .mocked(postJson)
-      .mockResolvedValue(/** @type {never} */ ({ body: { status: 'invalid' } }))
+    jest.mocked(identityApi.verifyOtp).mockResolvedValue({ status: 'invalid' })
     const { crumb, cookie } = await getWithCrumb(
       '/interaction/uid-1/code?email=a%40b.com'
     )
@@ -239,11 +239,9 @@ describe('interaction pages', () => {
   })
 
   it('POST phone finishes the interaction on success', async () => {
-    jest.mocked(postJson).mockResolvedValue(
-      /** @type {never} */ ({
-        body: { status: 'signed-in', accountId: 'acc-2' }
-      })
-    )
+    jest
+      .mocked(identityApi.completeSignup)
+      .mockResolvedValue({ status: 'signed-in', accountId: 'acc-2' })
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
 
     await server.inject({
@@ -263,10 +261,8 @@ describe('interaction pages', () => {
 
   it('POST phone re-renders with an error on an invalid phone', async () => {
     jest
-      .mocked(postJson)
-      .mockResolvedValue(
-        /** @type {never} */ ({ body: { status: 'invalid-phone' } })
-      )
+      .mocked(identityApi.completeSignup)
+      .mockResolvedValue({ status: 'invalid-phone' })
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
 
     const res = await server.inject({
@@ -282,8 +278,8 @@ describe('interaction pages', () => {
 
   it('POST phone bounces to the email page on an out-of-order call', async () => {
     jest
-      .mocked(postJson)
-      .mockResolvedValue(/** @type {never} */ ({ body: { status: 'invalid' } }))
+      .mocked(identityApi.completeSignup)
+      .mockResolvedValue({ status: 'invalid' })
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
 
     const res = await server.inject({

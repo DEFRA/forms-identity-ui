@@ -1,0 +1,108 @@
+import Joi from 'joi'
+
+import * as identityApi from '~/src/server/repositories/identity-api.js'
+
+const emailSchema = Joi.string().email().required()
+
+/**
+ * Journey outcomes: plain data the route handlers translate into
+ * responses (views, redirects, or completing the OIDC interaction)
+ * @typedef {{ outcome: 'invalid-email', email: string, errorKey: string }
+ *   | { outcome: 'code-sent', email: string }} EmailOutcome
+ * @typedef {{ outcome: 'invalid-code', errorKey: string }
+ *   | { outcome: 'signed-in', accountId: string }
+ *   | { outcome: 'phone-required' }
+ *   | { outcome: 'expired' }} CodeOutcome
+ * @typedef {{ outcome: 'invalid-phone', phone: string, errorKey: string }
+ *   | { outcome: 'signed-in', accountId: string }
+ *   | { outcome: 'restart' }} PhoneOutcome
+ */
+
+/**
+ * Email step: UX validation here, then ask the API to mint and send a
+ * code. The API independently re-validates — a UI bug can degrade error
+ * messages, never security.
+ * @param {string} uid
+ * @param {string | undefined} email
+ * @returns {Promise<EmailOutcome>}
+ */
+export async function submitEmail(uid, email) {
+  const trimmed = (email ?? '').trim()
+  const { error } = emailSchema.validate(trimmed)
+
+  if (error) {
+    return {
+      outcome: 'invalid-email',
+      email: trimmed,
+      errorKey: trimmed
+        ? 'signin.email.errorFormat'
+        : 'signin.email.errorRequired'
+    }
+  }
+
+  await identityApi.requestOtp({ uid, email: trimmed })
+
+  return { outcome: 'code-sent', email: trimmed }
+}
+
+/**
+ * Code step: the API's verdict routes the journey — signed-in (existing
+ * account), phone-required (JIT arm), expired, or invalid
+ * @param {string} uid
+ * @param {string | undefined} code
+ * @returns {Promise<CodeOutcome>}
+ */
+export async function submitCode(uid, code) {
+  const trimmed = (code ?? '').trim()
+
+  if (!trimmed) {
+    return { outcome: 'invalid-code', errorKey: 'signin.code.errorRequired' }
+  }
+
+  const result = await identityApi.verifyOtp({ uid, code: trimmed })
+
+  if (result.status === 'signed-in') {
+    return { outcome: 'signed-in', accountId: result.accountId }
+  }
+  if (result.status === 'phone-required') {
+    return { outcome: 'phone-required' }
+  }
+  if (result.status === 'expired') {
+    return { outcome: 'expired' }
+  }
+  return { outcome: 'invalid-code', errorKey: 'signin.code.errorInvalid' }
+}
+
+/**
+ * Phone step: completes JIT signup. An `invalid` verdict means the API
+ * refused the completion (no verified code — out of order or replay), so
+ * the journey restarts at the email page.
+ * @param {string} uid
+ * @param {string | undefined} phone
+ * @returns {Promise<PhoneOutcome>}
+ */
+export async function submitPhone(uid, phone) {
+  const trimmed = (phone ?? '').trim()
+
+  if (!trimmed) {
+    return {
+      outcome: 'invalid-phone',
+      phone: trimmed,
+      errorKey: 'signin.phone.errorRequired'
+    }
+  }
+
+  const result = await identityApi.completeSignup({ uid, phone: trimmed })
+
+  if (result.status === 'signed-in') {
+    return { outcome: 'signed-in', accountId: result.accountId }
+  }
+  if (result.status === 'invalid-phone') {
+    return {
+      outcome: 'invalid-phone',
+      phone: trimmed,
+      errorKey: 'signin.phone.errorInvalid'
+    }
+  }
+  return { outcome: 'restart' }
+}
