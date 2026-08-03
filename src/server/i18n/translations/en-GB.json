@@ -3,7 +3,11 @@
     "name": "Sign in to Defra Forms"
   },
   "home": {
-    "underDevelopment": "This service is under development."
+    "title": "You cannot sign in from this page",
+    "body": "This page is only used when signing in to a website, app, or online form.",
+    "whatToDo": "What you need to do",
+    "step1": "Go back to the website, app, or form you were using.",
+    "step2": "Select Sign in or Log in to try again."
   },
   "layout": {
     "footer": {
