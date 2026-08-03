@@ -201,5 +201,16 @@ server.route([
   }
 ])
 
+// hapi swallows handler errors into bare 500s unless subscribed — surface
+// them, and log responses so the [rp] prefix shows traffic under npm run dev
+server.events.on('response', (request) => {
+  const statusCode =
+    'statusCode' in request.response ? request.response.statusCode : '-'
+  console.log(`${request.method.toUpperCase()} ${request.path} ${statusCode}`)
+})
+server.events.on({ name: 'request', channels: 'error' }, (_request, event) => {
+  console.error(event.error)
+})
+
 await server.start()
 console.log(`Example RP listening on ${BASE} (issuer ${ISSUER})`)
