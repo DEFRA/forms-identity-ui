@@ -55,13 +55,12 @@ describe('identity-api repository', () => {
   it('getAccount returns the account, and null on 404', async () => {
     jest.mocked(getJson).mockResolvedValue(
       /** @type {never} */ ({
-        body: { id: 'acc-1', email: 'a@b.com', emailVerified: true }
+        body: { id: 'acc-1', email: 'a@b.com' }
       })
     )
     await expect(getAccount('acc-1')).resolves.toEqual({
       id: 'acc-1',
-      email: 'a@b.com',
-      emailVerified: true
+      email: 'a@b.com'
     })
 
     const notFound = Object.assign(new Error('Not Found'), {

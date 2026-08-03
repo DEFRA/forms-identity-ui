@@ -81,7 +81,9 @@ export function buildProviderConfig(config, adapter) {
           return Promise.resolve({
             sub: account.id,
             email: account.email,
-            email_verified: account.emailVerified
+            // an account only exists once its email is OTP-verified, so this
+            // is invariantly true (there is no unverified-account flow)
+            email_verified: true
           })
         }
       }
