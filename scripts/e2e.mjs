@@ -178,7 +178,7 @@ const crumbFrom = (html) =>
  * @param {string} crumb
  */
 async function requestAndCaptureCode(uid, email, crumb) {
-  const emailRes = await req(`${ISSUER}/ui/interaction/${uid}/email`, {
+  const emailRes = await req(`${ISSUER}/interaction/${uid}/email`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ email, crumb })
@@ -210,7 +210,7 @@ async function requestAndCaptureCode(uid, email, crumb) {
     }
   )
   await mongo.close()
-  return `/ui/interaction/${uid}/code?email=${encodeURIComponent(email)}`
+  return `/interaction/${uid}/code?email=${encodeURIComponent(email)}`
 }
 
 /**
@@ -253,8 +253,8 @@ try {
 
   // 1. /auth → interaction email page
   const step = await follow(`${RP}/login`)
-  assert.ok(step.url.startsWith(`${ISSUER}/ui/interaction/`), step.url)
-  const uid = step.url.split('/ui/interaction/')[1].split('?')[0].split('/')[0]
+  assert.ok(step.url.startsWith(`${ISSUER}/interaction/`), step.url)
+  const uid = step.url.split('/interaction/')[1].split('?')[0].split('/')[0]
   assert.ok(step.kind === 'page' && step.res, 'expected the sign-in page')
   const crumb = crumbFrom(await step.res.text())
   console.log(`1. sign-in UI reached; uid=${uid}`)
@@ -264,7 +264,7 @@ try {
   console.log('2. code requested; otps record captured and known code set')
 
   // 3. wrong code → error re-render
-  const wrong = await req(`${ISSUER}/ui/interaction/${uid}/code`, {
+  const wrong = await req(`${ISSUER}/interaction/${uid}/code`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ code: '000000', email: EMAIL, crumb })
@@ -274,21 +274,19 @@ try {
   console.log('3. wrong code re-rendered with a GDS error')
 
   // 4. right code → phone page (JIT arm: no account yet)
-  const right = await req(`${ISSUER}/ui/interaction/${uid}/code`, {
+  const right = await req(`${ISSUER}/interaction/${uid}/code`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ code: KNOWN_CODE, email: EMAIL, crumb })
   })
   assert.equal(right.status, 302)
   assert.ok(
-    String(right.headers.get('location')).endsWith(
-      `/ui/interaction/${uid}/phone`
-    )
+    String(right.headers.get('location')).endsWith(`/interaction/${uid}/phone`)
   )
   console.log('4. valid code → phone page (no account exists)')
 
   // 5. invalid phone → error; valid phone → completion → callback
-  const badPhone = await req(`${ISSUER}/ui/interaction/${uid}/phone`, {
+  const badPhone = await req(`${ISSUER}/interaction/${uid}/phone`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ phone: '020 7946 0000', crumb })
@@ -296,7 +294,7 @@ try {
   assert.equal(badPhone.status, 200)
   assert.match(await badPhone.text(), /There is a problem/)
 
-  const goodPhone = await req(`${ISSUER}/ui/interaction/${uid}/phone`, {
+  const goodPhone = await req(`${ISSUER}/interaction/${uid}/phone`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ phone: PHONE, crumb })
@@ -344,14 +342,11 @@ try {
   // 8. existing-account arm: fresh browser, same email → NO phone page
   jar.clear()
   const step2 = await follow(`${RP}/login`)
-  const uid2 = step2.url
-    .split('/ui/interaction/')[1]
-    .split('?')[0]
-    .split('/')[0]
+  const uid2 = step2.url.split('/interaction/')[1].split('?')[0].split('/')[0]
   assert.ok(step2.kind === 'page' && step2.res, 'expected the sign-in page')
   const crumb2 = crumbFrom(await step2.res.text())
   await requestAndCaptureCode(uid2, EMAIL, crumb2)
-  const signin2 = await req(`${ISSUER}/ui/interaction/${uid2}/code`, {
+  const signin2 = await req(`${ISSUER}/interaction/${uid2}/code`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ code: KNOWN_CODE, email: EMAIL, crumb: crumb2 })
@@ -379,7 +374,7 @@ try {
   console.log('8. existing-account arm: no phone page, same sub')
 
   // 9. CSRF: crumbless POST → 403
-  const noCrumb = await req(`${ISSUER}/ui/interaction/${uid2}/email`, {
+  const noCrumb = await req(`${ISSUER}/interaction/${uid2}/email`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ email: EMAIL })
@@ -394,14 +389,11 @@ try {
   // 10. confidential client: token exchange without client auth → 401
   jar.clear()
   const step3 = await follow(`${RP}/login`)
-  const uid3 = step3.url
-    .split('/ui/interaction/')[1]
-    .split('?')[0]
-    .split('/')[0]
+  const uid3 = step3.url.split('/interaction/')[1].split('?')[0].split('/')[0]
   assert.ok(step3.kind === 'page' && step3.res, 'expected the sign-in page')
   const crumb3 = crumbFrom(await step3.res.text())
   await requestAndCaptureCode(uid3, EMAIL, crumb3)
-  const signin3 = await req(`${ISSUER}/ui/interaction/${uid3}/code`, {
+  const signin3 = await req(`${ISSUER}/interaction/${uid3}/code`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ code: KNOWN_CODE, email: EMAIL, crumb: crumb3 })

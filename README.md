@@ -65,7 +65,7 @@ Note: without a real `NOTIFY_API_KEY` the email step fails loudly on the
 provider's error page. Either use a real key, or overwrite the stored
 `otps` record's `codeHash` with a known code's argon2 hash (the technique
 `scripts/e2e.mjs` uses) and continue from
-`/ui/interaction/<uid>/code?email=<email>`.
+`/interaction/<uid>/code?email=<email>`.
 
 ## Sign-in end-to-end check
 

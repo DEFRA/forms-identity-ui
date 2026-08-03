@@ -32,7 +32,7 @@ describe('buildProviderConfig', () => {
     )
     expect(
       cfg.interactions?.url?.(fakeCtx, /** @type {never} */ ({ uid: 'u-1' }))
-    ).toBe('/ui/interaction/u-1')
+    ).toBe('/interaction/u-1')
     expect(cfg.ttl).toEqual({
       AuthorizationCode: 60,
       IdToken: 300,

@@ -12,37 +12,37 @@ export function interactionRoutes() {
   return [
     {
       method: 'GET',
-      path: '/ui/interaction/{uid}',
+      path: '/interaction/{uid}',
       handler: controller.entry
     },
     {
       method: 'POST',
-      path: '/ui/interaction/{uid}/email',
+      path: '/interaction/{uid}/email',
       handler: controller.submitEmail
     },
     {
       method: 'GET',
-      path: '/ui/interaction/{uid}/code',
+      path: '/interaction/{uid}/code',
       handler: controller.showCode
     },
     {
       method: 'POST',
-      path: '/ui/interaction/{uid}/code',
+      path: '/interaction/{uid}/code',
       handler: controller.submitCode
     },
     {
       method: 'GET',
-      path: '/ui/interaction/{uid}/phone',
+      path: '/interaction/{uid}/phone',
       handler: controller.showPhone
     },
     {
       method: 'POST',
-      path: '/ui/interaction/{uid}/phone',
+      path: '/interaction/{uid}/phone',
       handler: controller.submitPhone
     },
     {
       method: 'GET',
-      path: '/ui/interaction/{uid}/expired',
+      path: '/interaction/{uid}/expired',
       handler: controller.showExpired
     }
   ]

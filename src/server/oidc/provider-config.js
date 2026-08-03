@@ -57,7 +57,7 @@ export function buildProviderConfig(config, adapter) {
     features: { devInteractions: { enabled: false } },
     interactions: {
       url(_ctx, interaction) {
-        return `/ui/interaction/${interaction.uid}`
+        return `/interaction/${interaction.uid}`
       }
     },
     ttl: {

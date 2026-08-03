@@ -20,7 +20,7 @@
       <h1 class="govuk-heading-l">{{ t('signin.code.title') }}</h1>
       {{ govukInsetText({ text: t('signin.code.sentTo', { email: email }) }) }}
       <p class="govuk-body">{{ t('signin.code.body') }}</p>
-      <form method="post" action="/ui/interaction/{{ uid }}/code" novalidate>
+      <form method="post" action="/interaction/{{ uid }}/code" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
         <input type="hidden" name="email" value="{{ email }}">
         {{ govukInput({

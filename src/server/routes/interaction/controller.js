@@ -112,7 +112,7 @@ export function makeInteractionController() {
         })
 
         return h.redirect(
-          `/ui/interaction/${details.uid}/code?email=${encodeURIComponent(trimmed)}`
+          `/interaction/${details.uid}/code?email=${encodeURIComponent(trimmed)}`
         )
       })
     },
@@ -170,12 +170,12 @@ export function makeInteractionController() {
         }
 
         if (result.status === 'phone-required') {
-          return h.redirect(`/ui/interaction/${details.uid}/phone`)
+          return h.redirect(`/interaction/${details.uid}/phone`)
         }
 
         if (result.status === 'expired') {
           return h.redirect(
-            `/ui/interaction/${details.uid}/expired?email=${encodeURIComponent(displayEmail)}`
+            `/interaction/${details.uid}/expired?email=${encodeURIComponent(displayEmail)}`
           )
         }
 
@@ -241,7 +241,7 @@ export function makeInteractionController() {
           })
         }
 
-        return h.redirect(`/ui/interaction/${details.uid}`)
+        return h.redirect(`/interaction/${details.uid}`)
       })
     },
 

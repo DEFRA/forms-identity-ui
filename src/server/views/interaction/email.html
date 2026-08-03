@@ -16,7 +16,7 @@
           errorList: [{ text: t(errorKey), href: "#email" }]
         }) }}
       {% endif %}
-      <form method="post" action="/ui/interaction/{{ uid }}/email" novalidate>
+      <form method="post" action="/interaction/{{ uid }}/email" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
         {{ govukInput({
           label: {

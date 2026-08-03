@@ -75,7 +75,7 @@ describe('interaction pages', () => {
   it('GET renders the email page for a login prompt', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/ui/interaction/uid-1'
+      url: '/interaction/uid-1'
     })
 
     expect(res.statusCode).toBe(200)
@@ -89,7 +89,7 @@ describe('interaction pages', () => {
 
     const res = await server.inject({
       method: 'GET',
-      url: '/ui/interaction/uid-1'
+      url: '/interaction/uid-1'
     })
 
     expect(res.statusCode).toBe(410)
@@ -101,7 +101,7 @@ describe('interaction pages', () => {
 
     const res = await server.inject({
       method: 'GET',
-      url: '/ui/interaction/uid-1'
+      url: '/interaction/uid-1'
     })
 
     expect(res.statusCode).toBe(500)
@@ -111,28 +111,28 @@ describe('interaction pages', () => {
 
   it('POST email requests a code and redirects to the code page', async () => {
     jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
-    const { crumb, cookie } = await getWithCrumb('/ui/interaction/uid-1')
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1')
 
     const res = await server.inject({
       method: 'POST',
-      url: '/ui/interaction/uid-1/email',
+      url: '/interaction/uid-1/email',
       headers: { cookie },
       payload: { crumb, email: 'Citizen@Example.com' }
     })
 
     expect(res.statusCode).toBe(302)
     expect(res.headers.location).toBe(
-      '/ui/interaction/uid-1/code?email=Citizen%40Example.com'
+      '/interaction/uid-1/code?email=Citizen%40Example.com'
     )
     expect(jest.mocked(postJson).mock.calls[0][0].pathname).toBe('/otp/request')
   })
 
   it('POST email re-renders with a GDS error for an invalid email', async () => {
-    const { crumb, cookie } = await getWithCrumb('/ui/interaction/uid-1')
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1')
 
     const res = await server.inject({
       method: 'POST',
-      url: '/ui/interaction/uid-1/email',
+      url: '/interaction/uid-1/email',
       headers: { cookie },
       payload: { crumb, email: 'not-an-email' }
     })
@@ -145,7 +145,7 @@ describe('interaction pages', () => {
   it('POST email without a crumb is rejected', async () => {
     const res = await server.inject({
       method: 'POST',
-      url: '/ui/interaction/uid-1/email',
+      url: '/interaction/uid-1/email',
       payload: { email: 'a@b.com' }
     })
 
@@ -159,12 +159,12 @@ describe('interaction pages', () => {
       })
     )
     const { crumb, cookie } = await getWithCrumb(
-      '/ui/interaction/uid-1/code?email=a%40b.com'
+      '/interaction/uid-1/code?email=a%40b.com'
     )
 
     await server.inject({
       method: 'POST',
-      url: '/ui/interaction/uid-1/code',
+      url: '/interaction/uid-1/code',
       headers: { cookie },
       payload: { crumb, code: '123456', email: 'a@b.com' }
     })
@@ -184,18 +184,18 @@ describe('interaction pages', () => {
         /** @type {never} */ ({ body: { status: 'phone-required' } })
       )
     const { crumb, cookie } = await getWithCrumb(
-      '/ui/interaction/uid-1/code?email=a%40b.com'
+      '/interaction/uid-1/code?email=a%40b.com'
     )
 
     const res = await server.inject({
       method: 'POST',
-      url: '/ui/interaction/uid-1/code',
+      url: '/interaction/uid-1/code',
       headers: { cookie },
       payload: { crumb, code: '123456', email: 'a@b.com' }
     })
 
     expect(res.statusCode).toBe(302)
-    expect(res.headers.location).toBe('/ui/interaction/uid-1/phone')
+    expect(res.headers.location).toBe('/interaction/uid-1/phone')
   })
 
   it('POST code redirects to the expiration page on expiry', async () => {
@@ -203,19 +203,19 @@ describe('interaction pages', () => {
       .mocked(postJson)
       .mockResolvedValue(/** @type {never} */ ({ body: { status: 'expired' } }))
     const { crumb, cookie } = await getWithCrumb(
-      '/ui/interaction/uid-1/code?email=a%40b.com'
+      '/interaction/uid-1/code?email=a%40b.com'
     )
 
     const res = await server.inject({
       method: 'POST',
-      url: '/ui/interaction/uid-1/code',
+      url: '/interaction/uid-1/code',
       headers: { cookie },
       payload: { crumb, code: '123456', email: 'a@b.com' }
     })
 
     expect(res.statusCode).toBe(302)
     expect(res.headers.location).toBe(
-      '/ui/interaction/uid-1/expired?email=a%40b.com'
+      '/interaction/uid-1/expired?email=a%40b.com'
     )
   })
 
@@ -224,12 +224,12 @@ describe('interaction pages', () => {
       .mocked(postJson)
       .mockResolvedValue(/** @type {never} */ ({ body: { status: 'invalid' } }))
     const { crumb, cookie } = await getWithCrumb(
-      '/ui/interaction/uid-1/code?email=a%40b.com'
+      '/interaction/uid-1/code?email=a%40b.com'
     )
 
     const res = await server.inject({
       method: 'POST',
-      url: '/ui/interaction/uid-1/code',
+      url: '/interaction/uid-1/code',
       headers: { cookie },
       payload: { crumb, code: '000000', email: 'a@b.com' }
     })
@@ -244,11 +244,11 @@ describe('interaction pages', () => {
         body: { status: 'signed-in', accountId: 'acc-2' }
       })
     )
-    const { crumb, cookie } = await getWithCrumb('/ui/interaction/uid-1/phone')
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
 
     await server.inject({
       method: 'POST',
-      url: '/ui/interaction/uid-1/phone',
+      url: '/interaction/uid-1/phone',
       headers: { cookie },
       payload: { crumb, phone: '07911 123456' }
     })
@@ -267,11 +267,11 @@ describe('interaction pages', () => {
       .mockResolvedValue(
         /** @type {never} */ ({ body: { status: 'invalid-phone' } })
       )
-    const { crumb, cookie } = await getWithCrumb('/ui/interaction/uid-1/phone')
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
 
     const res = await server.inject({
       method: 'POST',
-      url: '/ui/interaction/uid-1/phone',
+      url: '/interaction/uid-1/phone',
       headers: { cookie },
       payload: { crumb, phone: '020 7946 0000' }
     })
@@ -284,28 +284,28 @@ describe('interaction pages', () => {
     jest
       .mocked(postJson)
       .mockResolvedValue(/** @type {never} */ ({ body: { status: 'invalid' } }))
-    const { crumb, cookie } = await getWithCrumb('/ui/interaction/uid-1/phone')
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
 
     const res = await server.inject({
       method: 'POST',
-      url: '/ui/interaction/uid-1/phone',
+      url: '/interaction/uid-1/phone',
       headers: { cookie },
       payload: { crumb, phone: '07911 123456' }
     })
 
     expect(res.statusCode).toBe(302)
-    expect(res.headers.location).toBe('/ui/interaction/uid-1')
+    expect(res.headers.location).toBe('/interaction/uid-1')
   })
 
   it('GET expired renders the prototype page with a same-uid restart link', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/ui/interaction/uid-1/expired?email=a%40b.com'
+      url: '/interaction/uid-1/expired?email=a%40b.com'
     })
 
     expect(res.statusCode).toBe(200)
     expect(res.payload).toContain('Your security code has expired')
-    expect(res.payload).toContain('href="/ui/interaction/uid-1"')
+    expect(res.payload).toContain('href="/interaction/uid-1"')
   })
 
   it('auto-grants consent prompts', async () => {
@@ -330,7 +330,7 @@ describe('interaction pages', () => {
       configurable: true
     })
 
-    await server.inject({ method: 'GET', url: '/ui/interaction/uid-1' })
+    await server.inject({ method: 'GET', url: '/interaction/uid-1' })
 
     // restore the prototype getter
     // @ts-expect-error -- delete own property to fall back to the class getter

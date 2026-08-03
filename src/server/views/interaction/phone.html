@@ -18,7 +18,7 @@
       {% endif %}
       <h1 class="govuk-heading-l">{{ t('signin.phone.title') }}</h1>
       <p class="govuk-body">{{ t('signin.phone.body') }}</p>
-      <form method="post" action="/ui/interaction/{{ uid }}/phone" novalidate>
+      <form method="post" action="/interaction/{{ uid }}/phone" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
         {{ govukInput({
           label: { text: t('signin.phone.label') },
