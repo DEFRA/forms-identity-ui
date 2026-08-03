@@ -1,5 +1,6 @@
 import { StatusCodes } from 'http-status-codes'
 import Joi from 'joi'
+import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
 import { postJson } from '~/src/server/common/helpers/fetch.js'
@@ -30,8 +31,14 @@ async function withInteraction(request, h, fn) {
       request.raw.req,
       request.raw.res
     )
-  } catch {
-    return h.view('interaction/timed-out').code(StatusCodes.GONE)
+  } catch (err) {
+    // Only a genuinely dead interaction is the user's timeout; anything
+    // else (e.g. the persistence tier being down) must surface as a 500
+    // through the error-pages plugin, not masquerade as a timeout
+    if (err instanceof errors.SessionNotFound) {
+      return h.view('interaction/timed-out').code(StatusCodes.GONE)
+    }
+    throw err
   }
 
   return fn(details)

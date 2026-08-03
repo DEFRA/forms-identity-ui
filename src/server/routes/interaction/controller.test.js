@@ -1,3 +1,5 @@
+import { errors } from 'oidc-provider'
+
 import { postJson } from '~/src/server/common/helpers/fetch.js'
 import { createServer } from '~/src/server/index.js'
 
@@ -81,9 +83,9 @@ describe('interaction pages', () => {
   })
 
   it('GET renders the timed-out page when the interaction is dead', async () => {
-    const err = new Error('SessionNotFound')
-    err.name = 'SessionNotFound'
-    detailsSpy.mockRejectedValue(err)
+    detailsSpy.mockRejectedValue(
+      new errors.SessionNotFound('session not found')
+    )
 
     const res = await server.inject({
       method: 'GET',
@@ -92,6 +94,19 @@ describe('interaction pages', () => {
 
     expect(res.statusCode).toBe(410)
     expect(res.payload).toContain('For your security, we ended your sign in')
+  })
+
+  it('GET surfaces a 500, not a timeout, when the interaction lookup fails', async () => {
+    detailsSpy.mockRejectedValue(new Error('persistence tier unreachable'))
+
+    const res = await server.inject({
+      method: 'GET',
+      url: '/ui/interaction/uid-1'
+    })
+
+    expect(res.statusCode).toBe(500)
+    expect(res.payload).toContain('Sorry, there is a problem with the service')
+    expect(res.payload).not.toContain('we ended your sign in')
   })
 
   it('POST email requests a code and redirects to the code page', async () => {
