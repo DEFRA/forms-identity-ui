@@ -45,7 +45,7 @@ describe('buildProviderConfig', () => {
     })
     expect(cfg.claims).toEqual({
       openid: ['sub'],
-      email: ['email', 'email_verified']
+      email: ['email']
     })
   })
 
@@ -58,13 +58,11 @@ describe('buildProviderConfig', () => {
 
     const account = await cfg.findAccount?.(fakeCtx, 'acc-1', undefined)
     expect(account?.accountId).toBe('acc-1')
-    // email_verified is invariantly true — an account only exists post-OTP
     await expect(
       account?.claims('userinfo', 'openid email', {}, [])
     ).resolves.toEqual({
       sub: 'acc-1',
-      email: 'a@b.com',
-      email_verified: true
+      email: 'a@b.com'
     })
 
     jest.mocked(getAccount).mockResolvedValue(null)

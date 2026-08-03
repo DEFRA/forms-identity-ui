@@ -67,7 +67,7 @@ export function buildProviderConfig(config, adapter) {
       Session: 86400,
       Grant: 86400
     },
-    claims: { openid: ['sub'], email: ['email', 'email_verified'] },
+    claims: { openid: ['sub'], email: ['email'] },
     async findAccount(_ctx, id) {
       const account = await getAccount(id)
 
@@ -80,10 +80,7 @@ export function buildProviderConfig(config, adapter) {
         claims() {
           return Promise.resolve({
             sub: account.id,
-            email: account.email,
-            // an account only exists once its email is OTP-verified, so this
-            // is invariantly true (there is no unverified-account flow)
-            email_verified: true
+            email: account.email
           })
         }
       }
