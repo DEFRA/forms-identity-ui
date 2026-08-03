@@ -1,27 +1,9 @@
 import { StatusCodes } from 'http-status-codes'
 
-import { resolveLanguage, t } from '~/src/server/i18n/index.js'
-
-/**
- * @param {number} statusCode
- */
-function statusCodeMessageKey(statusCode) {
-  switch (statusCode) {
-    case StatusCodes.NOT_FOUND.valueOf():
-      return 'errors.notFound.title'
-    case StatusCodes.FORBIDDEN.valueOf():
-      return 'errors.forbidden.title'
-    case StatusCodes.UNAUTHORIZED.valueOf():
-      return 'errors.unauthorized.title'
-    case StatusCodes.BAD_REQUEST.valueOf():
-      return 'errors.badRequest.title'
-    default:
-      return 'errors.serverError.title'
-  }
-}
-
 /**
  * Add an `onPreResponse` listener to return error pages
+ * (forms-runner convention: a dedicated 404 view, and the 500 view for
+ * every other Boom error with its original status code preserved)
  * @satisfies {ServerRegisterPluginObject<void>}
  */
 export default {
@@ -45,25 +27,17 @@ export default {
           }
 
           const statusCode = response.output.statusCode
-          const message = t(
-            statusCodeMessageKey(statusCode),
-            resolveLanguage(request.query, request.yar)
-          )
 
-          if (statusCode >= StatusCodes.INTERNAL_SERVER_ERROR.valueOf()) {
-            request.logger.error(
-              response,
-              `[httpError] HTTP ${statusCode} error occurred - ${response.message} - path: ${request.path} - method: ${request.method}`
-            )
+          if (statusCode === StatusCodes.NOT_FOUND.valueOf()) {
+            return h.view('404').code(statusCode)
           }
 
-          return h
-            .view('error', {
-              pageTitle: message,
-              statusCode,
-              message
-            })
-            .code(statusCode)
+          request.logger.error(
+            response,
+            `[httpError] HTTP ${statusCode} error occurred - ${response.message} - path: ${request.path} - method: ${request.method}`
+          )
+
+          return h.view('500').code(statusCode)
         }
       )
     }

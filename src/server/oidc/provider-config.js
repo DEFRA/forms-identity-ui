@@ -1,4 +1,7 @@
 import { getJson } from '~/src/server/common/helpers/fetch.js'
+import { logger } from '~/src/server/common/helpers/logging/logger.js'
+import { context } from '~/src/server/plugins/nunjucks/context.js'
+import { view } from '~/src/server/plugins/nunjucks/render.js'
 
 /**
  * Build the oidc-provider configuration from convict config. All secrets are
@@ -101,6 +104,17 @@ export function buildProviderConfig(config, adapter) {
       keys: cookieKeysRaw.split(','),
       long: { secure: cookieSecure, sameSite: 'lax' },
       short: { secure: cookieSecure, sameSite: 'lax' }
+    },
+    renderError(ctx, _out, error) {
+      // Provider errors (persistence down, malformed protocol requests…)
+      // render the standard 500 page instead of oidc-provider's unstyled
+      // default, matching the error-pages plugin convention
+      logger.error(
+        error,
+        `[oidcError] provider error rendered - path: ${ctx.path}`
+      )
+      ctx.type = 'html'
+      ctx.body = view('500.html', { context: context(null) })
     }
   }
 }
