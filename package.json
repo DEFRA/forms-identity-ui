@@ -9,7 +9,7 @@
     "build": "npm run build:server && npm run build:client",
     "build:client": "NODE_ENV=${NODE_ENV:-production} webpack",
     "build:server": "babel --delete-dir-on-start --extensions \".js\" --ignore \"**/*.test.js\" --copy-files --no-copy-ignored --source-maps --out-dir ./.server ./src",
-    "dev": "concurrently \"npm run client:watch\" \"npm run server:watch:dev\" --kill-others --names \"client,server\" --prefix-colors \"red.dim,blue.dim\"",
+    "dev": "concurrently \"npm run client:watch\" \"npm run server:watch:dev\" \"node example/rp/index.mjs\" --kill-others --names \"client,server,rp\" --prefix-colors \"red.dim,blue.dim,green.dim\"",
     "dev:debug": "concurrently \"npm run client:watch\" \"npm run server:watch:debug\" --kill-others --names \"client,server\" --prefix-colors \"red.dim,blue.dim\"",
     "format": "npm run format:check -- --write",
     "format:check": "prettier --cache --cache-location .cache/prettier --cache-strategy content --check \"**/*.{cjs,js,json,md,mjs,scss,ts}\"",

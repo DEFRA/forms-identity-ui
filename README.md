@@ -54,11 +54,8 @@ npm start     # build then serve on PORT (default 3011)
 
 A minimal relying party (never deployed — lives outside `src/`) signs in the
 way forms-runner will: authorization code + PKCE, confidential client, then
-userinfo. Run it with both dev servers up:
-
-```sh
-node example/rp/index.mjs   # then open http://localhost:3901
-```
+userinfo. `npm run dev` starts it alongside the service — with
+forms-identity-api also running, open http://localhost:3901.
 
 After signing in, the home page shows the ID-token claims, a token response
 summary and userinfo, with links to repeat sign-in (SSO) and sign out at the

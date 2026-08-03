@@ -6,11 +6,9 @@
  * provider session. Never deployed: lives outside src/, so the babel build
  * and Docker image never include it.
  *
- *   npm run dev              (this repo, :3011)
- *   npm run dev              (forms-identity-api, :3010, with its mongo)
- *   node example/rp/index.mjs
- *
- * Then open http://localhost:3901 and follow the links.
+ * Started automatically by this repo's `npm run dev` (alongside the
+ * service) on :3901; forms-identity-api must also be running (:3010, with
+ * its mongo). Then open http://localhost:3901 and follow the links.
  */
 import crypto from 'node:crypto'
 
