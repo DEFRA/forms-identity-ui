@@ -1,8 +1,15 @@
 import Joi from 'joi'
 
+import { joi as telephoneJoi } from '~/src/server/common/helpers/telephone.js'
 import * as identityApi from '~/src/server/repositories/identity-api.js'
 
 const emailSchema = Joi.string().email().required()
+const phoneSchema =
+  /** @type {import('~/src/server/common/helpers/telephone.js').TelephoneSchema} */ (
+    telephoneJoi.string()
+  )
+    .phoneNumber()
+    .required()
 
 /**
  * Journey outcomes: plain data the route handlers translate into
@@ -96,6 +103,18 @@ export async function submitPhone(uid, phone) {
       outcome: 'invalid-phone',
       phone: trimmed,
       errorKey: 'signin.phone.errorRequired'
+    }
+  }
+
+  // shape check before the downstream call — the API's route validation
+  // (the same engine-plugin telephone rule) rejects non-numbers as a 400,
+  // so they must never leave this service; whether the number is a MOBILE
+  // is the API service's business rule, returned as an invalid-phone verdict
+  if (phoneSchema.validate(trimmed).error) {
+    return {
+      outcome: 'invalid-phone',
+      phone: trimmed,
+      errorKey: 'signin.phone.errorInvalid'
     }
   }
 

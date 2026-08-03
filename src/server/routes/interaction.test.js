@@ -278,6 +278,21 @@ describe('interaction pages', () => {
     )
   })
 
+  it('POST a non-number phone re-renders without calling the API', async () => {
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
+
+    const res = await server.inject({
+      method: 'POST',
+      url: '/interaction/uid-1/phone',
+      headers: { cookie },
+      payload: { crumb, phone: 'not a number' }
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.payload).toContain('There is a problem')
+    expect(identityApi.completeSignup).not.toHaveBeenCalled()
+  })
+
   it('POST phone re-renders with an error on an invalid phone', async () => {
     jest
       .mocked(identityApi.completeSignup)
