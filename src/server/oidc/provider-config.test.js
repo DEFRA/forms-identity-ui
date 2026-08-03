@@ -51,7 +51,11 @@ describe('buildProviderConfig', () => {
 
   it('findAccount resolves claims from the API and undefined on 404', async () => {
     const cfg = buildProviderConfig(config, fakeAdapter)
-    jest.mocked(getAccount).mockResolvedValue({ id: 'acc-1', email: 'a@b.com' })
+    jest.mocked(getAccount).mockResolvedValue({
+      id: 'acc-1',
+      email: 'a@b.com',
+      emailVerified: true
+    })
 
     const account = await cfg.findAccount?.(fakeCtx, 'acc-1', undefined)
     expect(account?.accountId).toBe('acc-1')
@@ -62,6 +66,17 @@ describe('buildProviderConfig', () => {
       email: 'a@b.com',
       email_verified: true
     })
+
+    // the claim derives from the record, not a literal
+    jest.mocked(getAccount).mockResolvedValue({
+      id: 'acc-2',
+      email: 'b@c.com',
+      emailVerified: false
+    })
+    const unverified = await cfg.findAccount?.(fakeCtx, 'acc-2', undefined)
+    await expect(
+      unverified?.claims('userinfo', 'openid email', {}, [])
+    ).resolves.toMatchObject({ email_verified: false })
 
     jest.mocked(getAccount).mockResolvedValue(null)
     await expect(

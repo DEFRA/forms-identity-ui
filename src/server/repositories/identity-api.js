@@ -47,14 +47,16 @@ export async function completeSignup({ uid, phone }) {
 /**
  * Account lookup backing the provider's claims/userinfo
  * @param {string} id
- * @returns {Promise<{ id: string, email: string } | null>} null when unknown
+ * @returns {Promise<{ id: string, email: string, emailVerified: boolean } | null>} null when unknown
  */
 export async function getAccount(id) {
   try {
     const { body } = await getJson(
       new URL(`/accounts/${encodeURIComponent(id)}`, baseUrl)
     )
-    return /** @type {{ id: string, email: string }} */ (body)
+    return /** @type {{ id: string, email: string, emailVerified: boolean }} */ (
+      body
+    )
   } catch (err) {
     if (
       err instanceof Error &&

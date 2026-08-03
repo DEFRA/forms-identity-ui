@@ -81,7 +81,7 @@ export function buildProviderConfig(config, adapter) {
           return Promise.resolve({
             sub: account.id,
             email: account.email,
-            email_verified: true
+            email_verified: account.emailVerified
           })
         }
       }
