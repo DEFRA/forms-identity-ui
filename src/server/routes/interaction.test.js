@@ -202,25 +202,6 @@ describe('interaction pages', () => {
     expect(res.headers.location).toBe('/interaction/uid-1/phone')
   })
 
-  it('POST code redirects to the expiration page on expiry', async () => {
-    jest.mocked(identityApi.verifyOtp).mockResolvedValue({ status: 'expired' })
-    const { crumb, cookie } = await getWithCrumb(
-      '/interaction/uid-1/code?email=a%40b.com'
-    )
-
-    const res = await server.inject({
-      method: 'POST',
-      url: '/interaction/uid-1/code',
-      headers: { cookie },
-      payload: { crumb, code: '123456', email: 'a@b.com' }
-    })
-
-    expect(res.statusCode).toBe(302)
-    expect(res.headers.location).toBe(
-      '/interaction/uid-1/expired?email=a%40b.com'
-    )
-  })
-
   it('POST code re-renders with an error on an invalid code', async () => {
     jest.mocked(identityApi.verifyOtp).mockResolvedValue({ status: 'invalid' })
     const { crumb, cookie } = await getWithCrumb(
@@ -236,6 +217,9 @@ describe('interaction pages', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.payload).toContain('There is a problem')
+    expect(res.payload).toContain(
+      'The code you entered is not correct or has expired'
+    )
   })
 
   it('POST a malformed or empty code re-renders without calling the API', async () => {
@@ -325,17 +309,6 @@ describe('interaction pages', () => {
 
     expect(res.statusCode).toBe(302)
     expect(res.headers.location).toBe('/interaction/uid-1')
-  })
-
-  it('GET expired renders the prototype page with a same-uid restart link', async () => {
-    const res = await server.inject({
-      method: 'GET',
-      url: '/interaction/uid-1/expired?email=a%40b.com'
-    })
-
-    expect(res.statusCode).toBe(200)
-    expect(res.payload).toContain('Your security code has expired')
-    expect(res.payload).toContain('href="/interaction/uid-1"')
   })
 
   it('auto-grants consent prompts', async () => {

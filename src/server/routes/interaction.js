@@ -149,11 +149,6 @@ export default /** @type {ServerRoute[]} */ ([
         if (result.outcome === 'phone-required') {
           return h.redirect(`/interaction/${details.uid}/phone`)
         }
-        if (result.outcome === 'expired') {
-          return h.redirect(
-            `/interaction/${details.uid}/expired?email=${encodeURIComponent(email ?? '')}`
-          )
-        }
 
         return h.view('interaction/code', {
           uid: details.uid,
@@ -196,19 +191,6 @@ export default /** @type {ServerRoute[]} */ ([
         // out of order / replay — restart the journey at the email page
         return h.redirect(`/interaction/${details.uid}`)
       })
-    }
-  },
-  {
-    method: 'GET',
-    path: '/interaction/{uid}/expired',
-    options: { validate: { params: uidParams } },
-    handler(request, h) {
-      return withInteraction(request, h, (details) =>
-        h.view('interaction/expired', {
-          uid: details.uid,
-          email: request.query.email ?? ''
-        })
-      )
     }
   }
 ])

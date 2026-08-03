@@ -18,8 +18,7 @@ const phoneSchema =
  *   | { outcome: 'code-sent', email: string }} EmailOutcome
  * @typedef {{ outcome: 'invalid-code', errorKey: string }
  *   | { outcome: 'signed-in', accountId: string }
- *   | { outcome: 'phone-required' }
- *   | { outcome: 'expired' }} CodeOutcome
+ *   | { outcome: 'phone-required' }} CodeOutcome
  * @typedef {{ outcome: 'invalid-phone', phone: string, errorKey: string }
  *   | { outcome: 'signed-in', accountId: string }
  *   | { outcome: 'restart' }} PhoneOutcome
@@ -54,7 +53,8 @@ export async function submitEmail(uid, email) {
 
 /**
  * Code step: the API's verdict routes the journey — signed-in (existing
- * account), phone-required (JIT arm), expired, or invalid
+ * account), phone-required (JIT arm), or invalid (which includes expired
+ * codes: one inline error covers both)
  * @param {string} uid
  * @param {string | undefined} code
  * @returns {Promise<CodeOutcome>}
@@ -80,9 +80,6 @@ export async function submitCode(uid, code) {
   }
   if (result.status === 'phone-required') {
     return { outcome: 'phone-required' }
-  }
-  if (result.status === 'expired') {
-    return { outcome: 'expired' }
   }
   return { outcome: 'invalid-code', errorKey: 'signin.code.errorInvalid' }
 }

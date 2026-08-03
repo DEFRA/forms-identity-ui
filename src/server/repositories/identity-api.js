@@ -6,7 +6,7 @@ const baseUrl = config.get('identityApi.url')
 /**
  * Downstream client for forms-identity-api (internal network). Thin
  * transport wrappers only — journey decisions live in the signin service.
- * @typedef {{ status: 'invalid' } | { status: 'expired' } | { status: 'phone-required' } | { status: 'signed-in', accountId: string }} VerifyResult
+ * @typedef {{ status: 'invalid' } | { status: 'phone-required' } | { status: 'signed-in', accountId: string }} VerifyResult
  * @typedef {{ status: 'invalid' } | { status: 'invalid-phone' } | { status: 'signed-in', accountId: string }} CompleteResult
  */
 

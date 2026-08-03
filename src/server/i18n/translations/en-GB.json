@@ -29,7 +29,7 @@
       "label": "Enter the 6 digit security code",
       "continue": "Continue",
       "errorRequired": "Enter the 6 digit security code",
-      "errorInvalid": "The security code is not correct, check your email and try again"
+      "errorInvalid": "The code you entered is not correct or has expired – enter it again or request a new code"
     },
     "phone": {
       "title": "Enter your mobile phone number",
@@ -38,13 +38,6 @@
       "continue": "Continue",
       "errorRequired": "Enter your mobile phone number",
       "errorInvalid": "Enter a mobile phone number in the correct format, like 07911 123456"
-    },
-    "expired": {
-      "title": "Your security code has expired",
-      "sentTo": "The security code was sent to: [[email]]",
-      "body1": "Security codes expire after 15 minutes.",
-      "body2": "Ask us to send a new code, then enter it on the next page.",
-      "resend": "Send a new security code"
     },
     "timedOut": {
       "title": "For your security, we ended your sign in",
