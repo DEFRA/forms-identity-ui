@@ -80,7 +80,7 @@ Prerequisites:
 - this repo's `.env` populated: `OIDC_JWKS` (`node scripts/generate-jwks.mjs`),
   `OIDC_COOKIE_KEYS` and `OIDC_CLIENT_SECRET` (`openssl rand -hex 32`), and
   `OIDC_RUNNER_REDIRECT_URIS` including the driver's callback
-  `http://localhost:3901/callback`
+  `http://localhost:3902/callback`
 - this repo running (`npm run dev`)
 
 ```sh

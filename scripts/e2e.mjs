@@ -15,7 +15,7 @@
  * the overwrite simply replaces a deliverable code.
  *
  * Requires the UI .env to include the driver's callback in
- * OIDC_RUNNER_REDIRECT_URIS (http://localhost:3901/callback) and the
+ * OIDC_RUNNER_REDIRECT_URIS (http://localhost:3902/callback) and the
  * OIDC_CLIENT_SECRET used by the provider.
  */
 import assert from 'node:assert'
@@ -34,7 +34,7 @@ const { MongoClient } = apiRequire('mongodb')
 
 const ISSUER = 'http://localhost:3011'
 const API_HOST = 'localhost:3010'
-const RP_PORT = Number(process.env.E2E_RP_PORT ?? 3901)
+const RP_PORT = Number(process.env.E2E_RP_PORT ?? 3902)
 const RP = `http://localhost:${RP_PORT}`
 const CLIENT_SECRET = process.env.OIDC_CLIENT_SECRET
 const MONGO_URI =
@@ -98,6 +98,12 @@ const rp = http.createServer((request, res) => {
   }
   res.writeHead(404)
   res.end()
+})
+rp.on('error', (err) => {
+  // e.g. EADDRINUSE — without this the driver would silently talk to
+  // whatever else is on the port (like the example RP under npm run dev)
+  console.error(err)
+  process.exit(1)
 })
 await new Promise((resolve) => {
   rp.listen(RP_PORT, () => {
