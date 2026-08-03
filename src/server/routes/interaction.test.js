@@ -7,7 +7,8 @@ jest.mock('~/src/server/repositories/identity-api.js', () => ({
   requestOtp: jest.fn(),
   verifyOtp: jest.fn(),
   completeSignup: jest.fn(),
-  getAccount: jest.fn()
+  getAccount: jest.fn(),
+  getOtpEmail: jest.fn()
 }))
 
 describe('interaction pages', () => {
@@ -28,6 +29,7 @@ describe('interaction pages', () => {
   })
 
   beforeEach(() => {
+    jest.mocked(identityApi.getOtpEmail).mockResolvedValue('a@b.com')
     const provider = server.app.oidcProvider
     detailsSpy = jest.spyOn(provider, 'interactionDetails').mockResolvedValue(
       /** @type {never} */ ({
@@ -126,9 +128,7 @@ describe('interaction pages', () => {
     })
 
     expect(res.statusCode).toBe(302)
-    expect(res.headers.location).toBe(
-      '/interaction/uid-1/code?email=Citizen%40Example.com'
-    )
+    expect(res.headers.location).toBe('/interaction/uid-1/code')
     expect(identityApi.requestOtp).toHaveBeenCalledWith({
       uid: 'uid-1',
       email: 'Citizen@Example.com'
@@ -158,6 +158,32 @@ describe('interaction pages', () => {
     })
 
     expect(res.statusCode).toBe(403)
+  })
+
+  it('GET code shows the email from the stored record', async () => {
+    jest.mocked(identityApi.getOtpEmail).mockResolvedValue('shown@example.com')
+
+    const res = await server.inject({
+      method: 'GET',
+      url: '/interaction/uid-1/code'
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.payload).toContain('We have sent an email to: shown@example.com')
+  })
+
+  it('never fetches the email for a dead interaction (cookie gate first)', async () => {
+    detailsSpy.mockRejectedValue(
+      new errors.SessionNotFound('session not found')
+    )
+
+    const res = await server.inject({
+      method: 'GET',
+      url: '/interaction/uid-1/code'
+    })
+
+    expect(res.statusCode).toBe(410)
+    expect(identityApi.getOtpEmail).not.toHaveBeenCalled()
   })
 
   it('POST code finishes the interaction when signed in', async () => {

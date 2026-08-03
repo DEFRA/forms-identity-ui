@@ -2,6 +2,7 @@ import { getJson, postJson } from '~/src/server/common/helpers/fetch.js'
 import {
   completeSignup,
   getAccount,
+  getOtpEmail,
   requestOtp,
   verifyOtp
 } from '~/src/server/repositories/identity-api.js'
@@ -74,5 +75,20 @@ describe('identity-api repository', () => {
   it('getAccount rethrows non-404 errors', async () => {
     jest.mocked(getJson).mockRejectedValue(new Error('boom'))
     await expect(getAccount('acc-1')).rejects.toThrow('boom')
+  })
+
+  it('getOtpEmail returns the email, and null on 404', async () => {
+    jest
+      .mocked(getJson)
+      .mockResolvedValue(/** @type {never} */ ({ body: { email: 'a@b.com' } }))
+    await expect(getOtpEmail('uid-1')).resolves.toBe('a@b.com')
+    expect(jest.mocked(getJson).mock.calls[0][0].href).toBe(`${API}/otp/uid-1`)
+
+    const notFound = Object.assign(new Error('Not Found'), {
+      isBoom: true,
+      output: { statusCode: 404 }
+    })
+    jest.mocked(getJson).mockRejectedValue(notFound)
+    await expect(getOtpEmail('uid-none')).resolves.toBeNull()
   })
 })

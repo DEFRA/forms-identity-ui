@@ -22,7 +22,6 @@
       <p class="govuk-body">{{ t('signin.code.body') }}</p>
       <form method="post" action="/interaction/{{ uid }}/code" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
-        <input type="hidden" name="email" value="{{ email }}">
         {{ govukInput({
           label: { text: t('signin.code.label') },
           classes: "govuk-input--width-5 govuk-input--extra-letter-spacing",

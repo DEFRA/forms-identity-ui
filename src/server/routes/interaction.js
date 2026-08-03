@@ -113,9 +113,7 @@ export default /** @type {ServerRoute[]} */ ([
           })
         }
 
-        return h.redirect(
-          `/interaction/${details.uid}/code?email=${encodeURIComponent(result.email)}`
-        )
+        return h.redirect(`/interaction/${details.uid}/code`)
       })
     }
   },
@@ -124,11 +122,12 @@ export default /** @type {ServerRoute[]} */ ([
     path: '/interaction/{uid}/code',
     options: { validate: { params: uidParams } },
     handler(request, h) {
-      return withInteraction(request, h, (details) =>
+      return withInteraction(request, h, async (details) =>
         h.view('interaction/code', {
           uid: details.uid,
-          // display-only — verification compares against the stored target
-          email: request.query.email ?? ''
+          // display-only, from the API's stored record — the same source
+          // verification uses
+          email: await signinService.getSigninEmail(details.uid)
         })
       )
     }
@@ -139,8 +138,7 @@ export default /** @type {ServerRoute[]} */ ([
     options: { validate: { params: uidParams } },
     handler(request, h) {
       return withInteraction(request, h, async (details) => {
-        const { code, email } =
-          /** @type {{ code?: string, email?: string }} */ (request.payload)
+        const { code } = /** @type {{ code?: string }} */ (request.payload)
         const result = await signinService.submitCode(details.uid, code)
 
         if (result.outcome === 'signed-in') {
@@ -152,7 +150,7 @@ export default /** @type {ServerRoute[]} */ ([
 
         return h.view('interaction/code', {
           uid: details.uid,
-          email: email ?? '',
+          email: await signinService.getSigninEmail(details.uid),
           errorKey: result.errorKey
         })
       })

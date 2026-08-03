@@ -45,6 +45,32 @@ export async function completeSignup({ uid, phone }) {
 }
 
 /**
+ * The email a sign-in code was sent to (display data for the
+ * check-your-email page)
+ * @param {string} uid
+ * @returns {Promise<string | null>} null when no code has been requested
+ */
+export async function getOtpEmail(uid) {
+  try {
+    const { body } = await getJson(
+      new URL(`/otp/${encodeURIComponent(uid)}`, baseUrl)
+    )
+    return /** @type {{ email: string }} */ (body).email
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      'isBoom' in err &&
+      'output' in err &&
+      /** @type {{ output: { statusCode: number } }} */ (err).output
+        .statusCode === 404
+    ) {
+      return null
+    }
+    throw err
+  }
+}
+
+/**
  * Account lookup backing the provider's claims/userinfo
  * @param {string} id
  * @returns {Promise<{ id: string, email: string, emailVerified: boolean } | null>} null when unknown

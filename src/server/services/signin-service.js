@@ -129,3 +129,13 @@ export async function submitPhone(uid, phone) {
   }
   return { outcome: 'restart' }
 }
+
+/**
+ * The email to display on the check-your-email page, from the API's stored
+ * record — the same source verification uses, so the display can never
+ * disagree with it. Empty when no code has been requested yet.
+ * @param {string} uid
+ */
+export async function getSigninEmail(uid) {
+  return (await identityApi.getOtpEmail(uid)) ?? ''
+}
