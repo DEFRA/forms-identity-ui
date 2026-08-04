@@ -2,6 +2,7 @@ import { errors } from 'oidc-provider'
 
 import { createServer } from '~/src/server/index.js'
 import * as identityApi from '~/src/server/repositories/identity-api.js'
+import { renderResponse } from '~/test/helpers/component-helpers.js'
 
 jest.mock('~/src/server/repositories/identity-api.js', () => ({
   requestOtp: jest.fn(),
@@ -80,13 +81,23 @@ describe('interaction pages', () => {
   }
 
   it('GET renders the email page for a login prompt', async () => {
-    const res = await server.inject({
+    const { container, response } = await renderResponse(server, {
       method: 'GET',
       url: '/interaction/uid-1'
     })
 
-    expect(res.statusCode).toBe(200)
-    expect(res.payload).toContain('Enter your email address')
+    expect(response.statusCode).toBe(200)
+    const $heading = container.getByRole('heading', {
+      name: 'Enter your email address',
+      level: 1
+    })
+    expect($heading).toBeInTheDocument()
+    expect(
+      container.getByRole('textbox', { name: 'Enter your email address' })
+    ).toBeInTheDocument()
+    expect(
+      container.getByRole('button', { name: 'Continue' })
+    ).toBeInTheDocument()
   })
 
   it('GET renders the timed-out page when the interaction is dead', async () => {
@@ -94,26 +105,36 @@ describe('interaction pages', () => {
       new errors.SessionNotFound('session not found')
     )
 
-    const res = await server.inject({
+    const { container, response } = await renderResponse(server, {
       method: 'GET',
       url: '/interaction/uid-1'
     })
 
-    expect(res.statusCode).toBe(410)
-    expect(res.payload).toContain('For your security, we ended your sign in')
+    expect(response.statusCode).toBe(410)
+    const $heading = container.getByRole('heading', {
+      name: 'For your security, we ended your sign in',
+      level: 1
+    })
+    expect($heading).toBeInTheDocument()
   })
 
   it('GET surfaces a 500, not a timeout, when the interaction lookup fails', async () => {
     detailsSpy.mockRejectedValue(new Error('persistence tier unreachable'))
 
-    const res = await server.inject({
+    const { container, response } = await renderResponse(server, {
       method: 'GET',
       url: '/interaction/uid-1'
     })
 
-    expect(res.statusCode).toBe(500)
-    expect(res.payload).toContain('Sorry, there is a problem with the service')
-    expect(res.payload).not.toContain('we ended your sign in')
+    expect(response.statusCode).toBe(500)
+    const $heading = container.getByRole('heading', {
+      name: 'Sorry, there is a problem with the service',
+      level: 1
+    })
+    expect($heading).toBeInTheDocument()
+    expect(
+      container.queryByRole('heading', { name: /we ended your sign in/ })
+    ).not.toBeInTheDocument()
   })
 
   it('POST email requests a code and redirects to the code page', async () => {
@@ -138,15 +159,23 @@ describe('interaction pages', () => {
   it('POST email re-renders with a GDS error for an invalid email', async () => {
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1')
 
-    const res = await server.inject({
+    const { container, response } = await renderResponse(server, {
       method: 'POST',
       url: '/interaction/uid-1/email',
       headers: { cookie },
       payload: { crumb, email: 'not-an-email' }
     })
 
-    expect(res.statusCode).toBe(200)
-    expect(res.payload).toContain('There is a problem')
+    expect(response.statusCode).toBe(200)
+    const $errorSummary = container.getByRole('alert')
+    expect($errorSummary).toContainElement(
+      container.getByRole('heading', { name: 'There is a problem' })
+    )
+    expect(
+      container.getByRole('link', {
+        name: 'Enter an email address in the correct format, like name@example.com'
+      })
+    ).toHaveAttribute('href', '#email')
     expect(identityApi.requestOtp).not.toHaveBeenCalled()
   })
 
@@ -163,13 +192,25 @@ describe('interaction pages', () => {
   it('GET code shows the email from the stored record', async () => {
     jest.mocked(identityApi.getOtpEmail).mockResolvedValue('shown@example.com')
 
-    const res = await server.inject({
+    const { container, response } = await renderResponse(server, {
       method: 'GET',
       url: '/interaction/uid-1/code'
     })
 
-    expect(res.statusCode).toBe(200)
-    expect(res.payload).toContain('We have sent an email to: shown@example.com')
+    expect(response.statusCode).toBe(200)
+    const $heading = container.getByRole('heading', {
+      name: 'Check your email',
+      level: 1
+    })
+    expect($heading).toBeInTheDocument()
+    expect(
+      container.getByText('We have sent an email to: shown@example.com')
+    ).toBeInTheDocument()
+    expect(
+      container.getByRole('textbox', {
+        name: 'Enter the 6 digit security code'
+      })
+    ).toBeInTheDocument()
   })
 
   it('never fetches the email for a dead interaction (cookie gate first)', async () => {
@@ -234,18 +275,22 @@ describe('interaction pages', () => {
       '/interaction/uid-1/code?email=a%40b.com'
     )
 
-    const res = await server.inject({
+    const { container, response } = await renderResponse(server, {
       method: 'POST',
       url: '/interaction/uid-1/code',
       headers: { cookie },
       payload: { crumb, code: '000000', email: 'a@b.com' }
     })
 
-    expect(res.statusCode).toBe(200)
-    expect(res.payload).toContain('There is a problem')
-    expect(res.payload).toContain(
-      'The code you entered is not correct or has expired'
+    expect(response.statusCode).toBe(200)
+    expect(container.getByRole('alert')).toContainElement(
+      container.getByRole('heading', { name: 'There is a problem' })
     )
+    expect(
+      container.getByRole('link', {
+        name: 'The code you entered is not correct or has expired – enter it again or request a new code'
+      })
+    ).toHaveAttribute('href', '#code')
   })
 
   it('POST a malformed or empty code re-renders without calling the API', async () => {
@@ -254,15 +299,17 @@ describe('interaction pages', () => {
     )
 
     for (const code of ['12345', 'abc123', '']) {
-      const res = await server.inject({
+      const { container, response } = await renderResponse(server, {
         method: 'POST',
         url: '/interaction/uid-1/code',
         headers: { cookie },
         payload: { crumb, code, email: 'a@b.com' }
       })
 
-      expect(res.statusCode).toBe(200)
-      expect(res.payload).toContain('There is a problem')
+      expect(response.statusCode).toBe(200)
+      expect(container.getByRole('alert')).toContainElement(
+        container.getByRole('heading', { name: 'There is a problem' })
+      )
     }
     expect(identityApi.verifyOtp).not.toHaveBeenCalled()
   })
@@ -291,15 +338,17 @@ describe('interaction pages', () => {
   it('POST a non-number phone re-renders without calling the API', async () => {
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
 
-    const res = await server.inject({
+    const { container, response } = await renderResponse(server, {
       method: 'POST',
       url: '/interaction/uid-1/phone',
       headers: { cookie },
       payload: { crumb, phone: 'not a number' }
     })
 
-    expect(res.statusCode).toBe(200)
-    expect(res.payload).toContain('There is a problem')
+    expect(response.statusCode).toBe(200)
+    expect(container.getByRole('alert')).toContainElement(
+      container.getByRole('heading', { name: 'There is a problem' })
+    )
     expect(identityApi.completeSignup).not.toHaveBeenCalled()
   })
 
@@ -309,15 +358,19 @@ describe('interaction pages', () => {
       .mockResolvedValue({ status: 'invalid-phone' })
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
 
-    const res = await server.inject({
+    const { container, response } = await renderResponse(server, {
       method: 'POST',
       url: '/interaction/uid-1/phone',
       headers: { cookie },
       payload: { crumb, phone: '020 7946 0000' }
     })
 
-    expect(res.statusCode).toBe(200)
-    expect(res.payload).toContain('There is a problem')
+    expect(response.statusCode).toBe(200)
+    expect(
+      container.getByRole('link', {
+        name: 'Enter a mobile phone number in the correct format, like 07911 123456'
+      })
+    ).toHaveAttribute('href', '#phone')
   })
 
   it('POST phone bounces to the email page on an out-of-order call', async () => {

@@ -1,26 +1,10 @@
-import { resolveLanguage, t } from '~/src/server/i18n/index.js'
+import { resolveLanguage } from '~/src/server/i18n/index.js'
+
+// Translation lookup, fallback and interpolation are i18next behaviour, and
+// what the citizen actually sees is asserted by the route tests against the
+// rendered pages — only our own language-resolution logic is tested here
 
 describe('i18n', () => {
-  describe('t()', () => {
-    it('returns the en-GB string for a known key', () => {
-      expect(t('errors.notFound.heading', 'en-GB')).toBe('Page not found')
-    })
-
-    it('falls back to en-GB for an unknown language', () => {
-      expect(t('errors.notFound.heading', 'unkno')).toBe('Page not found')
-    })
-
-    it('returns the key when there is no translation', () => {
-      expect(t('missing.key', 'en-GB')).toBe('missing.key')
-    })
-
-    it('interpolates the check-your-email inset text', () => {
-      expect(t('signin.code.sentTo', 'en-GB', { email: 'a@b.com' })).toBe(
-        'We have sent an email to: a@b.com'
-      )
-    })
-  })
-
   describe('resolveLanguage()', () => {
     it('returns the default language', () => {
       const blankRequest = /** @type {Request} */ (/** @type {unknown} */ ({}))
