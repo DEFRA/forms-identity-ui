@@ -2,6 +2,16 @@ import { join } from 'node:path'
 
 import { config } from '~/src/config/index.js'
 
+/**
+ * Root path prefixes the static routes below own — shared with the logging
+ * and CSRF plugins so asset traffic is excluded from both
+ */
+export const STATIC_PATH_PREFIXES = [
+  '/javascripts/',
+  '/stylesheets/',
+  '/assets/'
+]
+
 export default [
   {
     from: '/javascripts/{path*}',
