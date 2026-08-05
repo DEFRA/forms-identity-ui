@@ -6,6 +6,8 @@ import {
   putJson
 } from '~/src/server/common/helpers/fetch.js'
 
+const IDENTITY_API_URL = config.get('identityApi.url')
+
 /**
  * Converts an oidc-provider model name to its wire/collection name
  * (e.g. 'AuthorizationCode' -> 'authorization_code')
@@ -40,8 +42,6 @@ function throwUnless404(err) {
  * @returns {AdapterConstructor}
  */
 export function makeHttpAdapter() {
-  const baseUrl = config.get('identityApi.url')
-
   /**
    * HTTP-backed oidc-provider adapter
    * @implements {Adapter}
@@ -56,7 +56,7 @@ export function makeHttpAdapter() {
 
     /** @param {string} path */
     url(path) {
-      return new URL(`/oidc/${this.model}/${path}`, baseUrl)
+      return new URL(`/oidc/${this.model}/${path}`, IDENTITY_API_URL)
     }
 
     /**
@@ -110,7 +110,7 @@ export function makeHttpAdapter() {
 
     /** @param {string} grantId */
     async revokeByGrantId(grantId) {
-      await delJson(new URL(`/oidc/grants/${grantId}`, baseUrl), {})
+      await delJson(new URL(`/oidc/grants/${grantId}`, IDENTITY_API_URL), {})
     }
   }
 

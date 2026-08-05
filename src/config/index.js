@@ -207,27 +207,29 @@ export const config = convict({
   },
 
   /**
-   * OIDC provider (this service is the issuer; secrets are required and
-   * never boot-generated — boot-generated keys break horizontal scaling)
+   * OIDC provider (this service is the issuer). Every value is required —
+   * the service refuses to start without them, so a misconfigured
+   * environment fails loudly at boot rather than at first sign-in. Secrets
+   * are never boot-generated: generated keys break horizontal scaling.
    */
   oidc: {
     issuer: {
       doc: 'Public issuer origin (this service). TLS is terminated upstream.',
       format: String,
-      default: 'http://localhost:3011',
+      default: /** @type {string | null} */ (null),
       env: 'OIDC_ISSUER'
     },
     jwks: {
-      doc: 'Private JWKS JSON (run `node scripts/generate-jwks.mjs`). Required.',
+      doc: 'Private JWKS JSON (run `node scripts/generate-jwks.mjs`)',
       format: String,
-      default: '',
+      default: /** @type {string | null} */ (null),
       sensitive: true,
       env: 'OIDC_JWKS'
     },
     cookieKeys: {
-      doc: 'Comma-separated cookie signing keys, identical across containers. Required.',
+      doc: 'Comma-separated cookie signing keys, identical across containers',
       format: String,
-      default: '',
+      default: /** @type {string | null} */ (null),
       sensitive: true,
       env: 'OIDC_COOKIE_KEYS'
     },
@@ -238,24 +240,62 @@ export const config = convict({
       env: 'OIDC_COOKIE_SECURE'
     },
     clientSecret: {
-      doc: 'client_secret for the `runner` confidential client. Required.',
+      doc: 'client_secret for the `runner` confidential client',
       format: String,
-      default: '',
+      default: /** @type {string | null} */ (null),
       sensitive: true,
       env: 'OIDC_CLIENT_SECRET'
     },
     runnerRedirectUris: {
       doc: 'Comma-separated redirect_uris for the runner client',
       format: String,
-      default: 'http://localhost:3009/callback,http://localhost:3000/callback',
+      default: /** @type {string | null} */ (null),
       env: 'OIDC_RUNNER_REDIRECT_URIS'
+    },
+    ttl: {
+      authorizationCode: {
+        doc: 'Authorization code lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_AUTHORIZATION_CODE'
+      },
+      idToken: {
+        doc: 'ID token lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_ID_TOKEN'
+      },
+      accessToken: {
+        doc: 'Access token lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_ACCESS_TOKEN'
+      },
+      interaction: {
+        doc: 'Sign-in interaction lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_INTERACTION'
+      },
+      session: {
+        doc: 'Provider session lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_SESSION'
+      },
+      grant: {
+        doc: 'Grant lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_GRANT'
+      }
     }
   },
   identityApi: {
     url: {
       doc: 'Internal base URL of forms-identity-api',
       format: String,
-      default: 'http://localhost:3010',
+      default: /** @type {string | null} */ (null),
       env: 'IDENTITY_API_URL'
     }
   },

@@ -1,4 +1,3 @@
-import { config } from '~/src/config/index.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 import { getAccount } from '~/src/server/repositories/identity-api.js'
 
@@ -14,7 +13,7 @@ const fakeCtx = /** @type {never} */ (null)
 
 describe('buildProviderConfig', () => {
   it('registers runner as a confidential client with PKCE required', () => {
-    const cfg = buildProviderConfig(config, fakeAdapter)
+    const cfg = buildProviderConfig(fakeAdapter)
 
     expect(cfg.clients).toEqual([
       {
@@ -50,7 +49,7 @@ describe('buildProviderConfig', () => {
   })
 
   it('findAccount resolves claims from the API and undefined on 404', async () => {
-    const cfg = buildProviderConfig(config, fakeAdapter)
+    const cfg = buildProviderConfig(fakeAdapter)
     jest.mocked(getAccount).mockResolvedValue({
       id: 'acc-1',
       email: 'a@b.com'
@@ -69,26 +68,5 @@ describe('buildProviderConfig', () => {
     await expect(
       cfg.findAccount?.(fakeCtx, 'gone', undefined)
     ).resolves.toBeUndefined()
-  })
-
-  it.each([
-    ['oidc.jwks', /OIDC_JWKS/],
-    ['oidc.cookieKeys', /OIDC_COOKIE_KEYS/],
-    ['oidc.clientSecret', /OIDC_CLIENT_SECRET/]
-  ])('fails loud when %s is missing', (key, message) => {
-    const realGet = config.get.bind(config)
-    const spy = jest.spyOn(config, 'get').mockImplementation(
-      /** @type {never} */ (
-        (/** @type {string} */ k) => {
-          if (k === key) {
-            return ''
-          }
-          return realGet(/** @type {never} */ (k))
-        }
-      )
-    )
-
-    expect(() => buildProviderConfig(config, fakeAdapter)).toThrow(message)
-    spy.mockRestore()
   })
 })

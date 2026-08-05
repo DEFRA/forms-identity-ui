@@ -4,6 +4,8 @@ import { config } from '~/src/config/index.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 
+const OIDC_ISSUER = config.get('oidc.issuer')
+
 /**
  * Paths owned by oidc-provider. Mounted explicitly (no catch-all) so
  * unknown URLs still fall through to the GDS 404 page. Crumb is disabled on
@@ -40,8 +42,8 @@ export default {
      */
     register(server) {
       const provider = new Provider(
-        config.get('oidc.issuer'),
-        buildProviderConfig(config, makeHttpAdapter())
+        OIDC_ISSUER,
+        buildProviderConfig(makeHttpAdapter())
       )
       // TLS is terminated upstream by the platform load balancer; trust its
       // X-Forwarded-* headers so redirects/cookies use the public origin.

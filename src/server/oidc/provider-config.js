@@ -1,56 +1,45 @@
+import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
 import { view } from '~/src/server/plugins/nunjucks/render.js'
 import { getAccount } from '~/src/server/repositories/identity-api.js'
 
+// All required at startup — config validation refuses to boot without them
+const JWKS = /** @type {{ keys: JWK[] }} */ (
+  JSON.parse(config.get('oidc.jwks'))
+)
+const COOKIE_KEYS = config.get('oidc.cookieKeys').split(',')
+const COOKIE_SECURE = config.get('oidc.cookieSecure')
+const CLIENT_SECRET = config.get('oidc.clientSecret')
+const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris').split(',')
+const TTL_SECONDS = {
+  AuthorizationCode: config.get('oidc.ttl.authorizationCode'),
+  IdToken: config.get('oidc.ttl.idToken'),
+  AccessToken: config.get('oidc.ttl.accessToken'),
+  Interaction: config.get('oidc.ttl.interaction'),
+  Session: config.get('oidc.ttl.session'),
+  Grant: config.get('oidc.ttl.grant')
+}
+
 /**
- * Build the oidc-provider configuration from convict config. All secrets are
- * REQUIRED with no boot-generate fallback: boot-generated keys break
- * horizontal scaling and silently mask a missing secret in a deployed env.
- * Local dev and tests supply them via .env / the jest setup file.
- * @param {typeof appConfig} config
+ * Builds the oidc-provider configuration
  * @param {AdapterConstructor} adapter
  * @returns {Configuration}
  */
-export function buildProviderConfig(config, adapter) {
-  const jwksRaw = config.get('oidc.jwks')
-
-  if (!jwksRaw) {
-    throw new Error(
-      'OIDC_JWKS must be set (run `node scripts/generate-jwks.mjs` and put it in .env)'
-    )
-  }
-
-  const cookieKeysRaw = config.get('oidc.cookieKeys')
-
-  if (!cookieKeysRaw) {
-    throw new Error(
-      'OIDC_COOKIE_KEYS must be set (comma-separated, identical across containers)'
-    )
-  }
-
-  const clientSecret = config.get('oidc.clientSecret')
-
-  if (!clientSecret) {
-    throw new Error('OIDC_CLIENT_SECRET must be set (confidential client auth)')
-  }
-
-  const jwks = /** @type {{ keys: JWK[] }} */ (JSON.parse(jwksRaw))
-  const cookieSecure = config.get('oidc.cookieSecure')
-
+export function buildProviderConfig(adapter) {
   return {
     adapter,
     clients: [
       {
         client_id: 'runner',
-        client_secret: clientSecret,
-        redirect_uris: config.get('oidc.runnerRedirectUris').split(','),
+        client_secret: CLIENT_SECRET,
+        redirect_uris: RUNNER_REDIRECT_URIS,
         response_types: ['code'],
         grant_types: ['authorization_code'],
         token_endpoint_auth_method: 'client_secret_basic'
       }
     ],
-    jwks: { keys: jwks.keys },
+    jwks: { keys: JWKS.keys },
     clientAuthMethods: ['client_secret_basic'],
     pkce: { required: () => true },
     features: { devInteractions: { enabled: false } },
@@ -59,14 +48,7 @@ export function buildProviderConfig(config, adapter) {
         return `/interaction/${interaction.uid}`
       }
     },
-    ttl: {
-      AuthorizationCode: 60,
-      IdToken: 300,
-      AccessToken: 300,
-      Interaction: 3600,
-      Session: 86400,
-      Grant: 86400
-    },
+    ttl: TTL_SECONDS,
     claims: { openid: ['sub'], email: ['email'] },
     async findAccount(_ctx, id) {
       const account = await getAccount(id)
@@ -86,9 +68,9 @@ export function buildProviderConfig(config, adapter) {
       }
     },
     cookies: {
-      keys: cookieKeysRaw.split(','),
-      long: { secure: cookieSecure, sameSite: 'lax' },
-      short: { secure: cookieSecure, sameSite: 'lax' }
+      keys: COOKIE_KEYS,
+      long: { secure: COOKIE_SECURE, sameSite: 'lax' },
+      short: { secure: COOKIE_SECURE, sameSite: 'lax' }
     },
     renderError(ctx, _out, error) {
       // Provider errors (persistence down, malformed protocol requests…)
@@ -105,6 +87,5 @@ export function buildProviderConfig(config, adapter) {
 }
 
 /**
- * @import { config as appConfig } from '~/src/config/index.js'
  * @import { AdapterConstructor, Configuration, JWK } from 'oidc-provider'
  */
