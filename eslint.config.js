@@ -288,11 +288,13 @@ export default defineConfig([
     }
   },
 
-  // Local tooling (e2e driver, dev RP) is allowed to log
+  // Local tooling (dev RP, scripts, e2e) is allowed to log, and runs under
+  // plain node or playwright where the `~` alias cannot resolve
   {
-    files: ['scripts/**', 'example/**'],
+    files: ['scripts/**', 'example/**', 'e2e/**'],
     rules: {
-      'no-console': 'off'
+      'no-console': 'off',
+      'no-restricted-imports': 'off'
     }
   },
 

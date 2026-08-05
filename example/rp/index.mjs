@@ -14,7 +14,6 @@ import * as client from 'openid-client'
 
 import 'dotenv/config'
 
-// eslint-disable-next-line no-restricted-imports -- runs under plain node (no ~ alias resolution)
 import { errorPage, page, signedInPage, tokenSummary } from './views.mjs'
 
 const ISSUER = process.env.EXAMPLE_RP_ISSUER ?? 'http://localhost:3011'

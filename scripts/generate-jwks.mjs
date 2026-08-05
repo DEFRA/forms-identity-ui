@@ -4,7 +4,6 @@
  *
  * Usage: node scripts/generate-jwks.mjs
  */
-// eslint-disable-next-line no-restricted-imports -- runs under plain node (no ~ alias resolution)
 import { generateJwks } from './jwks.cjs'
 
 process.stdout.write(`${JSON.stringify(generateJwks())}\n`)
