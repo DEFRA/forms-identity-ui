@@ -1,10 +1,12 @@
 # forms-identity-ui
 
-Defra Forms identity frontend — the public sign-in façade for Defra Forms identity. A Hapi + nunjucks GOV.UK frontend service.
+The sign-in service for Defra Forms. It runs the OIDC provider
+(node-oidc-provider) and the GOV.UK sign-in pages. Account and one-time-code
+data lives in [forms-identity-api](https://github.com/DEFRA/forms-identity-api).
 
 ## Requirements
 
-- Node.js `^22.11.0` — install via [nvm](https://github.com/nvm-sh/nvm) with `nvm use` (see `.nvmrc`)
+- Node.js `^22.11.0` — run `nvm use` (see `.nvmrc`)
 - npm `>=10.9.0`
 
 ## Setup
@@ -12,9 +14,12 @@ Defra Forms identity frontend — the public sign-in façade for Defra Forms ide
 ```sh
 nvm use
 npm install
+cp .env.sample .env
 ```
 
-Configuration is via environment variables — see `.env.sample` for the available options. All have sensible defaults for local development, so no `.env` file is needed to get started.
+Every setting in `.env.sample` marked required must have a value — the
+service refuses to start without them. Generate the secrets as the comments
+in `.env.sample` describe.
 
 ## Development
 
@@ -22,26 +27,47 @@ Configuration is via environment variables — see `.env.sample` for the availab
 npm run dev
 ```
 
-Runs the webpack client watch and the server (via `tsx watch`) concurrently on http://localhost:3011.
+Starts the webpack client watch, the server on http://localhost:3011 and the
+example relying party on http://localhost:3901.
 
-### Local Redis
-
-The session cache uses an in-memory engine by default in development. To use Redis instead:
-
-```sh
-docker compose up -d redis
-```
-
-then set `SESSION_CACHE_ENGINE=redis` in your `.env` file.
+The session cache uses memory by default. To use Redis instead, run
+`docker compose up -d redis` and set `SESSION_CACHE_ENGINE=redis` in `.env`.
 
 ## Testing and linting
 
 ```sh
-npm test          # jest with coverage
+npm test          # jest unit tests with coverage
+npm run test:e2e  # Playwright sign-in journey (needs the servers below)
 npm run lint      # editorconfig + eslint + tsc
 npm run lint:scss # stylelint
 npm run format    # prettier write
 ```
+
+### End-to-end tests
+
+`npm run test:e2e` drives the whole sign-in journey through a browser:
+JIT sign-up, single sign-on, the existing-account path, CSRF rejection and
+client authentication at the token endpoint.
+
+It needs:
+
+- forms-identity-api running (`npm run dev` there, with its docker mongo).
+  Its `.env` needs the Notify variables set — dummy-format values work,
+  because the tests read the code from the database instead of an inbox.
+- this repo running (`npm run dev`), with `OIDC_RUNNER_REDIRECT_URIS`
+  including the test callback `http://localhost:3902/callback`.
+
+## Trying the journey by hand (example RP)
+
+A small relying party in `example/rp` (never deployed) signs in the way
+forms-runner will, using [openid-client](https://github.com/panva/openid-client).
+With `npm run dev` running here and forms-identity-api running too, open
+http://localhost:3901 and follow the links. After signing in it shows the
+ID token claims, the token response and userinfo.
+
+Without a real `NOTIFY_API_KEY` in the API the email step fails on an error
+page. Either use a real key, or overwrite the stored code as the e2e tests
+do (`e2e/support.mjs`) and continue from `/interaction/<uid>/code`.
 
 ## Production build
 
@@ -49,45 +75,6 @@ npm run format    # prettier write
 npm run build # babel server build to .server, webpack client build to .public
 npm start     # build then serve on PORT (default 3011)
 ```
-
-## Trying the journey in a browser (example RP)
-
-A minimal relying party (never deployed — lives outside `src/`) signs in the
-way forms-runner will: authorization code + PKCE, confidential client, then
-userinfo. `npm run dev` starts it alongside the service — with
-forms-identity-api also running, open http://localhost:3901.
-
-After signing in, the home page shows the ID-token claims, a token response
-summary and userinfo, with links to repeat sign-in (SSO) and sign out at the
-provider.
-
-Note: without a real `NOTIFY_API_KEY` the email step fails loudly on the
-provider's error page. Either use a real key, or overwrite the stored
-`otps` record's `codeHash` with a known code's argon2 hash (the technique
-`scripts/e2e.mjs` uses) and continue from
-`/interaction/<uid>/code?email=<email>`.
-
-## Sign-in end-to-end check
-
-Drives the full OIDC + OTP sign-in journey (both the JIT-signup and
-existing-account arms, SSO, CSRF and client auth) against local dev servers.
-
-Prerequisites:
-
-- `forms-identity-api` running (`npm run dev`, with its docker-compose mongo
-  up) — its `.env` needs the Notify variables set (dummy-format values work;
-  the driver captures the code from the database when delivery fails)
-- this repo's `.env` populated: `OIDC_JWKS` (`node scripts/generate-jwks.mjs`),
-  `OIDC_COOKIE_KEYS` and `OIDC_CLIENT_SECRET` (`openssl rand -hex 32`), and
-  `OIDC_RUNNER_REDIRECT_URIS` including the driver's callback
-  `http://localhost:3902/callback`
-- this repo running (`npm run dev`)
-
-```sh
-node scripts/e2e.mjs
-```
-
-Every step prints its result; the run fails loudly on any assertion.
 
 ## Licence
 
