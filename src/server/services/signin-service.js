@@ -1,7 +1,7 @@
 import Joi from 'joi'
 
 import { joi as telephoneJoi } from '~/src/server/common/helpers/telephone.js'
-import * as identityApi from '~/src/server/repositories/identity-api.js'
+import * as identityApi from '~/src/server/lib/identity-api.js'
 
 const emailSchema = Joi.string().email().required()
 const phoneSchema =

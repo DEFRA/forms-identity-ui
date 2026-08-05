@@ -1,10 +1,10 @@
 import { errors } from 'oidc-provider'
 
 import { createServer } from '~/src/server/index.js'
-import * as identityApi from '~/src/server/repositories/identity-api.js'
+import * as identityApi from '~/src/server/lib/identity-api.js'
 import { renderResponse } from '~/test/helpers/component-helpers.js'
 
-jest.mock('~/src/server/repositories/identity-api.js', () => ({
+jest.mock('~/src/server/lib/identity-api.js', () => ({
   requestOtp: jest.fn(),
   verifyOtp: jest.fn(),
   completeSignup: jest.fn(),

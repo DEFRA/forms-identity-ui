@@ -1,8 +1,8 @@
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
+import { getAccount } from '~/src/server/lib/identity-api.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
 import { view } from '~/src/server/plugins/nunjucks/render.js'
-import { getAccount } from '~/src/server/repositories/identity-api.js'
 
 // All required at startup — config validation refuses to boot without them
 const JWKS = /** @type {{ keys: JWK[] }} */ (

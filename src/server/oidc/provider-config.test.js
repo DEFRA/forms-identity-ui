@@ -1,7 +1,7 @@
+import { getAccount } from '~/src/server/lib/identity-api.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
-import { getAccount } from '~/src/server/repositories/identity-api.js'
 
-jest.mock('~/src/server/repositories/identity-api.js', () => ({
+jest.mock('~/src/server/lib/identity-api.js', () => ({
   getAccount: jest.fn()
 }))
 

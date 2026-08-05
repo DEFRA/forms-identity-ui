@@ -7,7 +7,7 @@ import {
   getOtpEmail,
   requestOtp,
   verifyOtp
-} from '~/src/server/repositories/identity-api.js'
+} from '~/src/server/lib/identity-api.js'
 
 jest.mock('~/src/server/common/helpers/fetch.js', () => ({
   // the transport functions are faked; the Boom-404 predicate stays real
@@ -19,7 +19,7 @@ jest.mock('~/src/server/common/helpers/fetch.js', () => ({
 
 const API = 'http://localhost:3010'
 
-describe('identity-api repository', () => {
+describe('identity-api client', () => {
   it('requestOtp posts uid and email', async () => {
     jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
 
