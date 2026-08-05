@@ -5,9 +5,13 @@
 {% block content %}
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
+
       <h1 class="govuk-heading-l">{{ t('signin.timedOut.title') }}</h1>
-      <p class="govuk-body">{{ t('signin.timedOut.body1') }}</p>
-      <p class="govuk-body">{{ t('signin.timedOut.body2') }}</p>
+
+      {% for paragraph in t('signin.timedOut.body', { returnObjects: true }) %}
+        <p class="govuk-body">{{ paragraph }}</p>
+      {% endfor %}
+
     </div>
   </div>
 {% endblock %}

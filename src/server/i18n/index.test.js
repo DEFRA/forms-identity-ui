@@ -1,9 +1,5 @@
 import { resolveLanguage } from '~/src/server/i18n/index.js'
 
-// Translation lookup, fallback and interpolation are i18next behaviour, and
-// what the citizen actually sees is asserted by the route tests against the
-// rendered pages — only our own language-resolution logic is tested here
-
 describe('i18n', () => {
   describe('resolveLanguage()', () => {
     it('returns the default language', () => {

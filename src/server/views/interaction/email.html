@@ -10,14 +10,17 @@
 {% block content %}
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
+
       {% if errorKey %}
         {{ govukErrorSummary({
           titleText: t('signin.errorSummaryTitle'),
           errorList: [{ text: t(errorKey), href: "#email" }]
         }) }}
       {% endif %}
+
       <form method="post" action="/interaction/{{ uid }}/email" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
+
         {{ govukInput({
           label: {
             text: t('signin.email.title'),
@@ -32,8 +35,10 @@
           value: email,
           errorMessage: errorMessage
         }) }}
+
         {{ govukButton({ text: t('signin.email.continue') }) }}
       </form>
+
     </div>
   </div>
 {% endblock %}

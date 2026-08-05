@@ -7,8 +7,7 @@ import * as signinService from '~/src/server/services/signin-service.js'
 
 const uidParams = Joi.object({ uid: Joi.string().required() })
 
-/* eslint-disable jsdoc/reject-any-type -- hapi request refs are invariant,
-   so only `any`-ref helpers can be shared by payload-narrowed routes */
+/* eslint-disable jsdoc/reject-any-type -- hapi request refs are invariant, so only any-ref helpers can be shared by payload-narrowed routes */
 
 /**
  * The gate every interaction handler runs behind: resolves the interaction

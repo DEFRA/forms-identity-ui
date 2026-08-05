@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars -- augmentation type
-   parameters must repeat the originals even though nothing here reads them */
+/* eslint-disable @typescript-eslint/no-unused-vars -- augmentation type parameters must repeat the originals even though nothing here reads them */
 import {
   type Plugin,
   type ReqRef,

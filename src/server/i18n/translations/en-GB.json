@@ -41,8 +41,10 @@
     },
     "timedOut": {
       "title": "For your security, we ended your sign in",
-      "body1": "You have 1 hour to finish signing in.",
-      "body2": "Go back to the service you were using and sign in again."
+      "body": [
+        "You have 1 hour to finish signing in.",
+        "Go back to the service you were using and sign in again."
+      ]
     },
     "errorSummaryTitle": "There is a problem"
   },

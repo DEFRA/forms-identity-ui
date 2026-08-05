@@ -11,17 +11,23 @@
 {% block content %}
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
+
       {% if errorKey %}
         {{ govukErrorSummary({
           titleText: t('signin.errorSummaryTitle'),
           errorList: [{ text: t(errorKey), href: "#code" }]
         }) }}
       {% endif %}
+
       <h1 class="govuk-heading-l">{{ t('signin.code.title') }}</h1>
+
       {{ govukInsetText({ text: t('signin.code.sentTo', { email: email }) }) }}
+
       <p class="govuk-body">{{ t('signin.code.body') }}</p>
+
       <form method="post" action="/interaction/{{ uid }}/code" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
+
         {{ govukInput({
           label: { text: t('signin.code.label') },
           classes: "govuk-input--width-5 govuk-input--extra-letter-spacing",
@@ -33,8 +39,10 @@
           spellcheck: false,
           errorMessage: errorMessage
         }) }}
+
         {{ govukButton({ text: t('signin.code.continue') }) }}
       </form>
+
     </div>
   </div>
 {% endblock %}
