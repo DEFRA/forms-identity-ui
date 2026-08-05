@@ -2,6 +2,7 @@ import { config } from '~/src/config/index.js'
 import {
   delJson,
   getJson,
+  isNotFoundError,
   postJson,
   putJson
 } from '~/src/server/common/helpers/fetch.js'
@@ -18,18 +19,16 @@ function snakeCase(name) {
 }
 
 /**
- * Swallows 404s (adapter contract: absent = undefined), rethrows anything
- * else
+ * The Adapter contract requires find/findByUid to resolve `undefined` for an
+ * unknown id — oidc-provider probes the store as part of the protocol (is
+ * there a session cookie? has this code been issued?), so the lookup can
+ * never be skipped and "absent" is an expected answer, not a failure. The
+ * API expresses absent as a 404; only that exact case maps to undefined —
+ * any other error (timeouts, 5xx, auth) still throws.
  * @param {unknown} err
  */
-function throwUnless404(err) {
-  if (
-    err instanceof Error &&
-    'isBoom' in err &&
-    'output' in err &&
-    /** @type {{ output: { statusCode: number } }} */ (err).output
-      .statusCode === 404
-  ) {
+function throwUnlessNotFound(err) {
+  if (isNotFoundError(err)) {
     return
   }
   throw err
@@ -76,7 +75,7 @@ export function makeHttpAdapter() {
         const { body } = await getJson(this.url(id))
         return /** @type {AdapterPayload} */ (body)
       } catch (err) {
-        throwUnless404(err)
+        throwUnlessNotFound(err)
         return undefined
       }
     }
@@ -87,7 +86,7 @@ export function makeHttpAdapter() {
         const { body } = await getJson(this.url(`uid/${uid}`))
         return /** @type {AdapterPayload} */ (body)
       } catch (err) {
-        throwUnless404(err)
+        throwUnlessNotFound(err)
         return undefined
       }
     }

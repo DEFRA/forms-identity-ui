@@ -1,3 +1,5 @@
+import Boom from '@hapi/boom'
+
 import {
   delJson,
   getJson,
@@ -6,7 +8,15 @@ import {
 } from '~/src/server/common/helpers/fetch.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 
-jest.mock('~/src/server/common/helpers/fetch.js')
+jest.mock('~/src/server/common/helpers/fetch.js', () => ({
+  // the transport functions are faked; the Boom-404 predicate stays real
+  isNotFoundError: jest.requireActual('~/src/server/common/helpers/fetch.js')
+    .isNotFoundError,
+  delJson: jest.fn(),
+  getJson: jest.fn(),
+  postJson: jest.fn(),
+  putJson: jest.fn()
+}))
 
 const API = 'http://localhost:3010'
 
@@ -35,10 +45,7 @@ describe('http adapter', () => {
       .mockResolvedValue(/** @type {never} */ ({ body: { a: 1 } }))
     await expect(adapter.find('id-2')).resolves.toEqual({ a: 1 })
 
-    const notFound = Object.assign(new Error('Not Found'), {
-      isBoom: true,
-      output: { statusCode: 404 }
-    })
+    const notFound = Boom.notFound()
     jest.mocked(getJson).mockRejectedValue(notFound)
     await expect(adapter.find('missing')).resolves.toBeUndefined()
   })

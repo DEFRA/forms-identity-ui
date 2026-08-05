@@ -1,3 +1,5 @@
+import Boom from '@hapi/boom'
+
 import { getJson, postJson } from '~/src/server/common/helpers/fetch.js'
 import {
   completeSignup,
@@ -7,7 +9,13 @@ import {
   verifyOtp
 } from '~/src/server/repositories/identity-api.js'
 
-jest.mock('~/src/server/common/helpers/fetch.js')
+jest.mock('~/src/server/common/helpers/fetch.js', () => ({
+  // the transport functions are faked; the Boom-404 predicate stays real
+  isNotFoundError: jest.requireActual('~/src/server/common/helpers/fetch.js')
+    .isNotFoundError,
+  getJson: jest.fn(),
+  postJson: jest.fn()
+}))
 
 const API = 'http://localhost:3010'
 
@@ -63,10 +71,7 @@ describe('identity-api repository', () => {
       email: 'a@b.com'
     })
 
-    const notFound = Object.assign(new Error('Not Found'), {
-      isBoom: true,
-      output: { statusCode: 404 }
-    })
+    const notFound = Boom.notFound()
     jest.mocked(getJson).mockRejectedValue(notFound)
     await expect(getAccount('gone')).resolves.toBeNull()
   })
@@ -83,10 +88,7 @@ describe('identity-api repository', () => {
     await expect(getOtpEmail('uid-1')).resolves.toBe('a@b.com')
     expect(jest.mocked(getJson).mock.calls[0][0].href).toBe(`${API}/otp/uid-1`)
 
-    const notFound = Object.assign(new Error('Not Found'), {
-      isBoom: true,
-      output: { statusCode: 404 }
-    })
+    const notFound = Boom.notFound()
     jest.mocked(getJson).mockRejectedValue(notFound)
     await expect(getOtpEmail('uid-none')).resolves.toBeNull()
   })

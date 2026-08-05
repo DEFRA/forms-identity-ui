@@ -3,6 +3,16 @@ import Wreck from '@hapi/wreck'
 
 const MIN_OK_STATUS = 200
 const MAX_OK_STATUS = 299
+const NOT_FOUND = 404
+
+/**
+ * Whether an error is the Boom 404 these helpers throw when a downstream
+ * API signals "no such record"
+ * @param {unknown} err
+ */
+export function isNotFoundError(err) {
+  return Boom.isBoom(err) && err.output.statusCode === NOT_FOUND
+}
 
 /**
  * Base request function using `@hapi/wreck`

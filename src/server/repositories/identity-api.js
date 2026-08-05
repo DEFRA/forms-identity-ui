@@ -1,5 +1,9 @@
 import { config } from '~/src/config/index.js'
-import { getJson, postJson } from '~/src/server/common/helpers/fetch.js'
+import {
+  getJson,
+  isNotFoundError,
+  postJson
+} from '~/src/server/common/helpers/fetch.js'
 
 const baseUrl = config.get('identityApi.url')
 
@@ -57,13 +61,7 @@ export async function getOtpEmail(uid) {
     )
     return /** @type {{ email: string }} */ (body).email
   } catch (err) {
-    if (
-      err instanceof Error &&
-      'isBoom' in err &&
-      'output' in err &&
-      /** @type {{ output: { statusCode: number } }} */ (err).output
-        .statusCode === 404
-    ) {
+    if (isNotFoundError(err)) {
       return null
     }
     throw err
@@ -82,13 +80,7 @@ export async function getAccount(id) {
     )
     return /** @type {{ id: string, email: string }} */ (body)
   } catch (err) {
-    if (
-      err instanceof Error &&
-      'isBoom' in err &&
-      'output' in err &&
-      /** @type {{ output: { statusCode: number } }} */ (err).output
-        .statusCode === 404
-    ) {
+    if (isNotFoundError(err)) {
       return null
     }
     throw err
