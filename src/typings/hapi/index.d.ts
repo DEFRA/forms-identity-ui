@@ -1,4 +1,11 @@
-import { type Plugin } from '@hapi/hapi'
+/* eslint-disable @typescript-eslint/no-unused-vars -- augmentation type
+   parameters must repeat the originals even though nothing here reads them */
+import {
+  type Plugin,
+  type ReqRef,
+  type ReqRefDefaults,
+  type ServerApplicationState
+} from '@hapi/hapi'
 import { type ServerYar, type Yar } from '@hapi/yar'
 import type OidcProvider from 'oidc-provider'
 import { type Logger } from 'pino'
@@ -15,12 +22,14 @@ declare module '@hapi/hapi' {
     }
   }
 
-  interface Request {
+  // Augmented interfaces must repeat the originals' type parameters —
+  // omitting them silently corrupts every generic use of the type
+  interface Request<Refs extends ReqRef = ReqRefDefaults> {
     logger: Logger
     yar: Yar
   }
 
-  interface Server {
+  interface Server<A = ServerApplicationState> {
     logger: Logger
     yar: ServerYar
   }
