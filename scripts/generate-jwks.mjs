@@ -4,12 +4,7 @@
  *
  * Usage: node scripts/generate-jwks.mjs
  */
-import crypto from 'node:crypto'
+// eslint-disable-next-line no-restricted-imports -- runs under plain node (no ~ alias resolution)
+import { generateJwks } from './jwks.cjs'
 
-const { privateKey } = crypto.generateKeyPairSync('rsa', {
-  modulusLength: 2048
-})
-const jwk = privateKey.export({ format: 'jwk' })
-const full = { ...jwk, use: 'sig', alg: 'RS256', kid: 'sig-1' }
-
-process.stdout.write(`${JSON.stringify({ keys: [full] })}\n`)
+process.stdout.write(`${JSON.stringify(generateJwks())}\n`)
