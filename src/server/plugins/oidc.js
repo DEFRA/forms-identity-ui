@@ -29,9 +29,8 @@ const PROTOCOL_ROUTES = [
 ]
 
 /**
- * Runs node-oidc-provider inside this service (first-party cookies; the
- * hardened reverse proxy of the previous design is gone). Persistence is the
- * HTTP adapter against forms-identity-api.
+ * Runs node-oidc-provider inside this service, so its cookies are
+ * first-party. Persistence is the HTTP adapter against forms-identity-api.
  * @satisfies {ServerRegisterPluginObject<void>}
  */
 export default {
@@ -45,8 +44,12 @@ export default {
         OIDC_ISSUER,
         buildProviderConfig(makeHttpAdapter())
       )
-      // TLS is terminated upstream by the platform load balancer; trust its
-      // X-Forwarded-* headers so redirects/cookies use the public origin.
+      // oidc-provider builds absolute URLs (issuer, redirects) and decides
+      // cookie security from what it thinks the request origin is. Behind
+      // the platform's TLS-terminating load balancer that must come from the
+      // X-Forwarded-* headers, which the provider (koa-based) only trusts
+      // with this flag — hapi apps don't need an equivalent because they
+      // never construct absolute URLs from the request.
       provider.proxy = true
 
       server.app.oidcProvider = provider
@@ -54,7 +57,11 @@ export default {
       const callback = provider.callback()
 
       /**
-       * Bridges a hapi request to oidc-provider's node http callback
+       * Bridges a hapi request to oidc-provider's node http callback. The
+       * provider writes the response straight to the raw socket, so the
+       * handler must tell hapi not to respond as well: it waits for the
+       * socket to finish and returns h.abandon. Without this, hapi would
+       * send its own (second) response and corrupt every protocol reply.
        * @param {Request} request
        * @param {ResponseToolkit} h
        */
