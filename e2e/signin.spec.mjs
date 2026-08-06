@@ -1,29 +1,25 @@
 /**
- * End-to-end sign-in journey against local dev servers, driven through a
- * real browser (the interaction pages) plus direct protocol calls (the
- * token exchange forms-runner would perform server-to-server).
+ * End-to-end sign-in journey against local dev servers, driven through a real
+ * browser. The relying party is example/rp — the same one a developer clicks
+ * through by hand — so the test exercises the code forms-runner will copy,
+ * including the client assertion and ID token validation openid-client does.
  *
- * Prerequisites: see playwright.config.mjs. The UI .env must include the
- * RP callback http://localhost:3902/callback in OIDC_RUNNER_REDIRECT_URIS.
+ * Prerequisites: see playwright.config.mjs.
  */
 import { expect, test } from '@playwright/test'
 
 import {
+  ISSUER,
   KNOWN_CODE,
   RP,
   captureCode,
-  exchangeCode,
-  exchangeCodeUnauthenticated,
-  idTokenClaims,
-  startRp
+  tokenEndpoint
 } from './support.mjs'
 
 const EMAIL = `e2e-${Date.now()}@example.com`
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
-/** @type {Awaited<ReturnType<typeof startRp>>} */
-let rp
 /** @type {import('@playwright/test').BrowserContext} */
 let context
 /** @type {import('@playwright/test').Page} */
@@ -32,7 +28,6 @@ let page
 let firstSub
 
 test.beforeAll(async ({ browser }) => {
-  rp = await startRp()
   // one browser context for the whole serial journey, so the provider
   // session set by the first sign-in is still there for the SSO test
   context = await browser.newContext()
@@ -41,7 +36,6 @@ test.beforeAll(async ({ browser }) => {
 
 test.afterAll(async () => {
   await context.close()
-  await rp.close()
 })
 
 /**
@@ -66,12 +60,24 @@ async function signInUpToCode(page) {
   // surface an error page without losing the journey — swap in the known
   // code and continue from the code page either way
   await captureCode(uid, EMAIL)
-  await page.goto(`http://localhost:3011/interaction/${uid}/code`)
+  await page.goto(`${ISSUER}/interaction/${uid}/code`)
   await expect(
     page.getByRole('heading', { name: 'Check your email' })
   ).toBeVisible()
 
   return uid
+}
+
+/**
+ * A row of one of the RP's tables, by the name in its first column
+ * @param {import('@playwright/test').Page} page
+ * @param {string | RegExp} tableName
+ * @param {string | RegExp} rowName
+ */
+function detail(page, tableName, rowName) {
+  return page
+    .getByRole('table', { name: tableName })
+    .getByRole('row', { name: rowName })
 }
 
 test.describe.serial('citizen sign-in', () => {
@@ -101,36 +107,31 @@ test.describe.serial('citizen sign-in', () => {
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page.getByRole('alert')).toContainText('There is a problem')
 
-    // a mobile completes the interaction back to the RP
+    // a mobile completes the interaction, and the RP exchanges the code and
+    // fetches userinfo before it renders
     await phoneInput.fill('07911 123456')
     await page.getByRole('button', { name: 'Continue' }).click()
-    await page.waitForURL(`${RP}/callback**`)
+    await expect(page.getByText('Signed in.')).toBeVisible()
 
-    // the RP exchanges the code as the confidential client, proving itself
-    // with a signed assertion and validating the ID token it gets back
-    const tokens = await exchangeCode(page.url(), rp.pending)
-    expect(tokens.id_token).toBeDefined()
+    await expect(detail(page, 'ID token claims', `iss ${ISSUER}`)).toBeVisible()
 
-    const claims = idTokenClaims(tokens)
-    expect(claims.iss).toBe('http://localhost:3011')
-    expect(claims.sub).toMatch(UUID_PATTERN) // opaque UUID, never an email
-    firstSub = claims.sub
+    firstSub = String(
+      await detail(page, 'ID token claims', /^sub /)
+        .getByRole('cell')
+        .textContent()
+    ).trim()
+    expect(firstSub).toMatch(UUID_PATTERN) // opaque UUID, never an email
 
-    const userinfo = /** @type {{ email: string, sub: string }} */ (
-      await (
-        await fetch('http://localhost:3011/me', {
-          headers: { authorization: `Bearer ${tokens.access_token}` }
-        })
-      ).json()
-    )
-    expect(userinfo.email).toBe(EMAIL.toLowerCase())
-    expect(userinfo.sub).toBe(claims.sub)
+    await expect(
+      detail(page, /^Userinfo/, `email ${EMAIL.toLowerCase()}`)
+    ).toBeVisible()
+    await expect(detail(page, /^Userinfo/, `sub ${firstSub}`)).toBeVisible()
   })
 
   test('signs straight back in on the provider session (SSO)', async () => {
     // no interaction pages this time — the provider session carries it
     await page.goto(`${RP}/login`)
-    await page.waitForURL(`${RP}/callback**`)
+    await expect(page.getByText('Signed in.')).toBeVisible()
   })
 
   test('skips the phone step for an existing account', async ({ browser }) => {
@@ -144,11 +145,11 @@ test.describe.serial('citizen sign-in', () => {
       .fill(KNOWN_CODE)
     await page.getByRole('button', { name: 'Continue' }).click()
 
-    // straight to the RP — no phone page for an account that exists
-    await page.waitForURL(`${RP}/callback**`)
-
-    const tokens = await exchangeCode(page.url(), rp.pending)
-    expect(idTokenClaims(tokens).sub).toBe(firstSub) // same account
+    // straight back to the RP — no phone page for an account that exists
+    await expect(page.getByText('Signed in.')).toBeVisible()
+    await expect(
+      detail(page, 'ID token claims', `sub ${firstSub}`)
+    ).toBeVisible() // same account
 
     await context.close()
   })
@@ -161,31 +162,30 @@ test.describe.serial('citizen sign-in', () => {
     const uid = new URL(page.url()).pathname.split('/')[2]
 
     // same cookies as the browser, but no crumb field in the body
-    const res = await page.request.post(
-      `http://localhost:3011/interaction/${uid}/email`,
-      { form: { email: EMAIL } }
-    )
+    const res = await page.request.post(`${ISSUER}/interaction/${uid}/email`, {
+      form: { email: EMAIL }
+    })
     expect(res.status()).toBe(403)
 
     await context.close()
   })
 
-  test('refuses the token exchange without client credentials', async ({
-    browser
+  test('refuses a token exchange without client credentials', async ({
+    request
   }) => {
-    const context = await browser.newContext()
-    const page = await context.newPage()
+    // client authentication is checked before the grant, so this needs no
+    // real code — an unauthenticated caller is turned away either way
+    const res = await request.post(await tokenEndpoint(), {
+      form: {
+        grant_type: 'authorization_code',
+        code: 'not-a-real-code',
+        redirect_uri: `${RP}/callback`,
+        code_verifier: 'not-a-real-verifier',
+        client_id: 'runner'
+      }
+    })
 
-    await signInUpToCode(page)
-    await page
-      .getByRole('textbox', { name: 'Enter the 6 digit security code' })
-      .fill(KNOWN_CODE)
-    await page.getByRole('button', { name: 'Continue' }).click()
-    await page.waitForURL(`${RP}/callback**`)
-
-    const res = await exchangeCodeUnauthenticated(page.url(), rp.pending)
-    expect(res.status).toBe(401)
-
-    await context.close()
+    expect(res.status()).toBe(401)
+    expect(await res.json()).toMatchObject({ error: 'invalid_client' })
   })
 })

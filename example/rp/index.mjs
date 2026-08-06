@@ -17,7 +17,8 @@ import 'dotenv/config'
 import { errorPage, page, signedInPage, tokenSummary } from './views.mjs'
 
 const ISSUER = process.env.EXAMPLE_RP_ISSUER ?? 'http://localhost:3011'
-const PORT = Number(process.env.EXAMPLE_RP_PORT ?? 3901)
+const DEFAULT_PORT = 3901
+const PORT = Number(process.env.EXAMPLE_RP_PORT ?? DEFAULT_PORT)
 const BASE = `http://localhost:${PORT}`
 const REDIRECT_URI = `${BASE}/callback`
 const PRIVATE_JWKS = process.env.EXAMPLE_RP_PRIVATE_JWKS
@@ -68,8 +69,18 @@ async function discover() {
 }
 
 /**
- * Single-user in-memory session — it's an example
- * @type {{ verifier?: string, state?: string, tokens?: client.TokenEndpointResponse, claims?: object, userinfo?: object, obtainedAt: number }}
+ * Sign-ins waiting for their callback, keyed by the `state` they were started
+ * with. Holding one verifier at a time would break as soon as two sign-ins
+ * overlap — a second tab, or an automated run alongside a manual one — because
+ * the second would overwrite the first's and the earlier callback would fail
+ * its state check.
+ * @type {Map<string, string>}
+ */
+const pending = new Map()
+
+/**
+ * Who is signed in. Single-user, in-memory — it's an example.
+ * @type {{ tokens?: client.TokenEndpointResponse, claims?: object, userinfo?: object, obtainedAt: number }}
  */
 const session = { obtainedAt: 0 }
 
@@ -95,16 +106,15 @@ server.route([
     path: '/login',
     async handler(_request, h) {
       const config = await discover()
-      session.verifier = client.randomPKCECodeVerifier()
-      session.state = client.randomState()
+      const verifier = client.randomPKCECodeVerifier()
+      const state = client.randomState()
+      pending.set(state, verifier)
 
       const authUrl = client.buildAuthorizationUrl(config, {
         redirect_uri: REDIRECT_URI,
         scope: 'openid email',
-        state: session.state,
-        code_challenge: await client.calculatePKCECodeChallenge(
-          session.verifier
-        ),
+        state,
+        code_challenge: await client.calculatePKCECodeChallenge(verifier),
         code_challenge_method: 'S256'
       })
       return h.redirect(authUrl.href)
@@ -115,16 +125,20 @@ server.route([
     path: '/callback',
     async handler(request, h) {
       const config = await discover()
+      const callbackUrl = new URL(request.url.href)
+      const state = String(callbackUrl.searchParams.get('state'))
+      const verifier = pending.get(state)
+      pending.delete(state)
 
       try {
         // validates state, exchanges the code as the confidential client
         // (signed assertion) and verifies the ID token signature and claims
         const tokens = await client.authorizationCodeGrant(
           config,
-          new URL(request.url.href),
+          callbackUrl,
           {
-            pkceCodeVerifier: session.verifier,
-            expectedState: session.state
+            pkceCodeVerifier: verifier,
+            expectedState: state
           }
         )
         const claims = tokens.claims()

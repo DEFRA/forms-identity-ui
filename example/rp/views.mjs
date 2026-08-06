@@ -5,7 +5,7 @@
 
 /** @param {unknown} value */
 export function escapeHtml(value) {
-  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;')
 }
 
 /** @param {string} body */
@@ -13,9 +13,23 @@ export function page(body) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Example RP</title></head><body><h1>Example RP</h1>${body}</body></html>`
 }
 
-/** @param {unknown} value */
-function pre(value) {
-  return `<pre>${escapeHtml(JSON.stringify(value, null, 2))}</pre>`
+/**
+ * A labelled table of name/value pairs. Rendered as a real table with a
+ * caption so each value can be found by its name, both by a screen reader
+ * and by the e2e tests.
+ * @param {string} caption
+ * @param {object} values
+ */
+function table(caption, values) {
+  const rows = Object.entries(values)
+    .filter(([, value]) => value !== undefined)
+    .map(
+      ([name, value]) =>
+        `<tr><th scope="row">${escapeHtml(name)}</th><td>${escapeHtml(value)}</td></tr>`
+    )
+    .join('')
+
+  return `<table><caption>${escapeHtml(caption)}</caption><tbody>${rows}</tbody></table>`
 }
 
 /**
@@ -52,12 +66,9 @@ export function tokenSummary(tokens, obtainedAt) {
 export function signedInPage(claims, summary, userinfo) {
   return page(`
     <p>Signed in.</p>
-    <h2>ID token claims</h2>
-    ${pre(claims)}
-    <h2>Token response</h2>
-    ${pre(summary)}
-    <h2>Userinfo (fetched with the access token)</h2>
-    ${pre(userinfo)}
+    ${table('ID token claims', claims)}
+    ${table('Token response', summary)}
+    ${table('Userinfo (fetched with the access token)', userinfo)}
     <p><a href="/login">Sign in again</a> <a href="/logout">Sign out</a></p>`)
 }
 
