@@ -22,8 +22,8 @@ export const KNOWN_CODE = '123456'
 const MONGO_URI =
   'mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true'
 const PURPOSE = 'SIGNIN_VERIFY_EMAIL'
-/** Fifteen minutes, matching the API's own code lifetime */
-const CODE_LIFETIME_MS = 15 * 60 * 1000
+/** Fifteen minutes in milliseconds, matching the API's own code lifetime */
+const CODE_LIFETIME_MS = 900_000
 
 /**
  * Replaces the stored code for the interaction with the known one. With a
