@@ -3,6 +3,11 @@ import Joi from 'joi'
 import { joi as telephoneJoi } from '~/src/server/common/helpers/telephone.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 
+/** Outcomes named once, so a typo cannot silently change a journey */
+const INVALID_CODE = 'invalid-code'
+const INVALID_PHONE = 'invalid-phone'
+const SIGNED_IN = 'signed-in'
+
 const emailSchema = Joi.string().email().required()
 const phoneSchema =
   /** @type {import('~/src/server/common/helpers/telephone.js').TelephoneSchema} */ (
@@ -63,25 +68,25 @@ export async function submitCode(uid, code) {
   const trimmed = (code ?? '').trim()
 
   if (!trimmed) {
-    return { outcome: 'invalid-code', errorKey: 'signin.code.errorRequired' }
+    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorRequired' }
   }
 
   // shape check before the downstream call — the API's route validation
   // rejects malformed codes as a 400 (client bug), so they must never
   // leave this service
   if (!/^\d{6}$/.test(trimmed)) {
-    return { outcome: 'invalid-code', errorKey: 'signin.code.errorInvalid' }
+    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalid' }
   }
 
   const result = await identityApi.verifyOtp({ uid, code: trimmed })
 
-  if (result.status === 'signed-in') {
-    return { outcome: 'signed-in', accountId: result.accountId }
+  if (result.status === SIGNED_IN) {
+    return { outcome: SIGNED_IN, accountId: result.accountId }
   }
   if (result.status === 'phone-required') {
     return { outcome: 'phone-required' }
   }
-  return { outcome: 'invalid-code', errorKey: 'signin.code.errorInvalid' }
+  return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalid' }
 }
 
 /**
@@ -97,7 +102,7 @@ export async function submitPhone(uid, phone) {
 
   if (!trimmed) {
     return {
-      outcome: 'invalid-phone',
+      outcome: INVALID_PHONE,
       phone: trimmed,
       errorKey: 'signin.phone.errorRequired'
     }
@@ -109,7 +114,7 @@ export async function submitPhone(uid, phone) {
   // the API's business rule, returned as an invalid-phone verdict
   if (phoneSchema.validate(trimmed).error) {
     return {
-      outcome: 'invalid-phone',
+      outcome: INVALID_PHONE,
       phone: trimmed,
       errorKey: 'signin.phone.errorInvalid'
     }
@@ -117,12 +122,12 @@ export async function submitPhone(uid, phone) {
 
   const result = await identityApi.completeSignup({ uid, phone: trimmed })
 
-  if (result.status === 'signed-in') {
-    return { outcome: 'signed-in', accountId: result.accountId }
+  if (result.status === SIGNED_IN) {
+    return { outcome: SIGNED_IN, accountId: result.accountId }
   }
-  if (result.status === 'invalid-phone') {
+  if (result.status === INVALID_PHONE) {
     return {
-      outcome: 'invalid-phone',
+      outcome: INVALID_PHONE,
       phone: trimmed,
       errorKey: 'signin.phone.errorInvalid'
     }
