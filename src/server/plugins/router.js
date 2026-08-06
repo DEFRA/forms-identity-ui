@@ -6,6 +6,7 @@ import {
   interactionRoutes,
   publicRoutes
 } from '~/src/server/routes/index.js'
+import { assertInteractionRoutesGated } from '~/src/server/routes/interaction.js'
 
 const routes = [...publicRoutes, healthRoute, homeRoute, ...interactionRoutes]
 
@@ -29,6 +30,11 @@ export default {
           return h.response().code(StatusCodes.NO_CONTENT).type('image/x-icon')
         }
       })
+
+      // Refuse to start if any /interaction route is missing the cookie
+      // gate — run at onPreStart so routes added by later plugins are
+      // covered too
+      server.ext('onPreStart', assertInteractionRoutesGated)
     }
   }
 }

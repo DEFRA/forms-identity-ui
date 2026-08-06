@@ -2,6 +2,7 @@ import { errors } from 'oidc-provider'
 
 import { createServer } from '~/src/server/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
+import { assertInteractionRoutesGated } from '~/src/server/routes/interaction.js'
 import { renderResponse } from '~/test/helpers/component-helpers.js'
 
 jest.mock('~/src/server/lib/identity-api.js', () => ({
@@ -426,4 +427,25 @@ describe('interaction pages', () => {
       { mergeWithLastSubmission: true }
     )
   })
+})
+
+describe('interaction route gating policy', () => {
+  it('refuses to start when an interaction route is missing the gate', () => {
+    const rogue = /** @type {never} */ ({
+      table: () => [
+        {
+          method: 'get',
+          path: '/interaction/{uid}/rogue',
+          settings: { pre: [] }
+        }
+      ]
+    })
+
+    expect(() => {
+      assertInteractionRoutesGated(rogue)
+    }).toThrow(/missing the interaction gate/)
+  })
+
+  // the accepting side needs no test of its own: every suite that calls
+  // createServer + initialize (including this one) runs the guard for real
 })
