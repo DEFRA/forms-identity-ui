@@ -2,9 +2,9 @@ import { within } from '@testing-library/dom'
 
 /**
  * Injects a request and renders the HTML response into the shared JSDOM
- * document, returning Testing Library queries scoped to it (forms-designer
- * convention) — so content and page-hierarchy assertions read the page the
- * way a user (or screen reader) would, via roles and accessible names
+ * document, returning Testing Library queries scoped to it — so content
+ * and page-hierarchy assertions read the page the way a user (or screen
+ * reader) would, via roles and accessible names
  * @param {Server} server
  * @param {ServerInjectOptions} options
  */

@@ -7,7 +7,7 @@ const schema =
     .phoneNumber()
     .required()
 
-describe('telephone joi extension (engine-plugin port)', () => {
+describe('telephone joi extension', () => {
   it.each([
     ['07911 123456'], // UK-plan mobile, national format
     ['+44 7911 123456'],

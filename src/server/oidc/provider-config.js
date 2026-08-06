@@ -75,7 +75,7 @@ export function buildProviderConfig(adapter) {
     renderError(ctx, _out, error) {
       // Provider errors (persistence down, malformed protocol requests…)
       // render the standard 500 page instead of oidc-provider's unstyled
-      // default, matching the error-pages plugin convention
+      // default, matching the error-pages plugin
       logger.error(
         error,
         `[oidcError] provider error rendered - path: ${ctx.path}`

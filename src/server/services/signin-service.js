@@ -104,9 +104,9 @@ export async function submitPhone(uid, phone) {
   }
 
   // shape check before the downstream call — the API's route validation
-  // (the same engine-plugin telephone rule) rejects non-numbers as a 400,
-  // so they must never leave this service; whether the number is a MOBILE
-  // is the API service's business rule, returned as an invalid-phone verdict
+  // applies the same telephone rule and rejects non-numbers as a 400, so
+  // they must never leave this service; whether the number is a MOBILE is
+  // the API's business rule, returned as an invalid-phone verdict
   if (phoneSchema.validate(trimmed).error) {
     return {
       outcome: 'invalid-phone',

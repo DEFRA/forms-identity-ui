@@ -1,9 +1,9 @@
 import { StatusCodes } from 'http-status-codes'
 
 /**
- * Add an `onPreResponse` listener to return error pages
- * (forms-runner convention: a dedicated 404 view, and the 500 view for
- * every other Boom error with its original status code preserved)
+ * Add an `onPreResponse` listener to return error pages: a dedicated 404
+ * view, and the 500 view for every other Boom error with its original
+ * status code preserved
  * @satisfies {ServerRegisterPluginObject<void>}
  */
 export default {

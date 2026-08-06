@@ -2,12 +2,9 @@ import LibPhoneNumber from 'google-libphonenumber'
 import JoiBase from 'joi'
 
 /*
- * Ported from @defra/forms-engine-plugin
- * (src/server/plugins/engine/components/helpers/telephone.ts) pending
- * extraction into a shared library. Simplifications from the original: the
- * UK/International format restriction is removed (this service accepts any
- * valid telephone number) and the engine's i18n messageTemplate.format is a
- * plain Joi message template.
+ * Joi extension accepting any valid telephone number, defaulting to the UK
+ * region when no country code is given. Duplicated between the identity
+ * services pending extraction into a shared library.
  */
 
 const phoneUtil = LibPhoneNumber.PhoneNumberUtil.getInstance()
