@@ -10,14 +10,17 @@ const uidParams = Joi.object({ uid: Joi.string().required() })
 /* eslint-disable jsdoc/reject-any-type -- hapi request refs are invariant, so only any-ref helpers can be shared by payload-narrowed routes */
 
 /**
- * The gate every interaction route runs behind, as a pre step: resolves the
- * interaction from the provider, which validates the signed interaction
- * cookie against the uid — a uid alone, without the browser that started
- * the flow, never matches, so no handler can leak another interaction's
- * data. A dead interaction (expired or cookieless) renders the timed-out
- * view; only the RP can mint a new one via /auth. Anything else (e.g. the
- * persistence tier being down) surfaces as a 500 through the error-pages
- * plugin, not a timeout.
+ * Security gate. Checks that this browser is the one that started the
+ * sign-in: the uid in the URL must match the signed cookie the provider
+ * set. Without this check, anyone could guess a uid and see another
+ * person's sign-in details, such as their email address.
+ *
+ * Every /interaction route must run this as a pre step — the server
+ * refuses to start if one is missing it (see assertInteractionRoutesGated
+ * below).
+ *
+ * If the sign-in has expired or the cookie is missing, the user sees the
+ * timed-out page. Any other failure becomes a 500 error page.
  * @param {Request<any>} request
  * @param {ResponseToolkit<any>} h
  */
