@@ -12,22 +12,26 @@ const fakeAdapter = /** @type {import('oidc-provider').AdapterConstructor} */ (
 const fakeCtx = /** @type {never} */ (null)
 
 describe('buildProviderConfig', () => {
-  it('registers runner as a confidential client with PKCE required', () => {
+  it('registers runner as a confidential client proving itself with a signed assertion', () => {
     const cfg = buildProviderConfig(fakeAdapter)
 
+    // The runner holds a private key and signs an assertion; this service
+    // only ever holds the public half, so there is no shared secret to leak
     expect(cfg.clients).toEqual([
       {
         client_id: 'runner',
-        client_secret: process.env.OIDC_CLIENT_SECRET,
         redirect_uris: [
           'http://localhost:3009/callback',
           'http://localhost:3000/callback'
         ],
         response_types: ['code'],
         grant_types: ['authorization_code'],
-        token_endpoint_auth_method: 'client_secret_basic'
+        token_endpoint_auth_method: 'private_key_jwt',
+        id_token_signed_response_alg: 'ES256',
+        jwks: JSON.parse(String(process.env.OIDC_RUNNER_JWKS))
       }
     ])
+    expect(cfg.clientAuthMethods).toEqual(['private_key_jwt'])
     expect(cfg.pkce?.required?.(fakeCtx, /** @type {never} */ (null))).toBe(
       true
     )

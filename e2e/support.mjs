@@ -3,9 +3,10 @@
  * forms-runner plays), the one-time-code capture, and the token exchange
  * the RP performs server-to-server.
  */
-import crypto from 'node:crypto'
 import http from 'node:http'
 import { createRequire } from 'node:module'
+
+import * as client from 'openid-client'
 
 import 'dotenv/config'
 
@@ -24,20 +25,52 @@ export const KNOWN_CODE = '123456'
 const MONGO_URI =
   'mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true'
 const PURPOSE = 'SIGNIN_VERIFY_EMAIL'
-const CLIENT_SECRET = process.env.OIDC_CLIENT_SECRET
+const PRIVATE_JWKS = process.env.EXAMPLE_RP_PRIVATE_JWKS
 
-if (!CLIENT_SECRET) {
-  throw new Error('OIDC_CLIENT_SECRET must be set (this repo’s .env)')
+if (!PRIVATE_JWKS) {
+  throw new Error(
+    'EXAMPLE_RP_PRIVATE_JWKS must be set (this repo’s .env) — generate the pair with scripts/generate-client-keypair.mjs'
+  )
 }
 
-/** @type {Record<string, string> | undefined} */
-let discovery
+const [PRIVATE_JWK] = JSON.parse(PRIVATE_JWKS).keys
 
-async function disco() {
-  discovery ??= /** @type {Record<string, string>} */ (
-    await (await fetch(`${ISSUER}/.well-known/openid-configuration`)).json()
+/**
+ * The client's signing key. The suite stands in for forms-runner, so it
+ * holds the private half and the provider holds only the public one.
+ */
+async function clientKey() {
+  return {
+    key: await crypto.subtle.importKey(
+      'jwk',
+      PRIVATE_JWK,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['sign']
+    ),
+    kid: PRIVATE_JWK.kid
+  }
+}
+
+/** @type {client.Configuration | undefined} */
+let discovered
+
+/**
+ * The provider as openid-client sees it. Driving the certified library
+ * rather than hand-building requests is deliberate: it is what forms-runner
+ * will use, so the suite exercises the same code path — including the client
+ * authentication and ID token validation a hand-rolled call would skip.
+ */
+async function oidc() {
+  discovered ??= await client.discovery(
+    new URL(ISSUER),
+    'runner',
+    undefined,
+    client.PrivateKeyJwt(await clientKey()),
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- the local dev issuer is plain http, which is exactly the case this flag exists for
+    { execute: [client.allowInsecureRequests] }
   )
-  return discovery
+  return discovered
 }
 
 /**
@@ -53,31 +86,21 @@ export async function startRp() {
     const url = new URL(request.url ?? '/', RP)
 
     if (url.pathname === '/login') {
-      disco()
-        .then((d) => {
-          const verifier = crypto.randomBytes(32).toString('base64url')
-          const challenge = crypto
-            .createHash('sha256')
-            .update(verifier)
-            .digest()
-            .toString('base64url')
-          const state = crypto.randomBytes(8).toString('base64url')
+      oidc()
+        .then(async (config) => {
+          const verifier = client.randomPKCECodeVerifier()
+          const state = client.randomState()
           pending.set(state, verifier)
 
-          const authUrl =
-            `${d.authorization_endpoint}?` +
-            String(
-              new URLSearchParams({
-                client_id: 'runner',
-                response_type: 'code',
-                scope: 'openid email',
-                redirect_uri: `${RP}/callback`,
-                state,
-                code_challenge: challenge,
-                code_challenge_method: 'S256'
-              })
-            )
-          res.writeHead(302, { Location: authUrl })
+          const authUrl = client.buildAuthorizationUrl(config, {
+            redirect_uri: `${RP}/callback`,
+            scope: 'openid email',
+            state,
+            code_challenge: await client.calculatePKCECodeChallenge(verifier),
+            code_challenge_method: 'S256'
+          })
+
+          res.writeHead(302, { Location: authUrl.href })
           res.end()
         })
         .catch((err) => {
@@ -158,52 +181,62 @@ export async function captureCode(uid, email) {
 }
 
 /**
- * Exchanges the authorization code as the confidential client (or without
- * auth, to prove the provider refuses public exchanges)
+ * Exchanges the authorization code the way forms-runner will: openid-client
+ * signs the client assertion, checks the state, and verifies the ID token's
+ * signature and claims before returning it.
  * @param {string} callbackUrl - the RP callback URL carrying code and state
  * @param {Map<string, string>} pending - state -> PKCE verifier
- * @param {{ auth?: boolean }} [options]
  */
-export async function exchangeCode(callbackUrl, pending, { auth = true } = {}) {
+export async function exchangeCode(callbackUrl, pending) {
   const url = new URL(callbackUrl)
-  const code = url.searchParams.get('code')
-  const state = url.searchParams.get('state')
+  const state = String(url.searchParams.get('state'))
 
-  if (!code) {
+  if (!url.searchParams.get('code')) {
     throw new Error(`no code on callback: ${callbackUrl}`)
   }
 
-  const d = await disco()
-  /** @type {Record<string, string>} */
-  const headers = { 'content-type': 'application/x-www-form-urlencoded' }
+  return client.authorizationCodeGrant(await oidc(), url, {
+    pkceCodeVerifier: pending.get(state),
+    expectedState: state
+  })
+}
 
-  if (auth) {
-    headers.authorization =
-      'Basic ' + Buffer.from(`runner:${CLIENT_SECRET}`).toString('base64')
-  }
+/**
+ * The same exchange with no client authentication at all, to prove the
+ * provider refuses it. Deliberately hand-built: openid-client will not send
+ * a request it knows to be unauthenticated, which is the point of the test.
+ * @param {string} callbackUrl - the RP callback URL carrying code and state
+ * @param {Map<string, string>} pending - state -> PKCE verifier
+ */
+export async function exchangeCodeUnauthenticated(callbackUrl, pending) {
+  const url = new URL(callbackUrl)
+  const code = String(url.searchParams.get('code'))
+  const state = String(url.searchParams.get('state'))
+  const { token_endpoint: tokenEndpoint } = (await oidc()).serverMetadata()
 
-  return fetch(d.token_endpoint, {
+  return fetch(String(tokenEndpoint), {
     method: 'POST',
-    headers,
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'authorization_code',
       code,
       redirect_uri: `${RP}/callback`,
-      code_verifier: String(pending.get(String(state))),
-      ...(auth ? {} : { client_id: 'runner' })
+      code_verifier: String(pending.get(state)),
+      client_id: 'runner'
     })
   })
 }
 
 /**
- * The decoded ID token claims from a token response
- * @param {{ id_token: string }} tokens
- * @returns {Record<string, string>}
+ * The ID token claims openid-client validated during the exchange
+ * @param {client.TokenEndpointResponse & client.TokenEndpointResponseHelpers} tokens
  */
 export function idTokenClaims(tokens) {
-  return /** @type {Record<string, string>} */ (
-    JSON.parse(
-      Buffer.from(tokens.id_token.split('.')[1], 'base64url').toString()
-    )
-  )
+  const claims = tokens.claims()
+
+  if (!claims) {
+    throw new Error('token response carried no id_token')
+  }
+
+  return claims
 }

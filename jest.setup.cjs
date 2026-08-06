@@ -21,11 +21,16 @@ process.env.SESSION_COOKIE_SECURE = 'false'
 
 // OIDC provider secrets — throwaway per-run keys (tests are not a deployment;
 // deployed environments must supply stable keys via CDP secrets)
-const { generateJwks } = require('./scripts/jwks.cjs')
+const { generateClientKeypair, generateJwks } = require('./scripts/jwks.cjs')
+
+const runnerKeypair = generateClientKeypair()
 
 process.env.OIDC_JWKS = JSON.stringify(generateJwks())
 process.env.OIDC_COOKIE_KEYS = 'test-cookie-key-1,test-cookie-key-2'
-process.env.OIDC_CLIENT_SECRET = 'test-client-secret'
+// the provider is given the public half; tests needing to act as the client
+// sign with the private half
+process.env.OIDC_RUNNER_JWKS = JSON.stringify(runnerKeypair.public)
+process.env.OIDC_RUNNER_PRIVATE_JWKS = JSON.stringify(runnerKeypair.private)
 process.env.OIDC_TTL_AUTHORIZATION_CODE = '60'
 process.env.OIDC_TTL_ID_TOKEN = '300'
 process.env.OIDC_TTL_ACCESS_TOKEN = '300'

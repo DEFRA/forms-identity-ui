@@ -33,7 +33,10 @@ describe('oidc plugin', () => {
 
     expect(res.statusCode).toBe(200)
     const { keys } = JSON.parse(res.payload)
-    expect(keys[0].kty).toBe('RSA')
+    expect(keys[0].kty).toBe('EC')
+    expect(keys[0].alg).toBe('ES256')
+    // `d` is the private component — publishing it would hand out the
+    // ability to mint ID tokens
     expect(keys[0].d).toBeUndefined()
   })
 

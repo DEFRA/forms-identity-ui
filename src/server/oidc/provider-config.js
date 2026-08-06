@@ -10,7 +10,9 @@ const JWKS = /** @type {{ keys: JWK[] }} */ (
 )
 const COOKIE_KEYS = config.get('oidc.cookieKeys').split(',')
 const COOKIE_SECURE = config.get('oidc.cookieSecure')
-const CLIENT_SECRET = config.get('oidc.clientSecret')
+const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
+  JSON.parse(config.get('oidc.runnerJwks'))
+)
 const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris').split(',')
 const TTL_SECONDS = {
   AuthorizationCode: config.get('oidc.ttl.authorizationCode'),
@@ -32,15 +34,20 @@ export function buildProviderConfig(adapter) {
     clients: [
       {
         client_id: 'runner',
-        client_secret: CLIENT_SECRET,
         redirect_uris: RUNNER_REDIRECT_URIS,
         response_types: ['code'],
         grant_types: ['authorization_code'],
-        token_endpoint_auth_method: 'client_secret_basic'
+        // The client proves itself by signing a short-lived assertion with a
+        // private key we never hold — only its public half, below. Nothing
+        // this service stores can impersonate the client, and there is no
+        // shared secret to distribute or rotate in step.
+        token_endpoint_auth_method: 'private_key_jwt',
+        id_token_signed_response_alg: 'ES256',
+        jwks: RUNNER_JWKS
       }
     ],
     jwks: { keys: JWKS.keys },
-    clientAuthMethods: ['client_secret_basic'],
+    clientAuthMethods: ['private_key_jwt'],
     pkce: { required: () => true },
     features: { devInteractions: { enabled: false } },
     interactions: {

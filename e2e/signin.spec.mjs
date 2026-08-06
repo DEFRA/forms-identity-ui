@@ -13,6 +13,7 @@ import {
   RP,
   captureCode,
   exchangeCode,
+  exchangeCodeUnauthenticated,
   idTokenClaims,
   startRp
 } from './support.mjs'
@@ -105,10 +106,9 @@ test.describe.serial('citizen sign-in', () => {
     await page.getByRole('button', { name: 'Continue' }).click()
     await page.waitForURL(`${RP}/callback**`)
 
-    // the RP exchanges the code as the confidential client
-    const tokens = /** @type {{ id_token: string, access_token: string }} */ (
-      await (await exchangeCode(page.url(), rp.pending)).json()
-    )
+    // the RP exchanges the code as the confidential client, proving itself
+    // with a signed assertion and validating the ID token it gets back
+    const tokens = await exchangeCode(page.url(), rp.pending)
     expect(tokens.id_token).toBeDefined()
 
     const claims = idTokenClaims(tokens)
@@ -147,9 +147,7 @@ test.describe.serial('citizen sign-in', () => {
     // straight to the RP — no phone page for an account that exists
     await page.waitForURL(`${RP}/callback**`)
 
-    const tokens = /** @type {{ id_token: string }} */ (
-      await (await exchangeCode(page.url(), rp.pending)).json()
-    )
+    const tokens = await exchangeCode(page.url(), rp.pending)
     expect(idTokenClaims(tokens).sub).toBe(firstSub) // same account
 
     await context.close()
@@ -185,7 +183,7 @@ test.describe.serial('citizen sign-in', () => {
     await page.getByRole('button', { name: 'Continue' }).click()
     await page.waitForURL(`${RP}/callback**`)
 
-    const res = await exchangeCode(page.url(), rp.pending, { auth: false })
+    const res = await exchangeCodeUnauthenticated(page.url(), rp.pending)
     expect(res.status).toBe(401)
 
     await context.close()

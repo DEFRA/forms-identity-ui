@@ -1,5 +1,5 @@
 /**
- * Generates a private RSA JWKS for the OIDC provider. Put the output in .env
+ * Generates the provider's private signing JWKS (ES256). Put the output in .env
  * as OIDC_JWKS (identical across containers — keys are never boot-generated).
  *
  * Usage: node scripts/generate-jwks.mjs

@@ -1,6 +1,7 @@
 import Provider from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
+import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 
@@ -48,6 +49,13 @@ export default {
       // provider builds https:// URLs and secure cookies. Removing this
       // breaks every deployed environment.
       provider.proxy = true
+
+      // The provider turns internal faults into a bare `server_error` for the
+      // client, so without this the cause never reaches the logs — an adapter
+      // or persistence failure would surface only as an opaque 500.
+      provider.on('server_error', (_ctx, err) => {
+        logger.error(err, '[oidcServerError] provider raised a server error')
+      })
 
       server.app.oidcProvider = provider
 

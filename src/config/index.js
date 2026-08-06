@@ -246,12 +246,11 @@ export const config = convict({
       default: isProduction,
       env: 'OIDC_COOKIE_SECURE'
     },
-    clientSecret: {
-      doc: 'client_secret for the `runner` confidential client',
+    runnerJwks: {
+      doc: 'Public JWKS of the `runner` client, whose private half signs the assertion it authenticates with (run `node scripts/generate-client-keypair.mjs`). Public key material, so not a secret.',
       format: String,
       default: /** @type {string | null} */ (null),
-      sensitive: true,
-      env: 'OIDC_CLIENT_SECRET'
+      env: 'OIDC_RUNNER_JWKS'
     },
     runnerRedirectUris: {
       doc: 'Comma-separated redirect_uris for the runner client',

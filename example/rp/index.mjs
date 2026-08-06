@@ -20,10 +20,32 @@ const ISSUER = process.env.EXAMPLE_RP_ISSUER ?? 'http://localhost:3011'
 const PORT = Number(process.env.EXAMPLE_RP_PORT ?? 3901)
 const BASE = `http://localhost:${PORT}`
 const REDIRECT_URI = `${BASE}/callback`
-const CLIENT_SECRET = process.env.OIDC_CLIENT_SECRET
+const PRIVATE_JWKS = process.env.EXAMPLE_RP_PRIVATE_JWKS
 
-if (!CLIENT_SECRET) {
-  throw new Error('OIDC_CLIENT_SECRET must be set (this repo’s .env)')
+if (!PRIVATE_JWKS) {
+  throw new Error(
+    'EXAMPLE_RP_PRIVATE_JWKS must be set (this repo’s .env) — generate the pair with scripts/generate-client-keypair.mjs'
+  )
+}
+
+const [PRIVATE_JWK] = JSON.parse(PRIVATE_JWKS).keys
+
+/**
+ * The client's signing key. Standing in for forms-runner, this process is
+ * the only holder of the private half; the provider knows the public half
+ * and uses it to check the assertion.
+ */
+async function clientKey() {
+  return {
+    key: await crypto.subtle.importKey(
+      'jwk',
+      PRIVATE_JWK,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['sign']
+    ),
+    kid: PRIVATE_JWK.kid
+  }
 }
 
 /** @type {client.Configuration | undefined} */
@@ -34,8 +56,11 @@ async function discover() {
   oidcConfig ??= await client.discovery(
     new URL(ISSUER),
     'runner',
-    CLIENT_SECRET,
     undefined,
+    // Authenticate by signing a short-lived assertion rather than sending a
+    // shared secret. Left unset, openid-client picks a secret-based method
+    // and the token endpoint answers invalid_client.
+    client.PrivateKeyJwt(await clientKey()),
     // eslint-disable-next-line @typescript-eslint/no-deprecated -- the library deprecation-flags this to discourage it outside local development, which is exactly what this example is: the local dev issuer is plain http
     { execute: [client.allowInsecureRequests] }
   )
@@ -93,7 +118,7 @@ server.route([
 
       try {
         // validates state, exchanges the code as the confidential client
-        // (basic auth) and verifies the ID token signature and claims
+        // (signed assertion) and verifies the ID token signature and claims
         const tokens = await client.authorizationCodeGrant(
           config,
           new URL(request.url.href),
