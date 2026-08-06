@@ -44,12 +44,9 @@ export default {
         OIDC_ISSUER,
         buildProviderConfig(makeHttpAdapter())
       )
-      // oidc-provider builds absolute URLs (issuer, redirects) and decides
-      // cookie security from what it thinks the request origin is. Behind
-      // the platform's TLS-terminating load balancer that must come from the
-      // X-Forwarded-* headers, which the provider (koa-based) only trusts
-      // with this flag — hapi apps don't need an equivalent because they
-      // never construct absolute URLs from the request.
+      // Required: trusts the load balancer's X-Forwarded-* headers so the
+      // provider builds https:// URLs and secure cookies. Removing this
+      // breaks every deployed environment.
       provider.proxy = true
 
       server.app.oidcProvider = provider
