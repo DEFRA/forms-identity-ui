@@ -8,7 +8,7 @@
 
       <h1 class="govuk-heading-l">{{ t('signin.timedOut.title') }}</h1>
 
-      {% for paragraph in t('signin.timedOut.body', { returnObjects: true }) %}
+      {% for paragraph in t('signin.timedOut.body', { returnObjects: true, duration: interactionDuration }) %}
         <p class="govuk-body">{{ paragraph }}</p>
       {% endfor %}
 

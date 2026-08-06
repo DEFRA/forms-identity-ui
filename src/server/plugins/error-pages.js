@@ -32,10 +32,16 @@ export default {
             return h.view('404').code(statusCode)
           }
 
-          request.logger.error(
-            response,
-            `[httpError] HTTP ${statusCode} error occurred - ${response.message} - path: ${request.path} - method: ${request.method}`
-          )
+          // Client errors are routine — a stale crumb, a bot probing, a
+          // malformed parameter — and the user is told what to do by the
+          // page itself. Only a genuine server fault is worth waking
+          // someone up for, so only that is logged at error level.
+          if (statusCode >= StatusCodes.INTERNAL_SERVER_ERROR.valueOf()) {
+            request.logger.error(
+              response,
+              `[httpError] HTTP ${statusCode} error occurred - ${response.message} - path: ${request.path} - method: ${request.method}`
+            )
+          }
 
           return h.view('500').code(statusCode)
         }

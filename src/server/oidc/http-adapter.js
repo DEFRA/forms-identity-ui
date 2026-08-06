@@ -64,8 +64,18 @@ export function makeHttpAdapter() {
      * @param {number} [expiresIn]
      */
     async upsert(id, payload, expiresIn) {
+      // The provider re-saves with the seconds an artifact has left, which
+      // is 0 at the expiry boundary and negative once past it. Both must
+      // still reach the API as an expiry: omitting it means "never expires",
+      // which would strand an expired record beyond the TTL sweeper's reach.
+      // The API's contract requires a positive value, so already-expired
+      // artifacts get the shortest one it accepts.
+      const ttl = Number.isFinite(expiresIn)
+        ? Math.max(1, /** @type {number} */ (expiresIn))
+        : undefined
+
       await putJson(this.url(id), {
-        payload: { payload, ...(expiresIn && { expiresIn }) }
+        payload: { payload, ...(ttl !== undefined && { expiresIn: ttl }) }
       })
     }
 

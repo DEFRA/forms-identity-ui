@@ -1,6 +1,10 @@
 import Wreck from '@hapi/wreck'
 
-import { getJson, postJson } from '~/src/server/common/helpers/fetch.js'
+import {
+  getJson,
+  isNotFoundError,
+  postJson
+} from '~/src/server/common/helpers/fetch.js'
 
 jest.mock('@hapi/wreck')
 
@@ -29,5 +33,33 @@ describe('fetch helpers', () => {
     await expect(
       postJson(new URL('http://localhost:3010/x'), { payload: {} })
     ).rejects.toThrow('Not Found')
+  })
+
+  it('still throws a recognisable Boom 404 when the body is empty', async () => {
+    // Wreck parses a zero-length body to null, which the error branch must
+    // not treat as an object — the 404 has to stay recognisable downstream
+    jest
+      .mocked(Wreck.request)
+      .mockResolvedValue(/** @type {never} */ ({ statusCode: 404 }))
+    jest.mocked(Wreck.read).mockResolvedValue(/** @type {never} */ (null))
+
+    const err = await getJson(new URL('http://localhost:3010/x')).catch(
+      (/** @type {unknown} */ e) => e
+    )
+
+    expect(isNotFoundError(err)).toBe(true)
+  })
+
+  it('still throws a recognisable Boom 404 when the body is a JSON primitive', async () => {
+    jest
+      .mocked(Wreck.request)
+      .mockResolvedValue(/** @type {never} */ ({ statusCode: 404 }))
+    jest.mocked(Wreck.read).mockResolvedValue(/** @type {never} */ ('gone'))
+
+    const err = await getJson(new URL('http://localhost:3010/x')).catch(
+      (/** @type {unknown} */ e) => e
+    )
+
+    expect(isNotFoundError(err)).toBe(true)
   })
 })

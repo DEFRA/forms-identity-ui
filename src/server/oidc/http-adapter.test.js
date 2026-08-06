@@ -39,6 +39,39 @@ describe('http adapter', () => {
     })
   })
 
+  it.each([
+    ['zero', 0],
+    ['negative', -30]
+  ])(
+    'still sends an expiry when the remaining TTL is %s',
+    async (_label, remainingTtl) => {
+      jest.mocked(putJson).mockResolvedValue(/** @type {never} */ ({}))
+
+      await adapter.upsert('id-exp', { foo: 'bar' }, remainingTtl)
+
+      const [, options] = /** @type {[URL, { payload: object }]} */ (
+        jest.mocked(putJson).mock.calls.at(-1)
+      )
+      // dropping it would tell the API to clear the expiry, leaving an
+      // already-expired artifact the TTL sweeper never collects
+      expect(options.payload).toEqual({
+        payload: { foo: 'bar' },
+        expiresIn: 1
+      })
+    }
+  )
+
+  it('omits the expiry only when the provider gives none', async () => {
+    jest.mocked(putJson).mockResolvedValue(/** @type {never} */ ({}))
+
+    await adapter.upsert('id-noexp', { foo: 'bar' }, undefined)
+
+    const [, options] = /** @type {[URL, { payload: object }]} */ (
+      jest.mocked(putJson).mock.calls.at(-1)
+    )
+    expect(options.payload).toEqual({ payload: { foo: 'bar' } })
+  })
+
   it('find returns the payload, and undefined on 404', async () => {
     jest
       .mocked(getJson)

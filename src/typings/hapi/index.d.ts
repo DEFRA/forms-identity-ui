@@ -21,6 +21,12 @@ declare module '@hapi/hapi' {
     }
   }
 
+  // A route may carry its own CSP, which blankie uses in place of the
+  // server-wide policy (or `false` to send none at all)
+  interface PluginSpecificConfiguration {
+    blankie?: Record<string, boolean | string | string[]> | false
+  }
+
   // Augmented interfaces must repeat the originals' type parameters —
   // omitting them silently corrupts every generic use of the type
   interface Request<Refs extends ReqRef = ReqRefDefaults> {

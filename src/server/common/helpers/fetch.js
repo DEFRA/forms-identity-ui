@@ -23,14 +23,25 @@ export function isNotFoundError(err) {
  */
 export async function request(method, url, options) {
   const response = await Wreck.request(method, url.href, options)
-  const body = await Wreck.read(response, options)
+  // Wreck's own types promise a value, but a JSON read of an empty body
+  // resolves null and any JSON scalar is a primitive
+  const body = /** @type {unknown} */ (await Wreck.read(response, options))
 
   const statusCode = response.statusCode
 
   if (!statusCode || statusCode < MIN_OK_STATUS || statusCode > MAX_OK_STATUS) {
     let err
 
-    if ('message' in body && typeof body.message === 'string' && body.message) {
+    // a bodiless or non-JSON-object error response parses to null or a
+    // primitive, which the `in` operator rejects — the status code must
+    // survive either way so callers can still classify the failure
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      'message' in body &&
+      typeof body.message === 'string' &&
+      body.message
+    ) {
       const cause = 'cause' in body ? body.cause : undefined
       err = new Error(body.message, { cause })
     } else {

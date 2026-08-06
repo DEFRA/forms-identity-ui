@@ -3,9 +3,29 @@ import { StatusCodes } from 'http-status-codes'
 import Joi from 'joi'
 import { errors } from 'oidc-provider'
 
+import { config } from '~/src/config/index.js'
+import { formatDuration } from '~/src/server/common/helpers/duration.js'
+import { signinFormCsp } from '~/src/server/plugins/blankie.js'
 import * as signinService from '~/src/server/services/signin-service.js'
 
+// how long the timed-out page tells the user they had, taken from the
+// setting that actually ends the interaction so the two cannot disagree
+const INTERACTION_DURATION = formatDuration(config.get('oidc.ttl.interaction'))
+
 const uidParams = Joi.object({ uid: Joi.string().required() })
+
+/**
+ * Each form posts exactly one field plus the crumb. A duplicated key makes
+ * hapi parse the field as an array, so its type is pinned at the boundary —
+ * the handlers and the signin service only ever see a string or nothing.
+ * @param {string} field
+ */
+function formPayload(field) {
+  return Joi.object({
+    crumb: Joi.string().optional(),
+    [field]: Joi.string().allow('').optional()
+  })
+}
 
 /* eslint-disable jsdoc/reject-any-type -- hapi request refs are invariant, so only any-ref helpers can be shared by payload-narrowed routes */
 
@@ -31,7 +51,12 @@ export async function requireInteraction(request, h) {
     return await provider.interactionDetails(request.raw.req, request.raw.res)
   } catch (err) {
     if (err instanceof errors.SessionNotFound) {
-      return h.view('interaction/timed-out').code(StatusCodes.GONE).takeover()
+      return h
+        .view('interaction/timed-out', {
+          interactionDuration: INTERACTION_DURATION
+        })
+        .code(StatusCodes.GONE)
+        .takeover()
     }
     throw err
   }
@@ -51,10 +76,14 @@ const GATE = {
  * @param {Server} server
  */
 export function assertInteractionRoutesGated(server) {
+  let checked = 0
+
   for (const route of server.table()) {
     if (!route.path.startsWith('/interaction')) {
       continue
     }
+
+    checked++
 
     const pre = /** @type {unknown[]} */ (route.settings.pre ?? []).flat()
     const gated = pre.some(
@@ -71,6 +100,15 @@ export function assertInteractionRoutesGated(server) {
         `Route ${route.method.toUpperCase()} ${route.path} is missing the interaction gate (requireInteraction pre)`
       )
     }
+  }
+
+  // The guard recognises its routes by path, so a rename or a prefixed
+  // mount would leave it silently inspecting nothing at all. Finding none
+  // means the guard has lost track of them, not that there are none.
+  if (!checked) {
+    throw new Error(
+      'Found no interaction routes to check for the gate — the guard is looking for paths under /interaction'
+    )
   }
 }
 
@@ -163,7 +201,10 @@ export default /** @type {ServerRoute[]} */ (
     ({
       method: 'POST',
       path: '/interaction/{uid}/email',
-      options: { validate: { params: uidParams }, pre: [GATE] },
+      options: {
+        validate: { params: uidParams, payload: formPayload('email') },
+        pre: [GATE]
+      },
       async handler(request, h) {
         const details = request.pre.details
         const { email } = request.payload
@@ -184,23 +225,35 @@ export default /** @type {ServerRoute[]} */ (
     ({
       method: 'GET',
       path: '/interaction/{uid}/code',
-      options: { validate: { params: uidParams }, pre: [GATE] },
+      options: {
+        validate: { params: uidParams },
+        plugins: { blankie: signinFormCsp },
+        pre: [GATE]
+      },
       async handler(request, h) {
         const details = request.pre.details
+        // display-only, from the API's stored record — the same source
+        // verification uses
+        const email = await signinService.getSigninEmail(details.uid)
 
-        return h.view('interaction/code', {
-          uid: details.uid,
-          // display-only, from the API's stored record — the same source
-          // verification uses
-          email: await signinService.getSigninEmail(details.uid)
-        })
+        // no code has been requested yet, so there is nothing to check and
+        // no address to show: start the journey where it actually begins
+        if (!email) {
+          return h.redirect(`/interaction/${details.uid}`)
+        }
+
+        return h.view('interaction/code', { uid: details.uid, email })
       }
     }),
     /** @satisfies {ServerRoute<{ Payload: { code?: string }, Pres: InteractionPres }>} */
     ({
       method: 'POST',
       path: '/interaction/{uid}/code',
-      options: { validate: { params: uidParams }, pre: [GATE] },
+      options: {
+        validate: { params: uidParams, payload: formPayload('code') },
+        plugins: { blankie: signinFormCsp },
+        pre: [GATE]
+      },
       async handler(request, h) {
         const details = request.pre.details
         const { code } = request.payload
@@ -213,9 +266,17 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(`/interaction/${details.uid}/phone`)
         }
 
+        const email = await signinService.getSigninEmail(details.uid)
+
+        // the record backing this page is gone (expired, or never requested),
+        // so re-rendering would offer another attempt that cannot succeed
+        if (!email) {
+          return h.redirect(`/interaction/${details.uid}`)
+        }
+
         return h.view('interaction/code', {
           uid: details.uid,
-          email: await signinService.getSigninEmail(details.uid),
+          email,
           errorKey: result.errorKey
         })
       }
@@ -224,7 +285,11 @@ export default /** @type {ServerRoute[]} */ (
     ({
       method: 'GET',
       path: '/interaction/{uid}/phone',
-      options: { validate: { params: uidParams }, pre: [GATE] },
+      options: {
+        validate: { params: uidParams },
+        plugins: { blankie: signinFormCsp },
+        pre: [GATE]
+      },
       handler(request, h) {
         return h.view('interaction/phone', { uid: request.pre.details.uid })
       }
@@ -233,7 +298,11 @@ export default /** @type {ServerRoute[]} */ (
     ({
       method: 'POST',
       path: '/interaction/{uid}/phone',
-      options: { validate: { params: uidParams }, pre: [GATE] },
+      options: {
+        validate: { params: uidParams, payload: formPayload('phone') },
+        plugins: { blankie: signinFormCsp },
+        pre: [GATE]
+      },
       async handler(request, h) {
         const details = request.pre.details
         const { phone } = request.payload

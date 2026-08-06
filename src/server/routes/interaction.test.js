@@ -190,6 +190,59 @@ describe('interaction pages', () => {
     expect(res.statusCode).toBe(403)
   })
 
+  it.each([
+    ['email', '/interaction/uid-1/email', '/interaction/uid-1'],
+    ['code', '/interaction/uid-1/code', '/interaction/uid-1/code'],
+    ['phone', '/interaction/uid-1/phone', '/interaction/uid-1/phone']
+  ])(
+    'POST %s rejects a duplicated field instead of crashing',
+    async (field, url, formUrl) => {
+      const { crumb, cookie } = await getWithCrumb(formUrl)
+
+      // a duplicated key makes hapi parse the field as an array; only a
+      // crafted request does this, but it must not reach the handlers as
+      // an unhandled type
+      const res = await server.inject({
+        method: 'POST',
+        url,
+        headers: {
+          cookie,
+          'content-type': 'application/x-www-form-urlencoded'
+        },
+        payload: `crumb=${crumb}&${field}=one&${field}=two`
+      })
+
+      expect(res.statusCode).toBe(400)
+    }
+  )
+
+  /**
+   * The form-action directive of a page's Content-Security-Policy
+   * @param {string} url
+   */
+  async function formActionFor(url) {
+    const res = await server.inject({ method: 'GET', url })
+    const csp = String(res.headers['content-security-policy'])
+    return /form-action ([^;]*)/.exec(csp)?.[1]
+  }
+
+  it.each(['/interaction/uid-1/code', '/interaction/uid-1/phone'])(
+    'lets %s submit on towards the client that sent the user here',
+    async (url) => {
+      // completing sign-in 303s through the provider to the client's
+      // redirect_uri, and the submitting page's form-action governs the
+      // whole redirect chain
+      expect(await formActionFor(url)).toContain('http://localhost:3009')
+    }
+  )
+
+  it.each(['/', '/interaction/uid-1'])(
+    'keeps %s submitting only to this service',
+    async (url) => {
+      expect(await formActionFor(url)).toBe("'self'")
+    }
+  )
+
   it('GET code shows the email from the stored record', async () => {
     jest.mocked(identityApi.getOtpEmail).mockResolvedValue('shown@example.com')
 
@@ -212,6 +265,20 @@ describe('interaction pages', () => {
         name: 'Enter the 6 digit security code'
       })
     ).toBeInTheDocument()
+  })
+
+  it('GET code sends the user back to the email step when no code was requested', async () => {
+    // reaching the code page first (typed URL, restored tab) leaves nothing
+    // to address the email to, and any code entered could only ever fail
+    jest.mocked(identityApi.getOtpEmail).mockResolvedValue(null)
+
+    const res = await server.inject({
+      method: 'GET',
+      url: '/interaction/uid-1/code'
+    })
+
+    expect(res.statusCode).toBe(302)
+    expect(res.headers.location).toBe('/interaction/uid-1')
   })
 
   it('never fetches the email for a dead interaction (cookie gate first)', async () => {
@@ -240,7 +307,7 @@ describe('interaction pages', () => {
       method: 'POST',
       url: '/interaction/uid-1/code',
       headers: { cookie },
-      payload: { crumb, code: '123456', email: 'a@b.com' }
+      payload: { crumb, code: '123456' }
     })
 
     expect(finishedSpy).toHaveBeenCalledWith(
@@ -263,7 +330,7 @@ describe('interaction pages', () => {
       method: 'POST',
       url: '/interaction/uid-1/code',
       headers: { cookie },
-      payload: { crumb, code: '123456', email: 'a@b.com' }
+      payload: { crumb, code: '123456' }
     })
 
     expect(res.statusCode).toBe(302)
@@ -280,7 +347,7 @@ describe('interaction pages', () => {
       method: 'POST',
       url: '/interaction/uid-1/code',
       headers: { cookie },
-      payload: { crumb, code: '000000', email: 'a@b.com' }
+      payload: { crumb, code: '000000' }
     })
 
     expect(response.statusCode).toBe(200)
@@ -304,7 +371,7 @@ describe('interaction pages', () => {
         method: 'POST',
         url: '/interaction/uid-1/code',
         headers: { cookie },
-        payload: { crumb, code, email: 'a@b.com' }
+        payload: { crumb, code }
       })
 
       expect(response.statusCode).toBe(200)
@@ -313,6 +380,22 @@ describe('interaction pages', () => {
       )
     }
     expect(identityApi.verifyOtp).not.toHaveBeenCalled()
+  })
+
+  it('POST code sends the user back to the email step when no code was requested', async () => {
+    jest.mocked(identityApi.verifyOtp).mockResolvedValue({ status: 'invalid' })
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/code')
+    jest.mocked(identityApi.getOtpEmail).mockResolvedValue(null)
+
+    const res = await server.inject({
+      method: 'POST',
+      url: '/interaction/uid-1/code',
+      headers: { cookie },
+      payload: { crumb, code: '123456' }
+    })
+
+    expect(res.statusCode).toBe(302)
+    expect(res.headers.location).toBe('/interaction/uid-1')
   })
 
   it('POST phone finishes the interaction on success', async () => {
@@ -444,6 +527,24 @@ describe('interaction route gating policy', () => {
     expect(() => {
       assertInteractionRoutesGated(rogue)
     }).toThrow(/missing the interaction gate/)
+  })
+
+  it('refuses to start when it no longer recognises any interaction route', () => {
+    // a renamed journey or a prefixed mount would otherwise leave the guard
+    // matching nothing and reporting success while protecting nothing
+    const renamed = /** @type {never} */ ({
+      table: () => [
+        {
+          method: 'get',
+          path: '/sign-in/{uid}',
+          settings: { pre: [] }
+        }
+      ]
+    })
+
+    expect(() => {
+      assertInteractionRoutesGated(renamed)
+    }).toThrow(/no interaction routes/i)
   })
 
   // the accepting side needs no test of its own: every suite that calls

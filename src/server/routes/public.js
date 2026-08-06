@@ -3,47 +3,59 @@ import { join } from 'node:path'
 import { config } from '~/src/config/index.js'
 
 /**
- * Root path prefixes the static routes below own — shared with the logging
- * and CSRF plugins so asset traffic is excluded from both
+ * A file may only be cached forever if its name changes whenever its bytes
+ * do. Webpack content-hashes the JS and CSS bundle names, but only for a
+ * production build; images and fonts keep their plain names in every
+ * environment, and govuk-frontend's own assets are copied across verbatim.
+ * Anything unhashed therefore has to stay revalidatable, or a rebrand never
+ * reaches a browser that has already been to the site.
  */
-export const STATIC_PATH_PREFIXES = [
-  '/javascripts/',
-  '/stylesheets/',
-  '/assets/'
-]
+const bundleNamesCarryContentHash = config.get('isProduction')
+const staticMaxAge = config.get('staticCacheMaxAge')
+const oneYearSeconds = 31536000
 
-export default [
+const staticRoutes = [
   {
     from: '/javascripts/{path*}',
     to: join(config.get('publicDir'), 'javascripts'),
-    immutable: true
+    immutable: bundleNamesCarryContentHash
   },
   {
     from: '/stylesheets/{path*}',
     to: join(config.get('publicDir'), 'stylesheets'),
-    immutable: true
+    immutable: bundleNamesCarryContentHash
   },
   {
     from: '/assets/fonts/{path*}',
     to: join(config.get('publicDir'), 'assets/fonts'),
-    immutable: true
+    immutable: false
   },
   {
     from: '/assets/{path*}',
     to: join(config.get('publicDir'), 'assets'),
-    immutable: config.get('isProduction')
+    immutable: false
   }
-].map((options) => {
+]
+
+/**
+ * Root path prefixes the static routes own, read off the routes themselves
+ * so the two can never drift apart. Shared with the logging and CSRF
+ * plugins, which use them to keep asset traffic out of the request log and
+ * to leave crumb cookies off responses that carry no form.
+ */
+export const STATIC_PATH_PREFIXES = [
+  ...new Set(staticRoutes.map((route) => route.from.replace('{path*}', '')))
+]
+
+export default staticRoutes.map((options) => {
   return /** @type {ServerRoute} */ ({
     method: 'GET',
     path: options.from,
     options: {
       cache: {
-        // Historically, an infinite max-age is the 32-bit maximum 2,147,483,648
-        // https://datatracker.ietf.org/doc/html/rfc9111#section-1.2.2
         otherwise: options.immutable
-          ? 'public, max-age=2147483648, immutable'
-          : 'public, max-age=0, must-revalidate'
+          ? `public, max-age=${oneYearSeconds}, immutable`
+          : `public, max-age=${staticMaxAge}`
       },
       handler: {
         directory: {

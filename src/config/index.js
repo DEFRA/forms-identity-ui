@@ -9,6 +9,7 @@ const isDev = process.env.NODE_ENV !== 'production'
 const isTest = process.env.NODE_ENV === 'test'
 
 const fourHoursMs = 14400000
+const oneWeekSeconds = 604800
 
 export const config = convict({
   appDir: {
@@ -18,6 +19,12 @@ export const config = convict({
   publicDir: {
     format: String,
     default: resolve(import.meta.dirname, '../../.public')
+  },
+  staticCacheMaxAge: {
+    doc: 'How long browsers and shared caches may keep a static file whose name carries no content hash, in seconds. Bounds how long a rebrand or a govuk-frontend upgrade can go unnoticed.',
+    format: 'nat',
+    default: oneWeekSeconds,
+    env: 'STATIC_CACHE_MAX_AGE'
   },
 
   /**
