@@ -361,6 +361,24 @@ describe('interaction pages', () => {
     ).toHaveAttribute('href', '#code')
   })
 
+  it('POST a code with leading zeros reaches the API unchanged', async () => {
+    // the zeros are part of the code, so they must survive to the API
+    jest.mocked(identityApi.verifyOtp).mockResolvedValue({ status: 'invalid' })
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/code')
+
+    await server.inject({
+      method: 'POST',
+      url: '/interaction/uid-1/code',
+      headers: { cookie },
+      payload: { crumb, code: '000001' }
+    })
+
+    expect(identityApi.verifyOtp).toHaveBeenCalledWith({
+      uid: 'uid-1',
+      code: '000001'
+    })
+  })
+
   it('POST a malformed or empty code re-renders without calling the API', async () => {
     const { crumb, cookie } = await getWithCrumb(
       '/interaction/uid-1/code?email=a%40b.com'
