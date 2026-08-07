@@ -384,7 +384,7 @@ describe('interaction pages', () => {
       '/interaction/uid-1/code?email=a%40b.com'
     )
 
-    for (const code of ['12345', 'abc123', '']) {
+    for (const code of ['1', '12345', 'abc123', '']) {
       const { container, response } = await renderResponse(server, {
         method: 'POST',
         url: '/interaction/uid-1/code',
