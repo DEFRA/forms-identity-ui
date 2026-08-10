@@ -1,3 +1,4 @@
+import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { createServer } from '~/src/server/index.js'
 
 describe('oidc plugin', () => {
@@ -16,9 +17,7 @@ describe('oidc plugin', () => {
   it('serves the discovery document with issuer-derived endpoints', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/.well-known/openid-configuration',
-      // endpoint URLs derive from the Host header (proxy-trusting provider)
-      headers: { host: 'localhost:3011' }
+      url: '/.well-known/openid-configuration'
     })
 
     expect(res.statusCode).toBe(200)
@@ -26,6 +25,58 @@ describe('oidc plugin', () => {
     expect(doc.issuer).toBe('http://localhost:3011')
     expect(doc.authorization_endpoint).toBe('http://localhost:3011/auth')
     expect(doc.token_endpoint).toBe('http://localhost:3011/token')
+  })
+
+  it('builds endpoint URLs from the issuer, not from the caller headers', async () => {
+    // A caller who could name the origin could name the jwks_uri, and a
+    // relying party that resolved keys from it would accept tokens signed by
+    // whoever answered there
+    const res = await server.inject({
+      method: 'GET',
+      url: '/.well-known/openid-configuration',
+      headers: {
+        host: 'evil.example.com',
+        'x-forwarded-host': 'evil.example.com',
+        'x-forwarded-proto': 'https'
+      }
+    })
+
+    expect(res.statusCode).toBe(200)
+    const doc = JSON.parse(res.payload)
+    expect(doc.issuer).toBe('http://localhost:3011')
+    expect(doc.jwks_uri).toBe('http://localhost:3011/jwks')
+    expect(doc.authorization_endpoint).toBe('http://localhost:3011/auth')
+    expect(doc.token_endpoint).toBe('http://localhost:3011/token')
+    expect(doc.userinfo_endpoint).toBe('http://localhost:3011/me')
+  })
+
+  it('logs the host it ignored, so a proxy that stops overwriting it shows up', async () => {
+    const warn = jest.spyOn(logger, 'warn').mockReturnValue(undefined)
+
+    await server.inject({
+      method: 'GET',
+      url: '/.well-known/openid-configuration',
+      headers: { 'x-forwarded-host': 'evil.example.com' }
+    })
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('[forwardedHostIgnored]')
+    )
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('evil.example.com')
+    )
+  })
+
+  it('stays quiet when the load balancer sends the issuer host', async () => {
+    const warn = jest.spyOn(logger, 'warn').mockReturnValue(undefined)
+
+    await server.inject({
+      method: 'GET',
+      url: '/.well-known/openid-configuration',
+      headers: { 'x-forwarded-host': 'localhost:3011' }
+    })
+
+    expect(warn).not.toHaveBeenCalled()
   })
 
   it('serves jwks with only the public key material', async () => {

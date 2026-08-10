@@ -6,6 +6,12 @@ import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 
 const OIDC_ISSUER = config.get('oidc.issuer')
+const { host: ISSUER_HOST, protocol: ISSUER_PROTOCOL } = new URL(OIDC_ISSUER)
+const ISSUER_PROTO = ISSUER_PROTOCOL.replace(':', '')
+
+// An ignored host is worth seeing in the logs, at a length that cannot flood
+// them — the value is caller-supplied and only its identity matters
+const LOGGED_HOST_MAX_LENGTH = 100
 
 /**
  * Paths owned by oidc-provider. Mounted explicitly (no catch-all) so
@@ -30,6 +36,33 @@ const PROTOCOL_ROUTES = [
 ]
 
 /**
+ * Fixes the origin the provider builds its URLs from. oidc-provider derives
+ * every advertised endpoint, form action and redirect from the incoming
+ * request, so the public origin is stated here from OIDC_ISSUER rather than
+ * read from the caller: the URLs then match the issuer in every environment,
+ * and a forged X-Forwarded-Host has nothing left to influence.
+ *
+ * The load balancer overwrites these headers on every real request, so a
+ * disagreement means either it has stopped doing so or someone is probing.
+ * Both are worth knowing about and neither changes the URLs, so the value is
+ * logged rather than refused — refusing would turn a proxy misconfiguration
+ * into an outage for anything that reaches us under another name.
+ * @param {IncomingMessage} req
+ */
+function pinOrigin(req) {
+  const claimed = req.headers['x-forwarded-host']
+
+  if (claimed !== undefined && claimed !== ISSUER_HOST) {
+    logger.warn(
+      `[forwardedHostIgnored] X-Forwarded-Host "${String(claimed).slice(0, LOGGED_HOST_MAX_LENGTH)}" does not match the issuer host "${ISSUER_HOST}" - building URLs from the issuer`
+    )
+  }
+
+  req.headers['x-forwarded-host'] = ISSUER_HOST
+  req.headers['x-forwarded-proto'] = ISSUER_PROTO
+}
+
+/**
  * Runs node-oidc-provider inside this service, so its cookies are
  * first-party. Persistence is the HTTP adapter against forms-identity-api.
  * @satisfies {ServerRegisterPluginObject<void>}
@@ -45,9 +78,9 @@ export default {
         OIDC_ISSUER,
         buildProviderConfig(makeHttpAdapter())
       )
-      // Required: trusts the load balancer's X-Forwarded-* headers so the
-      // provider builds https:// URLs and secure cookies. Removing this
-      // breaks every deployed environment.
+      // Required: trusts the X-Forwarded-* headers so the provider builds
+      // https:// URLs and secure cookies. Removing this breaks every deployed
+      // environment. What it trusts is what pinOrigin just wrote.
       provider.proxy = true
 
       // The provider turns internal faults into a bare `server_error` for the
@@ -73,6 +106,7 @@ export default {
       function bridge(request, h) {
         return new Promise((resolve) => {
           const { req, res } = request.raw
+          pinOrigin(req)
           const done = () => {
             resolve(h.abandon)
           }
@@ -104,5 +138,6 @@ export default {
 }
 
 /**
+ * @import { IncomingMessage } from 'node:http'
  * @import { Request, ResponseToolkit, RouteDefMethods, Server, ServerRegisterPluginObject } from '@hapi/hapi'
  */
