@@ -8,6 +8,10 @@ import { createRequire } from 'node:module'
 
 import 'dotenv/config'
 
+// the same helper the running server uses, so the spec looks the record up
+// under the key the server actually wrote
+import { hashId } from '../src/server/common/helpers/hash-id.js'
+
 // argon2/mongodb live in the API repo — resolve them from its node_modules
 const apiRequire = createRequire(
   new URL('../../forms-identity-api/package.json', import.meta.url)
@@ -30,15 +34,18 @@ const CODE_LIFETIME_MS = 900_000
  * dummy Notify key the email send fails loudly after the record is stored;
  * with a real key this simply replaces a deliverable code — either way the
  * spec knows the code without reading an inbox.
- * @param {string} uid
+ * @param {string} uid - the interaction uid from the browser's URL
  * @param {string} email
  */
 export async function captureCode(uid, email) {
   const mongo = await MongoClient.connect(MONGO_URI)
+  // the UI keys the OTP record by a digest of the uid, so the browser's copy
+  // has to be hashed before it will match
+  const key = hashId(uid)
 
   try {
     const coll = mongo.db('forms-identity-api').collection('otps')
-    const stored = await coll.findOne({ uid, purpose: PURPOSE })
+    const stored = await coll.findOne({ uid: key, purpose: PURPOSE })
 
     if (!stored) {
       throw new Error('otps record must exist (stored before the Notify call)')
@@ -51,7 +58,7 @@ export async function captureCode(uid, email) {
     }
 
     await coll.updateOne(
-      { uid, purpose: PURPOSE },
+      { uid: key, purpose: PURPOSE },
       {
         $set: {
           codeHash: await argon2.hash(KNOWN_CODE),

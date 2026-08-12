@@ -6,6 +6,7 @@ import {
   postJson,
   putJson
 } from '~/src/server/common/helpers/fetch.js'
+import { hashId } from '~/src/server/common/helpers/hash-id.js'
 
 const IDENTITY_API_URL = config.get('identityApi.url')
 
@@ -53,9 +54,19 @@ export function makeHttpAdapter() {
       this.model = snakeCase(name)
     }
 
-    /** @param {string} path */
-    url(path) {
-      return new URL(`/oidc/${this.model}/${path}`, IDENTITY_API_URL)
+    /**
+     * The artifact's own URL. `oidc-provider` issues opaque tokens, so an
+     * artifact's id is the credential the browser or relying party holds —
+     * the path carries a digest of it so that the credential stays out of
+     * every access log between here and the API.
+     * @param {string} id
+     * @param {string} [suffix] - trailing path segment, e.g. '/consume'
+     */
+    url(id, suffix = '') {
+      return new URL(
+        `/oidc/${this.model}/${hashId(id)}${suffix}`,
+        IDENTITY_API_URL
+      )
     }
 
     /**
@@ -90,10 +101,20 @@ export function makeHttpAdapter() {
       }
     }
 
-    /** @param {string} uid */
+    /**
+     * Resolves against `payload.uid`, which the adapter stores verbatim, so
+     * this one stays plaintext. The session uid is an internal reference
+     * that no client is ever given.
+     * @param {string} uid
+     */
     async findByUid(uid) {
       try {
-        const { body } = await getJson(this.url(`uid/${uid}`))
+        const { body } = await getJson(
+          new URL(
+            `/oidc/${this.model}/uid/${encodeURIComponent(uid)}`,
+            IDENTITY_API_URL
+          )
+        )
         return /** @type {AdapterPayload} */ (body)
       } catch (err) {
         throwUnlessNotFound(err)
@@ -109,7 +130,7 @@ export function makeHttpAdapter() {
 
     /** @param {string} id */
     async consume(id) {
-      await postJson(this.url(`${id}/consume`), {})
+      await postJson(this.url(id, '/consume'), {})
     }
 
     /** @param {string} id */
@@ -117,9 +138,19 @@ export function makeHttpAdapter() {
       await delJson(this.url(id), {})
     }
 
-    /** @param {string} grantId */
+    /**
+     * Resolves against `payload.grantId`, stored verbatim, so this one stays
+     * plaintext for the same reason as `findByUid`.
+     * @param {string} grantId
+     */
     async revokeByGrantId(grantId) {
-      await delJson(new URL(`/oidc/grants/${grantId}`, IDENTITY_API_URL), {})
+      await delJson(
+        new URL(
+          `/oidc/grants/${encodeURIComponent(grantId)}`,
+          IDENTITY_API_URL
+        ),
+        {}
+      )
     }
   }
 

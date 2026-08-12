@@ -4,12 +4,20 @@ import {
   isNotFoundError,
   postJson
 } from '~/src/server/common/helpers/fetch.js'
+import { hashId } from '~/src/server/common/helpers/hash-id.js'
 
 const baseUrl = config.get('identityApi.url')
 
 /**
  * Downstream client for forms-identity-api (internal network). Thin
  * transport wrappers only — journey decisions live in the signin service.
+ *
+ * The interaction uid is also the `_interaction` cookie value, so every call
+ * keys the OTP record by a digest of it rather than the uid itself. The API
+ * treats the uid as an opaque string, and the digest is deterministic, so it
+ * stores and matches the digest with no change of its own. All four sites
+ * have to agree: a digest on one side and a plaintext uid on the other gives
+ * a 404, not an error.
  * @typedef {{ status: 'invalid' } | { status: 'phone-required' } | { status: 'signed-in', accountId: string }} VerifyResult
  * @typedef {{ status: 'invalid' } | { status: 'invalid-phone' } | { status: 'signed-in', accountId: string }} CompleteResult
  */
@@ -20,7 +28,7 @@ const baseUrl = config.get('identityApi.url')
  */
 export async function requestOtp({ uid, email }) {
   await postJson(new URL('/otp/request', baseUrl), {
-    payload: { uid, email }
+    payload: { uid: hashId(uid), email }
   })
 }
 
@@ -31,7 +39,7 @@ export async function requestOtp({ uid, email }) {
  */
 export async function verifyOtp({ uid, code }) {
   const { body } = await postJson(new URL('/otp/verify', baseUrl), {
-    payload: { uid, code }
+    payload: { uid: hashId(uid), code }
   })
   return /** @type {VerifyResult} */ (body)
 }
@@ -43,7 +51,7 @@ export async function verifyOtp({ uid, code }) {
  */
 export async function completeSignup({ uid, phone }) {
   const { body } = await postJson(new URL('/accounts', baseUrl), {
-    payload: { uid, phone }
+    payload: { uid: hashId(uid), phone }
   })
   return /** @type {CompleteResult} */ (body)
 }
@@ -56,9 +64,7 @@ export async function completeSignup({ uid, phone }) {
  */
 export async function getOtpEmail(uid) {
   try {
-    const { body } = await getJson(
-      new URL(`/otp/${encodeURIComponent(uid)}`, baseUrl)
-    )
+    const { body } = await getJson(new URL(`/otp/${hashId(uid)}`, baseUrl))
     return /** @type {{ email: string }} */ (body).email
   } catch (err) {
     if (isNotFoundError(err)) {
