@@ -49,7 +49,21 @@ export function buildProviderConfig(adapter) {
     jwks: { keys: JWKS.keys },
     clientAuthMethods: ['private_key_jwt'],
     pkce: { required: () => true },
-    features: { devInteractions: { enabled: false } },
+    // Discovery is a promise to every relying party, so it states what this
+    // deployment does and nothing more: one client, the authorization code
+    // flow, one scope beyond the claims below, and ES256 both for the ID
+    // tokens signed here and for the assertions the client signs
+    responseTypes: ['code'],
+    scopes: ['openid'],
+    enabledJWA: {
+      idTokenSigningAlgValues: ['ES256'],
+      clientAuthSigningAlgValues: ['ES256']
+    },
+    features: {
+      devInteractions: { enabled: false },
+      // On by default, and its endpoint is deliberately not mounted
+      pushedAuthorizationRequests: { enabled: false }
+    },
     interactions: {
       url(_ctx, interaction) {
         return `/interaction/${interaction.uid}`
