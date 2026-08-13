@@ -17,12 +17,9 @@ export const SIGNED_IN = 'signed-in'
 export const RESTART = 'restart'
 
 const emailSchema = Joi.string().email().required()
-const phoneSchema =
-  /** @type {import('~/src/server/common/helpers/telephone.js').TelephoneSchema} */ (
-    telephoneJoi.string()
-  )
-    .phoneNumber()
-    .required()
+const phoneSchema = /** @type {TelephoneSchema} */ (telephoneJoi.string())
+  .phoneNumber()
+  .required()
 
 /**
  * Journey outcomes: plain data the route handlers translate into
@@ -152,3 +149,7 @@ export async function submitPhone(uid, phone) {
 export async function getSigninEmail(uid) {
   return (await identityApi.getOtpEmail(uid)) ?? ''
 }
+
+/**
+ * @import { TelephoneSchema } from '~/src/server/common/helpers/telephone.js'
+ */

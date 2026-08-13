@@ -1,11 +1,8 @@
 import { joi } from '~/src/server/common/helpers/telephone.js'
 
-const schema =
-  /** @type {import('~/src/server/common/helpers/telephone.js').TelephoneSchema} */ (
-    joi.string()
-  )
-    .phoneNumber()
-    .required()
+const schema = /** @type {TelephoneSchema} */ (joi.string())
+  .phoneNumber()
+  .required()
 
 describe('telephone joi extension', () => {
   it.each([
@@ -21,3 +18,7 @@ describe('telephone joi extension', () => {
     expect(schema.validate(value).error).toBeDefined()
   })
 })
+
+/**
+ * @import { TelephoneSchema } from '~/src/server/common/helpers/telephone.js'
+ */

@@ -332,6 +332,7 @@ export default /** @type {ServerRoute[]} */ (
 
 /**
  * @import { Request, ResponseToolkit, Server, ServerRoute } from '@hapi/hapi'
- * @typedef {Awaited<ReturnType<import('oidc-provider').default['interactionDetails']>>} InteractionDetails
+ * @import { Provider } from 'oidc-provider'
+ * @typedef {Awaited<ReturnType<Provider['interactionDetails']>>} InteractionDetails
  * @typedef {{ details: InteractionDetails }} InteractionPres
  */

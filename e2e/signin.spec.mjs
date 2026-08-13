@@ -20,9 +20,9 @@ const EMAIL = `e2e-${Date.now()}@example.com`
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
-/** @type {import('@playwright/test').BrowserContext} */
+/** @type {BrowserContext} */
 let context
-/** @type {import('@playwright/test').Page} */
+/** @type {Page} */
 let page
 /** @type {string} */
 let firstSub
@@ -40,7 +40,7 @@ test.afterAll(async () => {
 
 /**
  * Drives the browser from the RP through the email and code steps
- * @param {import('@playwright/test').Page} page
+ * @param {Page} page
  */
 async function signInUpToCode(page) {
   await page.goto(`${RP}/login`)
@@ -70,7 +70,7 @@ async function signInUpToCode(page) {
 
 /**
  * A row of one of the RP's tables, by the name in its first column
- * @param {import('@playwright/test').Page} page
+ * @param {Page} page
  * @param {string | RegExp} tableName
  * @param {string | RegExp} rowName
  */
@@ -189,3 +189,7 @@ test.describe.serial('citizen sign-in', () => {
     expect(await res.json()).toMatchObject({ error: 'invalid_client' })
   })
 })
+
+/**
+ * @import { BrowserContext, Page } from '@playwright/test'
+ */

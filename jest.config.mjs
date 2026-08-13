@@ -2,7 +2,7 @@ const { CI } = process.env
 
 /**
  * Jest config
- * @type {import('@jest/types').Config.InitialOptions}
+ * @type {Config.InitialOptions}
  */
 export default {
   resetMocks: true,
@@ -52,3 +52,7 @@ export default {
   testTimeout: 10000,
   forceExit: true
 }
+
+/**
+ * @import { Config } from '@jest/types'
+ */

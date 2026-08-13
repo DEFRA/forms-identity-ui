@@ -5,7 +5,7 @@ jest.mock('~/src/server/lib/identity-api.js', () => ({
   getAccount: jest.fn()
 }))
 
-const fakeAdapter = /** @type {import('oidc-provider').AdapterConstructor} */ (
+const fakeAdapter = /** @type {AdapterConstructor} */ (
   /** @type {unknown} */ (jest.fn())
 )
 
@@ -74,3 +74,7 @@ describe('buildProviderConfig', () => {
     ).resolves.toBeUndefined()
   })
 })
+
+/**
+ * @import { AdapterConstructor } from 'oidc-provider'
+ */

@@ -14,7 +14,7 @@ jest.mock('~/src/server/lib/identity-api.js', () => ({
 }))
 
 describe('interaction pages', () => {
-  /** @type {import('@hapi/hapi').Server} */
+  /** @type {Server} */
   let server
   /** @type {jest.SpyInstance} */
   let detailsSpy
@@ -47,7 +47,7 @@ describe('interaction pages', () => {
         /** @type {never} */ (
           /**
            * @param {unknown} _req
-           * @param {import('node:http').ServerResponse} res
+           * @param {ServerResponse} res
            */
           (_req, res) => {
             // the real provider writes the resume redirect itself; the handler
@@ -568,3 +568,8 @@ describe('interaction route gating policy', () => {
   // the accepting side needs no test of its own: every suite that calls
   // createServer + initialize (including this one) runs the guard for real
 })
+
+/**
+ * @import { Server } from '@hapi/hapi'
+ * @import { ServerResponse } from 'node:http'
+ */

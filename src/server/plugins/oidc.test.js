@@ -2,7 +2,7 @@ import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { createServer } from '~/src/server/index.js'
 
 describe('oidc plugin', () => {
-  /** @type {import('@hapi/hapi').Server} */
+  /** @type {Server} */
   let server
 
   beforeAll(async () => {
@@ -98,3 +98,7 @@ describe('oidc plugin', () => {
     expect(res.payload).toContain('Page not found')
   })
 })
+
+/**
+ * @import { Server } from '@hapi/hapi'
+ */
