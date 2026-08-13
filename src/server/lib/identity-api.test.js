@@ -1,6 +1,7 @@
 import Boom from '@hapi/boom'
 
 import { getJson, postJson } from '~/src/server/common/helpers/fetch.js'
+import { hashId } from '~/src/server/common/helpers/hash-id.js'
 import {
   completeSignup,
   getAccount,
@@ -19,6 +20,20 @@ jest.mock('~/src/server/common/helpers/fetch.js', () => ({
 
 const API = 'http://localhost:3010'
 
+/**
+ * The payload a recorded POST carried
+ * @param {number} index
+ * @returns {Record<string, string>}
+ */
+function postPayload(index) {
+  const [, options] =
+    /** @type {[URL, { payload: Record<string, string> }]} */ (
+      jest.mocked(postJson).mock.calls[index]
+    )
+
+  return options.payload
+}
+
 describe('identity-api client', () => {
   it('requestOtp posts uid and email', async () => {
     jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
@@ -29,7 +44,10 @@ describe('identity-api client', () => {
       jest.mocked(postJson).mock.calls[0]
     )
     expect(url.href).toBe(`${API}/otp/request`)
-    expect(options.payload).toEqual({ uid: 'uid-1', email: 'a@b.com' })
+    expect(options.payload).toEqual({
+      uid: hashId('uid-1'),
+      email: 'a@b.com'
+    })
   })
 
   it('verifyOtp returns the verdict body', async () => {
@@ -45,6 +63,10 @@ describe('identity-api client', () => {
     expect(jest.mocked(postJson).mock.calls[0][0].href).toBe(
       `${API}/otp/verify`
     )
+    expect(postPayload(0)).toEqual({
+      uid: hashId('uid-1'),
+      code: '123456'
+    })
   })
 
   it('completeSignup returns the verdict body', async () => {
@@ -58,6 +80,32 @@ describe('identity-api client', () => {
       completeSignup({ uid: 'uid-1', phone: '07911 123456' })
     ).resolves.toEqual({ status: 'signed-in', accountId: 'acc-1' })
     expect(jest.mocked(postJson).mock.calls[0][0].href).toBe(`${API}/accounts`)
+    expect(postPayload(0)).toEqual({
+      uid: hashId('uid-1'),
+      phone: '07911 123456'
+    })
+  })
+
+  it('keys the OTP record the same way at all four call sites', async () => {
+    jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({ body: {} }))
+    jest
+      .mocked(getJson)
+      .mockResolvedValue(/** @type {never} */ ({ body: { email: 'a@b.com' } }))
+
+    await requestOtp({ uid: 'uid-1', email: 'a@b.com' })
+    await verifyOtp({ uid: 'uid-1', code: '123456' })
+    await completeSignup({ uid: 'uid-1', phone: '07911 123456' })
+    await getOtpEmail('uid-1')
+
+    // one plaintext uid among them would make the API's {uid, purpose}
+    // lookup miss, which surfaces as a 404 rather than an error
+    const sent = [
+      postPayload(0).uid,
+      postPayload(1).uid,
+      postPayload(2).uid,
+      jest.mocked(getJson).mock.calls[0][0].pathname.split('/')[2]
+    ]
+    expect(sent).toEqual(Array(4).fill(hashId('uid-1')))
   })
 
   it('getAccount returns the account, and null on 404', async () => {
@@ -86,7 +134,10 @@ describe('identity-api client', () => {
       .mocked(getJson)
       .mockResolvedValue(/** @type {never} */ ({ body: { email: 'a@b.com' } }))
     await expect(getOtpEmail('uid-1')).resolves.toBe('a@b.com')
-    expect(jest.mocked(getJson).mock.calls[0][0].href).toBe(`${API}/otp/uid-1`)
+    expect(jest.mocked(getJson).mock.calls[0][0].href).toBe(
+      `${API}/otp/${hashId('uid-1')}`
+    )
+    expect(jest.mocked(getJson).mock.calls[0][0].href).not.toContain('uid-1')
 
     const notFound = Boom.notFound()
     jest.mocked(getJson).mockRejectedValue(notFound)

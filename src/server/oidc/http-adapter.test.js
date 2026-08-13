@@ -6,6 +6,7 @@ import {
   postJson,
   putJson
 } from '~/src/server/common/helpers/fetch.js'
+import { hashId } from '~/src/server/common/helpers/hash-id.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 
 jest.mock('~/src/server/common/helpers/fetch.js', () => ({
@@ -32,7 +33,8 @@ describe('http adapter', () => {
     const [url, options] = /** @type {[URL, { payload: object }]} */ (
       jest.mocked(putJson).mock.calls[0]
     )
-    expect(url.href).toBe(`${API}/oidc/authorization_code/id-1`)
+    expect(url.href).toBe(`${API}/oidc/authorization_code/${hashId('id-1')}`)
+    expect(url.href).not.toContain('id-1')
     expect(options.payload).toEqual({
       payload: { foo: 'bar' },
       expiresIn: 60
@@ -88,32 +90,84 @@ describe('http adapter', () => {
     await expect(adapter.find('id-3')).rejects.toThrow('boom')
   })
 
-  it('findByUid, consume, destroy and revokeByGrantId hit their endpoints', async () => {
+  it('find addresses the artifact by its digest', async () => {
     jest
       .mocked(getJson)
-      .mockResolvedValue(/** @type {never} */ ({ body: { uid: 'u' } }))
+      .mockResolvedValue(/** @type {never} */ ({ body: { a: 1 } }))
+
+    await adapter.find('id-find')
+
+    expect(jest.mocked(getJson).mock.calls.at(-1)?.[0].href).toBe(
+      `${API}/oidc/authorization_code/${hashId('id-find')}`
+    )
+  })
+
+  it('consume, destroy and findByUserCode address the artifact by its digest', async () => {
+    jest
+      .mocked(getJson)
+      .mockResolvedValue(/** @type {never} */ ({ body: { a: 1 } }))
     jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
     jest.mocked(delJson).mockResolvedValue(/** @type {never} */ ({}))
 
+    await adapter.consume('id-4')
+    expect(jest.mocked(postJson).mock.calls.at(-1)?.[0].href).toBe(
+      `${API}/oidc/authorization_code/${hashId('id-4')}/consume`
+    )
+
+    await adapter.destroy('id-5')
+    expect(jest.mocked(delJson).mock.calls.at(-1)?.[0].href).toBe(
+      `${API}/oidc/authorization_code/${hashId('id-5')}`
+    )
+
+    // device flow delegates to find, so the user code is hashed too
+    await adapter.findByUserCode('id-6')
+    expect(jest.mocked(getJson).mock.calls.at(-1)?.[0].href).toBe(
+      `${API}/oidc/authorization_code/${hashId('id-6')}`
+    )
+
+    const paths = [
+      ...jest.mocked(postJson).mock.calls,
+      ...jest.mocked(delJson).mock.calls,
+      ...jest.mocked(getJson).mock.calls
+    ].map((call) => call[0].href)
+    expect(paths.join(' ')).not.toMatch(/id-[456]/)
+  })
+
+  it('findByUid and revokeByGrantId send the plaintext value, encoded', async () => {
+    jest
+      .mocked(getJson)
+      .mockResolvedValue(/** @type {never} */ ({ body: { uid: 'u' } }))
+    jest.mocked(delJson).mockResolvedValue(/** @type {never} */ ({}))
+
+    // both resolve against a value the adapter stores verbatim inside the
+    // payload, so a digest here would never match
     const session = new Adapter('Session')
     await session.findByUid('u-1')
     expect(jest.mocked(getJson).mock.calls.at(-1)?.[0].href).toBe(
       `${API}/oidc/session/uid/u-1`
     )
 
-    await adapter.consume('id-4')
-    expect(jest.mocked(postJson).mock.calls.at(-1)?.[0].href).toBe(
-      `${API}/oidc/authorization_code/id-4/consume`
-    )
-
-    await adapter.destroy('id-5')
-    expect(jest.mocked(delJson).mock.calls.at(-1)?.[0].href).toBe(
-      `${API}/oidc/authorization_code/id-5`
-    )
-
     await adapter.revokeByGrantId('g-1')
     expect(jest.mocked(delJson).mock.calls.at(-1)?.[0].href).toBe(
       `${API}/oidc/grants/g-1`
+    )
+  })
+
+  it('keeps a traversal attempt inside the /oidc route family', async () => {
+    jest
+      .mocked(getJson)
+      .mockResolvedValue(/** @type {never} */ ({ body: { uid: 'u' } }))
+    jest.mocked(delJson).mockResolvedValue(/** @type {never} */ ({}))
+
+    const session = new Adapter('Session')
+    await session.findByUid('../../accounts/1')
+    expect(jest.mocked(getJson).mock.calls.at(-1)?.[0].pathname).toBe(
+      '/oidc/session/uid/..%2F..%2Faccounts%2F1'
+    )
+
+    await adapter.revokeByGrantId('../../accounts/1')
+    expect(jest.mocked(delJson).mock.calls.at(-1)?.[0].pathname).toBe(
+      '/oidc/grants/..%2F..%2Faccounts%2F1'
     )
   })
 })

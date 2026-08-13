@@ -379,12 +379,13 @@ describe('interaction pages', () => {
     })
   })
 
-  it('POST a malformed or empty code re-renders without calling the API', async () => {
+  it('POST a malformed code reaches the API, which judges the shape invalid', async () => {
+    jest.mocked(identityApi.verifyOtp).mockResolvedValue({ status: 'invalid' })
     const { crumb, cookie } = await getWithCrumb(
       '/interaction/uid-1/code?email=a%40b.com'
     )
 
-    for (const code of ['1', '12345', 'abc123', '']) {
+    for (const code of ['1', '12345', 'abc123']) {
       const { container, response } = await renderResponse(server, {
         method: 'POST',
         url: '/interaction/uid-1/code',
@@ -393,10 +394,34 @@ describe('interaction pages', () => {
       })
 
       expect(response.statusCode).toBe(200)
-      expect(container.getByRole('alert')).toContainElement(
-        container.getByRole('heading', { name: 'There is a problem' })
-      )
+      expect(identityApi.verifyOtp).toHaveBeenLastCalledWith({
+        uid: 'uid-1',
+        code
+      })
+      expect(
+        container.getByRole('link', {
+          name: 'The code you entered is not correct or has expired – enter it again or request a new code'
+        })
+      ).toHaveAttribute('href', '#code')
     }
+  })
+
+  it('POST an empty code re-renders the required error without calling the API', async () => {
+    const { crumb, cookie } = await getWithCrumb(
+      '/interaction/uid-1/code?email=a%40b.com'
+    )
+
+    const { container, response } = await renderResponse(server, {
+      method: 'POST',
+      url: '/interaction/uid-1/code',
+      headers: { cookie },
+      payload: { crumb, code: '' }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(
+      container.getByRole('link', { name: 'Enter the 6 digit security code' })
+    ).toHaveAttribute('href', '#code')
     expect(identityApi.verifyOtp).not.toHaveBeenCalled()
   })
 

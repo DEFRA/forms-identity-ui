@@ -62,9 +62,9 @@ export async function submitEmail(uid, email) {
 }
 
 /**
- * Code step: the API's verdict routes the journey — signed-in (existing
- * account), phone-required (JIT arm), or invalid (which includes expired
- * codes: one inline error covers both)
+ * Code step: the API owns what a valid code is and returns the verdict that
+ * routes the journey — signed-in (existing account), phone-required (JIT arm),
+ * or invalid (a wrong, expired, or malformed code: one inline error covers all)
  * @param {string} uid
  * @param {string | undefined} code
  * @returns {Promise<CodeOutcome>}
@@ -74,13 +74,6 @@ export async function submitCode(uid, code) {
 
   if (!trimmed) {
     return { outcome: INVALID_CODE, errorKey: 'signin.code.errorRequired' }
-  }
-
-  // shape check before the downstream call — the API's route validation
-  // rejects malformed codes as a 400 (client bug), so they must never
-  // leave this service
-  if (!/^\d{6}$/.test(trimmed)) {
-    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalid' }
   }
 
   const result = await identityApi.verifyOtp({ uid, code: trimmed })
