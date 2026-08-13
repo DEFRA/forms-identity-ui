@@ -2,6 +2,7 @@ import Provider from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
+import { rawSecurityHeaders } from '~/src/server/common/helpers/security-headers.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 
@@ -63,6 +64,47 @@ function pinOrigin(req) {
 }
 
 /**
+ * Gives a protocol response the same headers a hapi-routed one gets. The
+ * provider writes to the socket itself and hapi is told to abandon the
+ * request, so `routes.security` and blankie both stay out of it — the
+ * headers are put on the raw response here instead, before the provider is
+ * handed the socket.
+ *
+ * This is what stops the logout confirmation page from being framed, and it
+ * is the only policy the provider's error page has.
+ *
+ * Applied twice, and only where a header is absent. Once now, so the
+ * provider can read the policy back and extend it (it appends a script hash
+ * to the CSP on the pages that carry an inline script), and once at write
+ * time to restore whatever is missing by then: koa empties the response of
+ * every header when it handles an unexpected error, which is exactly the
+ * response that most needs a policy behind it.
+ * @param {ServerResponse} res
+ */
+function applySecurityHeaders(res) {
+  const setBaseline = () => {
+    for (const [name, value] of Object.entries(rawSecurityHeaders)) {
+      if (!res.hasHeader(name)) {
+        res.setHeader(name, value)
+      }
+    }
+  }
+
+  setBaseline()
+
+  /** @type {ServerResponse['writeHead']} */
+  const writeHead = res.writeHead.bind(res)
+
+  res.writeHead = /** @type {ServerResponse['writeHead']} */ (
+    (/** @type {Parameters<ServerResponse['writeHead']>} */ ...args) => {
+      setBaseline()
+
+      return writeHead(...args)
+    }
+  )
+}
+
+/**
  * Runs node-oidc-provider inside this service, so its cookies are
  * first-party. Persistence is the HTTP adapter against forms-identity-api.
  * @satisfies {ServerRegisterPluginObject<void>}
@@ -107,6 +149,7 @@ export default {
         return new Promise((resolve) => {
           const { req, res } = request.raw
           pinOrigin(req)
+          applySecurityHeaders(res)
           const done = () => {
             resolve(h.abandon)
           }
@@ -138,6 +181,6 @@ export default {
 }
 
 /**
- * @import { IncomingMessage } from 'node:http'
+ * @import { IncomingMessage, ServerResponse } from 'node:http'
  * @import { Request, ResponseToolkit, RouteDefMethods, Server, ServerRegisterPluginObject } from '@hapi/hapi'
  */

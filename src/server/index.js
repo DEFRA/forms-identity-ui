@@ -11,6 +11,7 @@ import { config } from '~/src/config/index.js'
 import { requestLogger } from '~/src/server/common/helpers/logging/request-logger.js'
 import { requestTracing } from '~/src/server/common/helpers/request-tracing.js'
 import { prepareSecureContext } from '~/src/server/common/helpers/secure-context/index.js'
+import { routeSecurity } from '~/src/server/common/helpers/security-headers.js'
 import { getCacheEngine } from '~/src/server/common/helpers/session-cache/cache-engine.js'
 import pluginBlankie from '~/src/server/plugins/blankie.js'
 import pluginCrumb from '~/src/server/plugins/crumb.js'
@@ -45,16 +46,7 @@ function serverOptions() {
           abortEarly: false
         }
       },
-      security: {
-        hsts: {
-          maxAge: 31536000,
-          includeSubDomains: true,
-          preload: false
-        },
-        xss: 'enabled',
-        noSniff: true,
-        xframe: true
-      },
+      security: routeSecurity,
       files: {
         relativeTo: config.get('publicDir')
       }
