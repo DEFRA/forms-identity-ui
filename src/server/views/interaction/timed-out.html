@@ -1,0 +1,17 @@
+{% extends "layouts/page.html" %}
+
+{% set pageTitle = t('signin.timedOut.title') %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+
+      <h1 class="govuk-heading-l">{{ t('signin.timedOut.title') }}</h1>
+
+      {% for paragraph in t('signin.timedOut.body', { returnObjects: true, duration: interactionDuration }) %}
+        <p class="govuk-body">{{ paragraph }}</p>
+      {% endfor %}
+
+    </div>
+  </div>
+{% endblock %}

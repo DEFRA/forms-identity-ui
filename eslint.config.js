@@ -288,6 +288,16 @@ export default defineConfig([
     }
   },
 
+  // Local tooling (dev RP, scripts, e2e) is allowed to log, and runs under
+  // plain node or playwright where the `~` alias cannot resolve
+  {
+    files: ['scripts/**', 'example/**', 'e2e/**'],
+    rules: {
+      'no-console': 'off',
+      'no-restricted-imports': 'off'
+    }
+  },
+
   // Prettier must be last
   prettierConfig
 ])

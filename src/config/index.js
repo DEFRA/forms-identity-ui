@@ -9,7 +9,7 @@ const isDev = process.env.NODE_ENV !== 'production'
 const isTest = process.env.NODE_ENV === 'test'
 
 const fourHoursMs = 14400000
-const oneWeekMs = 604800000
+const oneWeekSeconds = 604800
 
 export const config = convict({
   appDir: {
@@ -19,6 +19,12 @@ export const config = convict({
   publicDir: {
     format: String,
     default: resolve(import.meta.dirname, '../../.public')
+  },
+  staticCacheMaxAge: {
+    doc: 'How long browsers and shared caches may keep a static file whose name carries no content hash, in seconds. Bounds how long a rebrand or a govuk-frontend upgrade can go unnoticed.',
+    format: 'nat',
+    default: oneWeekSeconds,
+    env: 'STATIC_CACHE_MAX_AGE'
   },
 
   /**
@@ -208,19 +214,96 @@ export const config = convict({
   },
 
   /**
-   * Static assets
+   * OIDC provider (this service is the issuer). Every value is required —
+   * the service refuses to start without them, so a misconfigured
+   * environment fails loudly at boot rather than at first sign-in. Secrets
+   * are never boot-generated: generated keys break horizontal scaling.
    */
-  assetPath: {
-    doc: 'Asset path',
-    format: String,
-    default: '/public',
-    env: 'ASSET_PATH'
+  oidc: {
+    issuer: {
+      doc: 'Public issuer origin (this service). TLS is terminated upstream.',
+      format: String,
+      default: /** @type {string | null} */ (null),
+      env: 'OIDC_ISSUER'
+    },
+    jwks: {
+      doc: 'Private JWKS JSON (run `node scripts/generate-jwks.mjs`)',
+      format: String,
+      default: /** @type {string | null} */ (null),
+      sensitive: true,
+      env: 'OIDC_JWKS'
+    },
+    cookieKeys: {
+      doc: 'Comma-separated cookie signing keys, identical across containers',
+      format: String,
+      default: /** @type {string | null} */ (null),
+      sensitive: true,
+      env: 'OIDC_COOKIE_KEYS'
+    },
+    cookieSecure: {
+      doc: 'Secure flag on provider cookies (off for local http)',
+      format: Boolean,
+      default: isProduction,
+      env: 'OIDC_COOKIE_SECURE'
+    },
+    runnerJwks: {
+      doc: 'Public JWKS of the `runner` client, whose private half signs the assertion it authenticates with (run `node scripts/generate-client-keypair.mjs`). Public key material, so not a secret.',
+      format: String,
+      default: /** @type {string | null} */ (null),
+      env: 'OIDC_RUNNER_JWKS'
+    },
+    runnerRedirectUris: {
+      doc: 'Comma-separated redirect_uris for the runner client',
+      format: String,
+      default: /** @type {string | null} */ (null),
+      env: 'OIDC_RUNNER_REDIRECT_URIS'
+    },
+    ttl: {
+      authorizationCode: {
+        doc: 'Authorization code lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_AUTHORIZATION_CODE'
+      },
+      idToken: {
+        doc: 'ID token lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_ID_TOKEN'
+      },
+      accessToken: {
+        doc: 'Access token lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_ACCESS_TOKEN'
+      },
+      interaction: {
+        doc: 'Sign-in interaction lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_INTERACTION'
+      },
+      session: {
+        doc: 'Provider session lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_SESSION'
+      },
+      grant: {
+        doc: 'Grant lifetime in seconds',
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_GRANT'
+      }
+    }
   },
-  staticCacheTimeout: {
-    doc: 'Static cache timeout in milliseconds',
-    format: Number,
-    default: oneWeekMs,
-    env: 'STATIC_CACHE_TIMEOUT'
+  identityApi: {
+    url: {
+      doc: 'Internal base URL of forms-identity-api',
+      format: String,
+      default: /** @type {string | null} */ (null),
+      env: 'IDENTITY_API_URL'
+    }
   },
 
   /**

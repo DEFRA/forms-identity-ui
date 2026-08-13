@@ -1,0 +1,44 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+
+{% set pageTitle = t('signin.email.title') %}
+{% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+
+      {% if errorKey %}
+        {{ govukErrorSummary({
+          titleText: t('signin.errorSummaryTitle'),
+          errorList: [{ text: t(errorKey), href: "#email" }]
+        }) }}
+      {% endif %}
+
+      <form method="post" action="/interaction/{{ uid }}/email" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        {{ govukInput({
+          label: {
+            text: t('signin.email.title'),
+            classes: "govuk-label--l",
+            isPageHeading: true
+          },
+          id: "email",
+          name: "email",
+          type: "email",
+          autocomplete: "email",
+          spellcheck: false,
+          value: email,
+          errorMessage: errorMessage
+        }) }}
+
+        {{ govukButton({ text: t('signin.email.continue') }) }}
+      </form>
+
+    </div>
+  </div>
+{% endblock %}

@@ -1,9 +1,14 @@
 import { StatusCodes } from 'http-status-codes'
 
-import { config } from '~/src/config/index.js'
-import { healthRoute, homeRoute } from '~/src/server/routes/index.js'
+import {
+  healthRoute,
+  homeRoute,
+  interactionRoutes,
+  publicRoutes
+} from '~/src/server/routes/index.js'
+import { assertInteractionRoutesGated } from '~/src/server/routes/interaction.js'
 
-const assetPath = config.get('assetPath')
+const routes = [...publicRoutes, healthRoute, homeRoute, ...interactionRoutes]
 
 /**
  * Registers the application routes and static asset handling
@@ -16,25 +21,7 @@ export default {
      * @param {Server} server
      */
     register(server) {
-      server.route([healthRoute, homeRoute])
-
-      // Static assets built by webpack into `.public`
-      server.route({
-        method: 'GET',
-        path: `${assetPath}/{param*}`,
-        options: {
-          cache: {
-            expiresIn: config.get('staticCacheTimeout'),
-            privacy: 'private'
-          },
-          handler: {
-            directory: {
-              path: '.',
-              redirectToSlash: true
-            }
-          }
-        }
-      })
+      server.route(routes)
 
       server.route({
         method: 'GET',
@@ -43,6 +30,11 @@ export default {
           return h.response().code(StatusCodes.NO_CONTENT).type('image/x-icon')
         }
       })
+
+      // Refuse to start if any /interaction route is missing the cookie
+      // gate — run at onPreStart so routes added by later plugins are
+      // covered too
+      server.ext('onPreStart', assertInteractionRoutesGated)
     }
   }
 }

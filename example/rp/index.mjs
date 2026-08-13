@@ -1,0 +1,193 @@
+/**
+ * Example relying party for trying the sign-in journey in a browser without
+ * forms-runner. The OIDC mechanics (discovery, PKCE, code exchange,
+ * userinfo, logout URLs) come from openid-client — the certified RP library
+ * — so this file is only routing and session bookkeeping. Never deployed:
+ * lives outside src/, so the babel build and Docker image never include it.
+ *
+ * Started automatically by this repo's `npm run dev` (alongside the
+ * service) on :3901; forms-identity-api must also be running (:3010, with
+ * its mongo). Then open http://localhost:3901 and follow the links.
+ */
+import Hapi from '@hapi/hapi'
+import * as client from 'openid-client'
+
+import 'dotenv/config'
+
+import { errorPage, page, signedInPage, tokenSummary } from './views.mjs'
+
+const ISSUER = process.env.EXAMPLE_RP_ISSUER ?? 'http://localhost:3011'
+const DEFAULT_PORT = 3901
+const PORT = Number(process.env.EXAMPLE_RP_PORT ?? DEFAULT_PORT)
+const BASE = `http://localhost:${PORT}`
+const REDIRECT_URI = `${BASE}/callback`
+const PRIVATE_JWKS = process.env.EXAMPLE_RP_PRIVATE_JWKS
+
+if (!PRIVATE_JWKS) {
+  throw new Error(
+    'EXAMPLE_RP_PRIVATE_JWKS must be set (this repo’s .env) — generate the pair with scripts/generate-client-keypair.mjs'
+  )
+}
+
+const [PRIVATE_JWK] = JSON.parse(PRIVATE_JWKS).keys
+
+/**
+ * The client's signing key. Standing in for forms-runner, this process is
+ * the only holder of the private half; the provider knows the public half
+ * and uses it to check the assertion.
+ */
+async function clientKey() {
+  return {
+    key: await crypto.subtle.importKey(
+      'jwk',
+      PRIVATE_JWK,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['sign']
+    ),
+    kid: PRIVATE_JWK.kid
+  }
+}
+
+/** @type {client.Configuration | undefined} */
+let oidcConfig
+
+/** Discovers the provider once, lazily — the RP can boot before it */
+async function discover() {
+  oidcConfig ??= await client.discovery(
+    new URL(ISSUER),
+    'runner',
+    undefined,
+    // Authenticate by signing a short-lived assertion rather than sending a
+    // shared secret. Left unset, openid-client picks a secret-based method
+    // and the token endpoint answers invalid_client.
+    client.PrivateKeyJwt(await clientKey()),
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- the library deprecation-flags this to discourage it outside local development, which is exactly what this example is: the local dev issuer is plain http
+    { execute: [client.allowInsecureRequests] }
+  )
+  return oidcConfig
+}
+
+/**
+ * Sign-ins waiting for their callback, keyed by the `state` they were started
+ * with. Holding one verifier at a time would break as soon as two sign-ins
+ * overlap — a second tab, or an automated run alongside a manual one — because
+ * the second would overwrite the first's and the earlier callback would fail
+ * its state check.
+ * @type {Map<string, string>}
+ */
+const pending = new Map()
+
+/**
+ * Who is signed in. Single-user, in-memory — it's an example.
+ * @type {{ tokens?: client.TokenEndpointResponse, claims?: object, userinfo?: object, obtainedAt: number }}
+ */
+const session = { obtainedAt: 0 }
+
+const server = Hapi.server({ port: PORT, host: 'localhost' })
+
+server.route([
+  {
+    method: 'GET',
+    path: '/',
+    handler() {
+      if (session.claims && session.tokens) {
+        return signedInPage(
+          session.claims,
+          tokenSummary(session.tokens, session.obtainedAt),
+          session.userinfo ?? {}
+        )
+      }
+      return page('<p><a href="/login">Sign in</a></p>')
+    }
+  },
+  {
+    method: 'GET',
+    path: '/login',
+    async handler(_request, h) {
+      const config = await discover()
+      const verifier = client.randomPKCECodeVerifier()
+      const state = client.randomState()
+      pending.set(state, verifier)
+
+      const authUrl = client.buildAuthorizationUrl(config, {
+        redirect_uri: REDIRECT_URI,
+        scope: 'openid email',
+        state,
+        code_challenge: await client.calculatePKCECodeChallenge(verifier),
+        code_challenge_method: 'S256'
+      })
+      return h.redirect(authUrl.href)
+    }
+  },
+  {
+    method: 'GET',
+    path: '/callback',
+    async handler(request, h) {
+      const config = await discover()
+      const callbackUrl = new URL(request.url.href)
+      const state = String(callbackUrl.searchParams.get('state'))
+      const verifier = pending.get(state)
+      pending.delete(state)
+
+      try {
+        // validates state, exchanges the code as the confidential client
+        // (signed assertion) and verifies the ID token signature and claims
+        const tokens = await client.authorizationCodeGrant(
+          config,
+          callbackUrl,
+          {
+            pkceCodeVerifier: verifier,
+            expectedState: state
+          }
+        )
+        const claims = tokens.claims()
+
+        session.tokens = tokens
+        session.obtainedAt = Date.now()
+        session.claims = claims
+        session.userinfo = await client.fetchUserInfo(
+          config,
+          tokens.access_token,
+          /** @type {string} */ (claims?.sub)
+        )
+      } catch (err) {
+        return errorPage(String(err))
+      }
+
+      return h.redirect('/')
+    }
+  },
+  {
+    method: 'GET',
+    path: '/logout',
+    async handler(_request, h) {
+      const config = await discover()
+      const idToken = session.tokens?.id_token
+
+      delete session.tokens
+      delete session.claims
+      delete session.userinfo
+
+      const logoutUrl = client.buildEndSessionUrl(config, {
+        ...(idToken && { id_token_hint: idToken }),
+        client_id: 'runner'
+      })
+      return h.redirect(logoutUrl.href)
+    }
+  }
+])
+
+// hapi swallows handler errors into bare 500s unless subscribed — surface
+// them, and log responses so the [rp] prefix shows traffic under npm run dev
+server.events.on('response', (request) => {
+  const statusCode =
+    'statusCode' in request.response ? request.response.statusCode : '-'
+  console.log(`${request.method.toUpperCase()} ${request.path} ${statusCode}`)
+})
+server.events.on({ name: 'request', channels: 'error' }, (_request, event) => {
+  console.error(event.error)
+})
+
+await server.start()
+console.log(`Example RP listening on ${BASE} (issuer ${ISSUER})`)

@@ -1,0 +1,44 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+
+{% set pageTitle = t('signin.phone.title') %}
+{% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+
+      {% if errorKey %}
+        {{ govukErrorSummary({
+          titleText: t('signin.errorSummaryTitle'),
+          errorList: [{ text: t(errorKey), href: "#phone" }]
+        }) }}
+      {% endif %}
+
+      <h1 class="govuk-heading-l">{{ t('signin.phone.title') }}</h1>
+
+      <p class="govuk-body">{{ t('signin.phone.body') }}</p>
+
+      <form method="post" action="/interaction/{{ uid }}/phone" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        {{ govukInput({
+          label: { text: t('signin.phone.label') },
+          classes: "govuk-input--width-20",
+          id: "phone",
+          name: "phone",
+          type: "tel",
+          autocomplete: "tel",
+          value: phone,
+          errorMessage: errorMessage
+        }) }}
+
+        {{ govukButton({ text: t('signin.phone.continue') }) }}
+      </form>
+
+    </div>
+  </div>
+{% endblock %}

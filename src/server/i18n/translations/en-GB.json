@@ -3,7 +3,11 @@
     "name": "Sign in to Defra Forms"
   },
   "home": {
-    "underDevelopment": "This service is under development."
+    "title": "You cannot sign in from this page",
+    "body": "This page is only used when signing in to a website, app, or online form.",
+    "whatToDo": "What you need to do",
+    "step1": "Go back to the website, app, or form you were using.",
+    "step2": "Select Sign in or Log in to try again."
   },
   "layout": {
     "footer": {
@@ -11,24 +15,51 @@
       "copyright": "© Crown copyright"
     }
   },
+  "signin": {
+    "email": {
+      "title": "Enter your email address",
+      "continue": "Continue",
+      "errorRequired": "Enter your email address",
+      "errorFormat": "Enter an email address in the correct format, like name@example.com"
+    },
+    "code": {
+      "title": "Check your email",
+      "sentTo": "We have sent an email to: [[email]]",
+      "body": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
+      "label": "Enter the 6 digit security code",
+      "continue": "Continue",
+      "errorRequired": "Enter the 6 digit security code",
+      "errorInvalid": "The code you entered is not correct or has expired – enter it again or request a new code"
+    },
+    "phone": {
+      "title": "Enter your mobile phone number",
+      "body": "If you forget your sign-in details, we will send a 6 digit security code to the number you give us. This will allow you to get back into your form.",
+      "label": "Mobile phone number",
+      "continue": "Continue",
+      "errorRequired": "Enter your mobile phone number",
+      "errorInvalid": "Enter a mobile phone number in the correct format, like 07911 123456"
+    },
+    "timedOut": {
+      "title": "For your security, we ended your sign in",
+      "body": [
+        "You have [[duration]] to finish signing in.",
+        "Go back to the service you were using and sign in again."
+      ]
+    },
+    "errorSummaryTitle": "There is a problem"
+  },
   "errors": {
     "notFound": {
-      "title": "Page not found",
-      "typed": "If you typed the web address, check it is correct.",
-      "pasted": "If you pasted the web address, check you copied the entire address."
-    },
-    "forbidden": {
-      "title": "Forbidden"
-    },
-    "unauthorized": {
-      "title": "Unauthorized"
-    },
-    "badRequest": {
-      "title": "Bad request"
+      "heading": "Page not found",
+      "body1": "If you typed the web address, check it is correct.",
+      "body2": "If you pasted the web address, check you copied the entire address.",
+      "body3": "If the web address is correct or you selected a link or button, <a href=\"https://www.gov.uk/guidance/contact-defra\" class=\"govuk-link\">contact the Defra Helpline</a> if you need to speak to someone."
     },
     "serverError": {
-      "title": "Sorry, there is a problem with the service",
-      "tryLater": "Try again later."
+      "heading": "Sorry, there is a problem with the service",
+      "canYou": "You can:",
+      "tryBack": "try your browser back button",
+      "contact": "<a class=\"govuk-link\" href=\"https://www.gov.uk/guidance/contact-defra\">contact the Defra Helpline</a> if you have any questions"
     }
   }
 }

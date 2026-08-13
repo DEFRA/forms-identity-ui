@@ -16,6 +16,7 @@ import pluginBlankie from '~/src/server/plugins/blankie.js'
 import pluginCrumb from '~/src/server/plugins/crumb.js'
 import pluginErrorPages from '~/src/server/plugins/error-pages.js'
 import { plugin as pluginViews } from '~/src/server/plugins/nunjucks/index.js'
+import pluginOidc from '~/src/server/plugins/oidc.js'
 import pluginPulse from '~/src/server/plugins/pulse.js'
 import pluginRouter from '~/src/server/plugins/router.js'
 import pluginSession from '~/src/server/plugins/session.js'
@@ -84,6 +85,7 @@ export async function createServer() {
   await server.register(Scooter)
   await server.register(pluginBlankie)
   await server.register(pluginViews)
+  await server.register(pluginOidc)
   await server.register(pluginRouter)
   await server.register(pluginErrorPages)
 
