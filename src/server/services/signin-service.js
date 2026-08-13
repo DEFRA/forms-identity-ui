@@ -3,10 +3,18 @@ import Joi from 'joi'
 import { joi as telephoneJoi } from '~/src/server/common/helpers/telephone.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 
-/** Outcomes named once, so a typo cannot silently change a journey */
-const INVALID_CODE = 'invalid-code'
-const INVALID_PHONE = 'invalid-phone'
-const SIGNED_IN = 'signed-in'
+/**
+ * Outcomes named once, so a typo cannot silently change a journey. Exported
+ * because the route handlers branch on the same names, and the API returns
+ * these same verdicts as its `status`.
+ */
+export const INVALID_EMAIL = 'invalid-email'
+export const CODE_SENT = 'code-sent'
+export const INVALID_CODE = 'invalid-code'
+export const PHONE_REQUIRED = 'phone-required'
+export const INVALID_PHONE = 'invalid-phone'
+export const SIGNED_IN = 'signed-in'
+export const RESTART = 'restart'
 
 const emailSchema = Joi.string().email().required()
 const phoneSchema =
@@ -43,7 +51,7 @@ export async function submitEmail(uid, email) {
 
   if (error) {
     return {
-      outcome: 'invalid-email',
+      outcome: INVALID_EMAIL,
       email: trimmed,
       errorKey: trimmed
         ? 'signin.email.errorFormat'
@@ -53,7 +61,7 @@ export async function submitEmail(uid, email) {
 
   await identityApi.requestOtp({ uid, email: trimmed })
 
-  return { outcome: 'code-sent', email: trimmed }
+  return { outcome: CODE_SENT, email: trimmed }
 }
 
 /**
@@ -83,8 +91,8 @@ export async function submitCode(uid, code) {
   if (result.status === SIGNED_IN) {
     return { outcome: SIGNED_IN, accountId: result.accountId }
   }
-  if (result.status === 'phone-required') {
-    return { outcome: 'phone-required' }
+  if (result.status === PHONE_REQUIRED) {
+    return { outcome: PHONE_REQUIRED }
   }
   return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalid' }
 }
@@ -132,7 +140,7 @@ export async function submitPhone(uid, phone) {
       errorKey: 'signin.phone.errorInvalid'
     }
   }
-  return { outcome: 'restart' }
+  return { outcome: RESTART }
 }
 
 /**

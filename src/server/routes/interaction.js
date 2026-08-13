@@ -210,7 +210,7 @@ export default /** @type {ServerRoute[]} */ (
         const { email } = request.payload
         const result = await signinService.submitEmail(details.uid, email)
 
-        if (result.outcome === 'invalid-email') {
+        if (result.outcome === signinService.INVALID_EMAIL) {
           return h.view('interaction/email', {
             uid: details.uid,
             email: result.email,
@@ -259,10 +259,10 @@ export default /** @type {ServerRoute[]} */ (
         const { code } = request.payload
         const result = await signinService.submitCode(details.uid, code)
 
-        if (result.outcome === 'signed-in') {
+        if (result.outcome === signinService.SIGNED_IN) {
           return finishLogin(request, h, result.accountId)
         }
-        if (result.outcome === 'phone-required') {
+        if (result.outcome === signinService.PHONE_REQUIRED) {
           return h.redirect(`/interaction/${details.uid}/phone`)
         }
 
@@ -312,10 +312,10 @@ export default /** @type {ServerRoute[]} */ (
         // never reach this page) and returns signed-in with the account id
         const result = await signinService.submitPhone(details.uid, phone)
 
-        if (result.outcome === 'signed-in') {
+        if (result.outcome === signinService.SIGNED_IN) {
           return finishLogin(request, h, result.accountId)
         }
-        if (result.outcome === 'invalid-phone') {
+        if (result.outcome === signinService.INVALID_PHONE) {
           return h.view('interaction/phone', {
             uid: details.uid,
             phone: result.phone,
