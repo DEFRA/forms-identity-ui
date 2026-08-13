@@ -43,6 +43,11 @@ here. `EXAMPLE_RP_PRIVATE_JWKS` is the private half, held by the client — for
 local development that is the example RP, and in a real environment it is
 forms-runner and nothing else.
 
+Each key is named after its role, its algorithm and a random tail —
+`sig-es256-4c1f8ab390d7`. Rotating means running the script again and replacing
+the value: the new key names itself, so there is nothing to keep track of, and
+a copy of the old key found later still answers to the old name.
+
 ## Development
 
 ```sh

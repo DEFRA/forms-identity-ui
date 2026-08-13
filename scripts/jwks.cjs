@@ -13,12 +13,19 @@ const CURVE = 'P-256'
 const ALG = 'ES256'
 
 /**
- * @param {string} kid - key id, carried in signed headers so a reader knows which key to verify with
+ * A key id travels in the header of everything the key signs, and it is all
+ * a reader has to go on when choosing which key to verify with. It names the
+ * role and the algorithm, so a key found on a developer machine or in an old
+ * backup can be placed on sight, and ends in a random tail, so a key that
+ * replaces a live one is a different key by name as well as by material.
+ * @param {string} role - 'sig' for the key this service signs with, 'runner'
+ *   for the one a client signs its assertions with
  */
-function generateKeyPair(kid) {
+function generateKeyPair(role) {
   const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', {
     namedCurve: CURVE
   })
+  const kid = `${role}-${ALG.toLowerCase()}-${crypto.randomBytes(6).toString('hex')}`
 
   /**
    * @param {crypto.KeyObject} key
@@ -35,7 +42,7 @@ function generateKeyPair(kid) {
  * half is published at the JWKS endpoint for clients to verify against.
  */
 function generateJwks() {
-  return generateKeyPair('sig-1').private
+  return generateKeyPair('sig').private
 }
 
 /**
@@ -44,7 +51,7 @@ function generateJwks() {
  * public half alone, so nothing here can forge the client.
  */
 function generateClientKeypair() {
-  return generateKeyPair('runner-1')
+  return generateKeyPair('runner')
 }
 
 module.exports = { generateClientKeypair, generateJwks }

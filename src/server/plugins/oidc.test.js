@@ -86,6 +86,9 @@ describe('oidc plugin', () => {
     const { keys } = JSON.parse(res.payload)
     expect(keys[0].kty).toBe('EC')
     expect(keys[0].alg).toBe('ES256')
+    // The id names the algorithm and is unique to this key, so a key from an
+    // earlier era cannot pass for the current one
+    expect(keys[0].kid).toMatch(/^sig-es256-[0-9a-f]{12}$/)
     // `d` is the private component — publishing it would hand out the
     // ability to mint ID tokens
     expect(keys[0].d).toBeUndefined()
