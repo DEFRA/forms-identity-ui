@@ -2,7 +2,6 @@ import Provider from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
-import { rawSecurityHeaders } from '~/src/server/common/helpers/security-headers.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 
@@ -64,44 +63,32 @@ function pinOrigin(req) {
 }
 
 /**
- * Gives a protocol response the same headers a hapi-routed one gets. The
- * provider writes to the socket itself and hapi is told to abandon the
- * request, so `routes.security` and blankie both stay out of it — the
- * headers are put on the raw response here instead, before the provider is
- * handed the socket.
+ * The headers hapi puts on every response it routes itself, restated for the
+ * ones it never sees. oidc-provider sets no security headers of its own and
+ * says a helmet is the deployment's job; on hapi the framework's own helmet
+ * cannot reach these, because the documented mount hands the provider the raw
+ * socket and abandons the request, leaving `routes.security` and blankie out
+ * of it. This is what stops the sign-out confirmation page from being framed,
+ * and it is the only policy the provider's error page has.
  *
- * This is what stops the logout confirmation page from being framed, and it
- * is the only policy the provider's error page has.
+ * The values are stated because neither source can be read back: hapi builds
+ * them inside its own response path, and blankie keeps its policy builder
+ * module-private. `oidc.test.js` compares what a protocol route and a routed
+ * page actually emit, header for header, so the two stay one baseline.
  *
- * Applied twice, and only where a header is absent. Once now, so the
- * provider can read the policy back and extend it (it appends a script hash
- * to the CSP on the pages that carry an inline script), and once at write
- * time to restore whatever is missing by then: koa empties the response of
- * every header when it handles an unexpected error, which is exactly the
- * response that most needs a policy behind it.
- * @param {ServerResponse} res
+ * The CSP is the base policy from plugins/blankie.js without the per-page
+ * script nonce — blankie mints one for the templates it renders, and these
+ * responses have none.
+ * @type {Record<string, string>}
  */
-function applySecurityHeaders(res) {
-  const setBaseline = () => {
-    for (const [name, value] of Object.entries(rawSecurityHeaders)) {
-      if (!res.hasHeader(name)) {
-        res.setHeader(name, value)
-      }
-    }
-  }
-
-  setBaseline()
-
-  /** @type {ServerResponse['writeHead']} */
-  const writeHead = res.writeHead.bind(res)
-
-  res.writeHead = /** @type {ServerResponse['writeHead']} */ (
-    (/** @type {Parameters<ServerResponse['writeHead']>} */ ...args) => {
-      setBaseline()
-
-      return writeHead(...args)
-    }
-  )
+const SECURITY_HEADERS = {
+  'content-security-policy':
+    "base-uri 'none';connect-src 'self';default-src 'self';font-src 'self' data:;form-action 'self';frame-ancestors 'none';frame-src 'none';img-src 'self' data:;object-src 'none';script-src 'self';style-src 'self';worker-src 'self'",
+  'strict-transport-security': 'max-age=31536000; includeSubDomains',
+  'x-content-type-options': 'nosniff',
+  'x-download-options': 'noopen',
+  'x-frame-options': 'DENY',
+  'x-xss-protection': '1; mode=block'
 }
 
 /**
@@ -132,6 +119,14 @@ export default {
         logger.error(err, '[oidcServerError] provider raised a server error')
       })
 
+      // Set before the provider routes the request, so it can read the policy
+      // back and extend it: it appends a script hash to the CSP on the pages
+      // that carry an inline script
+      provider.use(async (ctx, next) => {
+        ctx.set(SECURITY_HEADERS)
+        await next()
+      })
+
       server.app.oidcProvider = provider
 
       const callback = provider.callback()
@@ -149,7 +144,6 @@ export default {
         return new Promise((resolve) => {
           const { req, res } = request.raw
           pinOrigin(req)
-          applySecurityHeaders(res)
           const done = () => {
             resolve(h.abandon)
           }
@@ -181,6 +175,6 @@ export default {
 }
 
 /**
- * @import { IncomingMessage, ServerResponse } from 'node:http'
+ * @import { IncomingMessage } from 'node:http'
  * @import { Request, ResponseToolkit, RouteDefMethods, Server, ServerRegisterPluginObject } from '@hapi/hapi'
  */

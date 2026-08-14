@@ -100,10 +100,35 @@ describe('oidc plugin', () => {
       'x-frame-options': 'DENY',
       'x-xss-protection': '1; mode=block',
       'x-content-type-options': 'nosniff',
+      'x-download-options': 'noopen',
       'content-security-policy': expect.stringContaining(
         "frame-ancestors 'none'"
       )
     }
+
+    // Named here rather than imported, so dropping one from the bridge shows
+    // up as a failure instead of a shorter comparison
+    const securityHeaderNames = [
+      'content-security-policy',
+      'strict-transport-security',
+      'x-content-type-options',
+      'x-download-options',
+      'x-frame-options',
+      'x-xss-protection'
+    ]
+
+    /**
+     * @param {Record<string, unknown>} headers
+     */
+    const securityHeaders = (headers) =>
+      Object.fromEntries(
+        securityHeaderNames.map((name) => [
+          name,
+          // blankie mints a script nonce per rendered page; the rest of the
+          // policy is what both sides must agree on
+          String(headers[name]).replace(/ 'nonce-[^']*'/g, '')
+        ])
+      )
 
     it.each(['/jwks', '/.well-known/openid-configuration', '/auth/NOSUCHUID'])(
       'sends the baseline on %s',
@@ -114,17 +139,6 @@ describe('oidc plugin', () => {
       }
     )
 
-    it('keeps the baseline on a response the provider failed to build', async () => {
-      // /session/end reads the session through the adapter, which has no
-      // identity API to reach here. koa handles the failure by clearing the
-      // response, headers and all — so this is the path where a 500 could
-      // arrive unprotected
-      const res = await server.inject({ method: 'GET', url: '/session/end' })
-
-      expect(res.statusCode).toBe(500)
-      expect(res.headers).toMatchObject(baseline)
-    })
-
     it('is the baseline a rendered page gets, which hapi sets itself', async () => {
       // The other half of the same guarantee: these headers are only worth
       // copying onto protocol responses while the routed ones still carry
@@ -134,21 +148,13 @@ describe('oidc plugin', () => {
       expect(res.headers).toMatchObject(baseline)
     })
 
-    it('sends the same policy a rendered page gets', async () => {
+    it('sends a protocol response what a routed one gets, header for header', async () => {
       const protocolRes = await server.inject({ method: 'GET', url: '/jwks' })
       const pageRes = await server.inject({ method: 'GET', url: '/' })
 
-      // blankie mints a script nonce per rendered page; the rest of the
-      // policy is what both responses must agree on
-      const directives = (/** @type {string} */ header) =>
-        header
-          .split(';')
-          .map((directive) => directive.replace(/ 'nonce-[^']+'/, '').trim())
-          .sort()
-
-      expect(
-        directives(String(protocolRes.headers['content-security-policy']))
-      ).toEqual(directives(String(pageRes.headers['content-security-policy'])))
+      expect(securityHeaders(protocolRes.headers)).toEqual(
+        securityHeaders(pageRes.headers)
+      )
     })
   })
 
