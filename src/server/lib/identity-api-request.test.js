@@ -56,10 +56,26 @@ describe('identity-api-request', () => {
     })
   })
 
-  it('does not call the API when no token can be minted', async () => {
-    jest.mocked(getServiceToken).mockRejectedValue(new Error('STS is down'))
+  it('overrides a caller-supplied Authorization header with the minted token', async () => {
+    await getJson(url, { headers: { Authorization: 'Bearer caller-supplied' } })
 
-    await expect(getJson(url)).rejects.toThrow('STS is down')
-    expect(fetch.getJson).not.toHaveBeenCalled()
+    expect(fetch.getJson).toHaveBeenCalledWith(url, {
+      headers: { Authorization: 'Bearer token-1' }
+    })
   })
+
+  it.each([
+    ['getJson', getJson, fetch.getJson],
+    ['postJson', postJson, fetch.postJson],
+    ['putJson', putJson, fetch.putJson],
+    ['delJson', delJson, fetch.delJson]
+  ])(
+    '%s makes no request when no token can be minted',
+    async (_name, verb, underlying) => {
+      jest.mocked(getServiceToken).mockRejectedValue(new Error('STS is down'))
+
+      await expect(verb(url)).rejects.toThrow('STS is down')
+      expect(underlying).not.toHaveBeenCalled()
+    }
+  )
 })
