@@ -1,6 +1,7 @@
 import http from 'node:http'
 import https from 'node:https'
 
+import { Engine as CatboxMemory } from '@hapi/catbox-memory'
 import hapi from '@hapi/hapi'
 import inert from '@hapi/inert'
 import Scooter from '@hapi/scooter'
@@ -12,6 +13,7 @@ import { requestLogger } from '~/src/server/common/helpers/logging/request-logge
 import { requestTracing } from '~/src/server/common/helpers/request-tracing.js'
 import { prepareSecureContext } from '~/src/server/common/helpers/secure-context/index.js'
 import { getCacheEngine } from '~/src/server/common/helpers/session-cache/cache-engine.js'
+import { serviceToken } from '~/src/server/lib/service-token.js'
 import pluginBlankie from '~/src/server/plugins/blankie.js'
 import pluginCrumb from '~/src/server/plugins/crumb.js'
 import pluginErrorPages from '~/src/server/plugins/error-pages.js'
@@ -63,6 +65,10 @@ function serverOptions() {
       {
         name: config.get('session.cache.name'),
         engine: getCacheEngine(config.get('session.cache.engine'))
+      },
+      {
+        name: 'service-token',
+        engine: new CatboxMemory()
       }
     ]
   }
@@ -85,6 +91,9 @@ export async function createServer() {
   await server.register(Scooter)
   await server.register(pluginBlankie)
   await server.register(pluginViews)
+  // Registered before the OIDC plugin, because its adapter calls the
+  // identity API as soon as it is used and needs the token available
+  await server.register(serviceToken)
   await server.register(pluginOidc)
   await server.register(pluginRouter)
   await server.register(pluginErrorPages)

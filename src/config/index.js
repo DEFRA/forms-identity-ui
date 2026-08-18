@@ -303,6 +303,17 @@ export const config = convict({
       format: String,
       default: /** @type {string | null} */ (null),
       env: 'IDENTITY_API_URL'
+    },
+    audience: {
+      doc: 'Audience to address the caller token to, naming forms-identity-api',
+      format: String,
+      default: 'forms-identity-api',
+      env: 'SERVICE_AUTH_AUDIENCE'
+    },
+    tokenDurationSeconds: {
+      doc: 'Lifetime to request for a caller token',
+      format: 'nat',
+      default: 300
     }
   },
 
