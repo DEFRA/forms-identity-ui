@@ -15,6 +15,20 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
 
+// The journey now mints a caller token for every request the adapter and
+// sign-in service make, so STS is stubbed here too — this test proves the
+// digest and leakage properties of the API traffic, not STS connectivity,
+// which service-token.test.js already covers.
+const mockStsSend = jest.fn()
+
+jest.mock('@aws-sdk/client-sts', () => ({
+  STSClient: jest.fn().mockImplementation(() => ({
+    send: mockStsSend,
+    destroy: jest.fn()
+  })),
+  GetWebIdentityTokenCommand: jest.fn((input) => ({ input }))
+}))
+
 // Jest runs a suite in its own realm while Node's own globals belong to the
 // host realm, so a structuredClone result carries the host's Object as its
 // constructor. oidc-provider recognises plain objects by that identity and
@@ -251,6 +265,13 @@ describe('sign-in round trip', () => {
   afterAll(async () => {
     await server.stop()
     await new Promise((resolve) => stub.close(resolve))
+  })
+
+  // resetMocks wipes a jest.fn() implementation before every test, so the
+  // token STS hands back is reinstated here rather than relied on from the
+  // jest.mock() call above
+  beforeEach(() => {
+    mockStsSend.mockResolvedValue({ WebIdentityToken: 'stub-service-token' })
   })
 
   /**

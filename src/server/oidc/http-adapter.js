@@ -1,12 +1,12 @@
 import { config } from '~/src/config/index.js'
+import { isNotFoundError } from '~/src/server/common/helpers/fetch.js'
+import { hashId } from '~/src/server/common/helpers/hash-id.js'
 import {
   delJson,
   getJson,
-  isNotFoundError,
   postJson,
   putJson
-} from '~/src/server/common/helpers/fetch.js'
-import { hashId } from '~/src/server/common/helpers/hash-id.js'
+} from '~/src/server/lib/identity-api-request.js'
 
 const IDENTITY_API_URL = config.get('identityApi.url')
 

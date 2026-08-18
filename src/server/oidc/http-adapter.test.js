@@ -1,18 +1,15 @@
 import Boom from '@hapi/boom'
 
+import { hashId } from '~/src/server/common/helpers/hash-id.js'
 import {
   delJson,
   getJson,
   postJson,
   putJson
-} from '~/src/server/common/helpers/fetch.js'
-import { hashId } from '~/src/server/common/helpers/hash-id.js'
+} from '~/src/server/lib/identity-api-request.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 
-jest.mock('~/src/server/common/helpers/fetch.js', () => ({
-  // the transport functions are faked; the Boom-404 predicate stays real
-  isNotFoundError: jest.requireActual('~/src/server/common/helpers/fetch.js')
-    .isNotFoundError,
+jest.mock('~/src/server/lib/identity-api-request.js', () => ({
   delJson: jest.fn(),
   getJson: jest.fn(),
   postJson: jest.fn(),
