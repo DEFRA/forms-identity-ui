@@ -5,7 +5,8 @@ import Hapi from '@hapi/hapi'
 import { config } from '~/src/config/index.js'
 import {
   getServiceToken,
-  serviceToken
+  serviceToken,
+  tokenTtlMs
 } from '~/src/server/lib/service-token.js'
 
 jest.mock('@aws-sdk/client-sts', () => ({
@@ -81,5 +82,30 @@ describe('service-token', () => {
       'STS returned no web identity token'
     )
     await server.stop()
+  })
+})
+
+describe('tokenTtlMs', () => {
+  it('takes the margined lifetime from Expiration when STS clamps it short', () => {
+    const requestedSeconds = 300
+    const expiration = new Date(Date.now() + 60_000)
+
+    const ttl = tokenTtlMs(expiration, requestedSeconds)
+
+    // 60s margined at 0.8 is well under the unclamped 300s * 0.8
+    expect(ttl).toBeLessThan(requestedSeconds * 1000 * 0.8)
+    expect(ttl).toBeGreaterThan(0)
+  })
+
+  it('falls back to the margined requested duration with no Expiration', () => {
+    expect(tokenTtlMs(undefined, 300)).toBe(300 * 1000 * 0.8)
+  })
+
+  it('falls back to the margined requested duration when Expiration has already passed', () => {
+    const requestedSeconds = 300
+
+    expect(tokenTtlMs(new Date(Date.now() - 1000), requestedSeconds)).toBe(
+      requestedSeconds * 1000 * 0.8
+    )
   })
 })
