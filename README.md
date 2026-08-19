@@ -17,8 +17,8 @@ mobile number and an account is created for them.
 
 ## Requirements
 
-- Node.js `^22.11.0` — run `nvm use` (see `.nvmrc`)
-- npm `>=10.9.0`
+- Node.js `^24.19.0` — run `nvm use` (see `.nvmrc`)
+- npm `>=12.0.2`
 - forms-identity-api running locally, with its Docker Mongo
 
 ## Setup
