@@ -52,6 +52,13 @@ const PHONE = '07911 123456'
  */
 const seenPaths = []
 /**
+ * The Authorization header the stub saw on each request, in the same order
+ * as seenPaths — the only proof the caller token survives the real server,
+ * adapter and Wreck rather than being dropped somewhere in that stack
+ * @type {(string | undefined)[]}
+ */
+const seenAuthorizations = []
+/**
  * Artifact payloads by `${model}/${id}`, standing in for the API's store
  * @type {Map<string, Record<string, unknown>>}
  */
@@ -210,6 +217,7 @@ async function handle(req, res) {
   const path = /** @type {string} */ (req.url)
   const method = /** @type {string} */ (req.method)
   seenPaths.push(`${method} ${path}`)
+  seenAuthorizations.push(req.headers.authorization)
 
   const body =
     method === 'GET' || method === 'DELETE' ? {} : await readBody(req)
@@ -450,5 +458,13 @@ describe('sign-in round trip', () => {
     expect(
       seenPaths.some((path) => path.includes(hashId(authorizationCode)))
     ).toBe(true)
+
+    // The caller token survives the real server, adapter and Wreck: every
+    // request the stub saw carried it, proving nothing along that path drops
+    // or mangles the header.
+    expect(seenAuthorizations.length).toBeGreaterThan(0)
+    for (const authorization of seenAuthorizations) {
+      expect(authorization).toBe('Bearer stub-service-token')
+    }
   })
 })
