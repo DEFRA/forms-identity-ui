@@ -38,8 +38,8 @@
   "author": "Defra DDTS",
   "license": "OGL-UK-3.0",
   "engines": {
-    "node": "^22.11.0",
-    "npm": ">=10.9.0 <11.6.4"
+    "node": "^24.19.0",
+    "npm": "^11.17.0 || >=12.0.2"
   },
   "dependencies": {
     "@defra/hapi-tracing": "^1.30.0",
@@ -131,5 +131,12 @@
     "webpack": "^5.108.4",
     "webpack-assets-manifest": "^6.5.2",
     "webpack-cli": "^7.2.1"
+  },
+  "allowScripts": {
+    "@defra/hapi-tracing": true,
+    "@parcel/watcher": true,
+    "esbuild": true,
+    "unrs-resolver": true,
+    "fsevents": true
   }
 }
