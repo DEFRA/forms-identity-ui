@@ -495,7 +495,7 @@ describe('interaction pages', () => {
     expect(response.statusCode).toBe(200)
     expect(
       container.getByRole('link', {
-        name: 'Enter a mobile phone number in the correct format, like 07911 123456'
+        name: 'Enter a mobile phone number in the correct format'
       })
     ).toHaveAttribute('href', '#phone')
   })

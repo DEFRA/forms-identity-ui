@@ -37,7 +37,7 @@
       "label": "Mobile phone number",
       "continue": "Continue",
       "errorRequired": "Enter your mobile phone number",
-      "errorInvalid": "Enter a mobile phone number in the correct format, like 07911 123456"
+      "errorInvalid": "Enter a mobile phone number in the correct format"
     },
     "timedOut": {
       "title": "For your security, we ended your sign in",
