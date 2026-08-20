@@ -19,7 +19,7 @@
     "email": {
       "title": "Enter your email address",
       "continue": "Continue",
-      "errorRequired": "Enter your email address",
+      "errorRequired": "Enter an email address",
       "errorFormat": "Enter an email address in the correct format, like name@example.com"
     },
     "code": {
