@@ -4,6 +4,7 @@
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% from "govuk/components/input/macro.njk" import govukInput %}
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
 
 {% set pageTitle = t('signin.code.title') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
@@ -43,6 +44,10 @@
         {{ govukButton({ text: t('signin.code.continue') }) }}
       </form>
 
+      {{ govukDetails({
+        summaryText: t('signin.code.problemsDetails.summaryText'),
+        html: t('signin.code.problemsDetails.body')
+      }) }}
     </div>
   </div>
 {% endblock %}
