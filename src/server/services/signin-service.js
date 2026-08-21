@@ -11,6 +11,7 @@ import * as identityApi from '~/src/server/lib/identity-api.js'
 export const INVALID_EMAIL = 'invalid-email'
 export const CODE_SENT = 'code-sent'
 export const INVALID_CODE = 'invalid-code'
+export const INVALID_CODE_FORMAT = 'invalid-code-format'
 export const PHONE_REQUIRED = 'phone-required'
 export const INVALID_PHONE = 'invalid-phone'
 export const SIGNED_IN = 'signed-in'
@@ -84,6 +85,10 @@ export async function submitCode(uid, code) {
   if (result.status === PHONE_REQUIRED) {
     return { outcome: PHONE_REQUIRED }
   }
+  if (result.status === INVALID_CODE_FORMAT) {
+    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalidFormat' }
+  }
+
   return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalid' }
 }
 

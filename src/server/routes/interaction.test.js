@@ -361,6 +361,45 @@ describe('interaction pages', () => {
     ).toHaveAttribute('href', '#code')
   })
 
+  it.each([
+    '1',
+    '12',
+    '123',
+    '1234',
+    '12345',
+    '1234567',
+    '12345678',
+    'abc123',
+    '*&^%$£'
+  ])(
+    'POST code re-renders with an error when code is not 6 digits (%s)',
+    async (code) => {
+      jest
+        .mocked(identityApi.verifyOtp)
+        .mockResolvedValue({ status: 'invalid-code-format' })
+      const { crumb, cookie } = await getWithCrumb(
+        '/interaction/uid-1/code?email=a%40b.com'
+      )
+
+      const { container, response } = await renderResponse(server, {
+        method: 'POST',
+        url: '/interaction/uid-1/code',
+        headers: { cookie },
+        payload: { crumb, code }
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(container.getByRole('alert')).toContainElement(
+        container.getByRole('heading', { name: 'There is a problem' })
+      )
+      expect(
+        container.getByRole('link', {
+          name: 'Enter the security code using only 6 digits'
+        })
+      ).toHaveAttribute('href', '#code')
+    }
+  )
+
   it('POST a code with leading zeros reaches the API unchanged', async () => {
     // the zeros are part of the code, so they must survive to the API
     jest.mocked(identityApi.verifyOtp).mockResolvedValue({ status: 'invalid' })
@@ -379,13 +418,13 @@ describe('interaction pages', () => {
     })
   })
 
-  it('POST a malformed code reaches the API, which judges the shape invalid', async () => {
+  it('POST an invalid code reaches the API, which returns an invalid status', async () => {
     jest.mocked(identityApi.verifyOtp).mockResolvedValue({ status: 'invalid' })
     const { crumb, cookie } = await getWithCrumb(
       '/interaction/uid-1/code?email=a%40b.com'
     )
 
-    for (const code of ['1', '12345', 'abc123']) {
+    for (const code of ['123456', 'abcdef', 'abc123']) {
       const { container, response } = await renderResponse(server, {
         method: 'POST',
         url: '/interaction/uid-1/code',
