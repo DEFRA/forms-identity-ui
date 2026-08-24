@@ -33,7 +33,7 @@
       "errorInvalid": "The code you entered is not correct or has expired – enter it again or request a new code",
       "problemsDetails": {
         "summaryText": "Problems with the security code?",
-        "body": "You can <a class=\"govuk-link\" href=\".\">use a different email address</a>."
+        "body": "We can <a class=\"govuk-link\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link\" href=\".\">use a different email address</a>."
       }
     },
     "phone": {
@@ -50,6 +50,13 @@
       "expiryInfo": "Security codes expire after 15 minutes.",
       "resendInfo": "Ask us to send a new code, then enter it on the next page.",
       "continue": "Send a new security code"
+    },
+    "codeResend": {
+      "title": "Get security code",
+      "sentTo": "We will send a security code to: [[email]]",
+      "lockoutInfo": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
+      "emailInfo": "Your email might take a few minutes to arrive. If you do not get an email, check your spam folder.",
+      "continue": "Get security code"
     },
     "timedOut": {
       "title": "For your security, we ended your sign in",

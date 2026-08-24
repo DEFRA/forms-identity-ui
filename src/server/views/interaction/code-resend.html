@@ -1,0 +1,31 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+
+{% set pageTitle = t('signin.codeResend.title') %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <h1 class="govuk-heading-l">{{ t('signin.codeResend.title') }}</h1>
+
+      {{ govukInsetText({ text: t('signin.codeResend.sentTo', { email: email }) }) }}
+
+      <p class="govuk-body">{{ t('signin.codeResend.lockoutInfo') }}</p>
+      <p class="govuk-body">{{ t('signin.codeResend.emailInfo') }}</p>
+
+      <form method="POST" action="../email">
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+        {{ govukButton({
+          text: t('signin.codeResend.continue'),
+          name: "email",
+          value: email
+        }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

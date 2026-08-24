@@ -307,6 +307,26 @@ export default /** @type {ServerRoute[]} */ (
     /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
     ({
       method: 'GET',
+      path: '/interaction/{uid}/code/resend',
+      options: {
+        validate: { params: uidParams },
+        plugins: { blankie: signinFormCsp },
+        pre: [GATE]
+      },
+      async handler(request, h) {
+        const { uid } = request.pre.details
+        const email = await signinService.getSigninEmail(uid)
+
+        if (!email) {
+          return h.redirect(`/interaction/${uid}`)
+        }
+
+        return h.view('interaction/code-resend', { email })
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    ({
+      method: 'GET',
       path: '/interaction/{uid}/phone',
       options: {
         validate: { params: uidParams },

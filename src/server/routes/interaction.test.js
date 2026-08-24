@@ -617,6 +617,50 @@ describe('interaction pages', () => {
     ).toBeInTheDocument()
   })
 
+  it('GET code/resend redirects to email page when no email is found', async () => {
+    jest.mocked(identityApi.getOtpEmail).mockResolvedValue(null)
+
+    const { response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/interaction/uid-1/code/resend'
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/interaction/uid-1')
+  })
+
+  it('GET code/resend shows resend OTP page', async () => {
+    jest.mocked(identityApi.getOtpEmail).mockResolvedValue('shown@example.com')
+
+    const { container, response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/interaction/uid-1/code/resend'
+    })
+
+    expect(response.statusCode).toBe(200)
+    const $heading = container.getByRole('heading', {
+      name: 'Get security code',
+      level: 1
+    })
+    expect($heading).toBeInTheDocument()
+    expect(
+      container.getByText('We will send a security code to: shown@example.com')
+    ).toBeInTheDocument()
+    expect(
+      container.getByText(
+        'You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      container.getByText(
+        'Your email might take a few minutes to arrive. If you do not get an email, check your spam folder.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      container.getByRole('button', { name: 'Get security code' })
+    ).toBeInTheDocument()
+  })
+
   it('auto-grants consent prompts', async () => {
     detailsSpy.mockResolvedValue(
       /** @type {never} */ ({
