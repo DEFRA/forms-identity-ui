@@ -133,6 +133,23 @@ async function finishLogin(request, h, accountId) {
 }
 
 /**
+ *
+ * @param {Request<{ Pres: InteractionPres; }>} request
+ * @param {ResponseToolkit<{ Pres: InteractionPres; }>} h
+ * @param {string} viewName - the view name
+ */
+async function commonOTPHandler(request, h, viewName) {
+  const { uid } = request.pre.details
+  const email = await signinService.getSigninEmail(uid)
+
+  if (!email) {
+    return h.redirect(`/interaction/${uid}`)
+  }
+
+  return h.view(`interaction/${viewName}`, { email })
+}
+
+/**
  * Sign-in interaction pages. Every route runs behind the requireInteraction
  * pre (request.pre.details); handlers hand raw request data to the signin
  * service and translate the returned outcome into a response. Rendering is
@@ -314,14 +331,7 @@ export default /** @type {ServerRoute[]} */ (
         pre: [GATE]
       },
       async handler(request, h) {
-        const { uid } = request.pre.details
-        const email = await signinService.getSigninEmail(uid)
-
-        if (!email) {
-          return h.redirect(`/interaction/${uid}`)
-        }
-
-        return h.view('interaction/code-expired', { email })
+        return commonOTPHandler(request, h, 'code-expired')
       }
     }),
     /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
@@ -334,14 +344,7 @@ export default /** @type {ServerRoute[]} */ (
         pre: [GATE]
       },
       async handler(request, h) {
-        const { uid } = request.pre.details
-        const email = await signinService.getSigninEmail(uid)
-
-        if (!email) {
-          return h.redirect(`/interaction/${uid}`)
-        }
-
-        return h.view('interaction/code-resend', { email })
+        return commonOTPHandler(request, h, 'code-resend')
       }
     }),
     /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
