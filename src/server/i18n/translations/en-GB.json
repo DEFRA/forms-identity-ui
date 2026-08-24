@@ -49,7 +49,6 @@
       "sentTo": "The security code was sent to: [[email]]",
       "expiryInfo": "Security codes expire after 15 minutes.",
       "resendInfo": "Ask us to send a new code, then enter it on the next page.",
-      "label": "Enter the 6 digit security code",
       "continue": "Send a new security code"
     },
     "timedOut": {
