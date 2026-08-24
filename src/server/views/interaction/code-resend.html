@@ -18,7 +18,7 @@
       <p class="govuk-body">{{ t('signin.codeResend.lockoutInfo') }}</p>
       <p class="govuk-body">{{ t('signin.codeResend.emailInfo') }}</p>
 
-      <form method="POST" action="../email">
+      <form method="POST" action="../email?resend=true">
         <input type="hidden" name="crumb" value="{{ crumb }}">
         {{ govukButton({
           text: t('signin.codeResend.continue'),

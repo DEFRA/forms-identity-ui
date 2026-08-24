@@ -18,14 +18,10 @@
       <p class="govuk-body">{{ t('signin.codeExpired.expiryInfo') }}</p>
       <p class="govuk-body">{{ t('signin.codeExpired.resendInfo') }}</p>
 
-      <form method="POST" action="../email">
-        <input type="hidden" name="crumb" value="{{ crumb }}">
-        {{ govukButton({
-          text: t('signin.codeExpired.continue'),
-          name: "email",
-          value: email
-        }) }}
-      </form>
+      {{ govukButton({
+        text: t('signin.codeExpired.continue'),
+        href: "./resend"
+      }) }}
     </div>
   </div>
 {% endblock %}

@@ -24,6 +24,8 @@
     },
     "code": {
       "title": "Check your email",
+      "resendNotificationTitleText": "Success",
+      "resendNotificationText": "We’ve sent you a new security code.",
       "sentTo": "We have sent an email to: [[email]]",
       "body": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
       "label": "Enter the 6 digit security code",
