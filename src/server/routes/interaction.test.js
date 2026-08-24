@@ -337,6 +337,25 @@ describe('interaction pages', () => {
     expect(res.headers.location).toBe('/interaction/uid-1/phone')
   })
 
+  it('POST code redirects to the code expired page when invalid-consumed-or-expired', async () => {
+    jest
+      .mocked(identityApi.verifyOtp)
+      .mockResolvedValue({ status: 'invalid-code-consumed-or-expired' })
+    const { crumb, cookie } = await getWithCrumb(
+      '/interaction/uid-1/code?email=a%40b.com'
+    )
+
+    const res = await server.inject({
+      method: 'POST',
+      url: '/interaction/uid-1/code',
+      headers: { cookie },
+      payload: { crumb, code: '123456' }
+    })
+
+    expect(res.statusCode).toBe(302)
+    expect(res.headers.location).toBe('/interaction/uid-1/code/expired')
+  })
+
   it('POST code re-renders with an error on an invalid code', async () => {
     jest.mocked(identityApi.verifyOtp).mockResolvedValue({ status: 'invalid' })
     const { crumb, cookie } = await getWithCrumb(
@@ -554,6 +573,48 @@ describe('interaction pages', () => {
 
     expect(res.statusCode).toBe(302)
     expect(res.headers.location).toBe('/interaction/uid-1')
+  })
+
+  it('GET code/expired redirects to email page when no email is found', async () => {
+    jest.mocked(identityApi.getOtpEmail).mockResolvedValue(null)
+
+    const { response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/interaction/uid-1/code/expired'
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/interaction/uid-1')
+  })
+
+  it('GET code/expired shows code expired page', async () => {
+    jest.mocked(identityApi.getOtpEmail).mockResolvedValue('shown@example.com')
+
+    const { container, response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/interaction/uid-1/code/expired'
+    })
+
+    expect(response.statusCode).toBe(200)
+    const $heading = container.getByRole('heading', {
+      name: 'Your security code has expired',
+      level: 1
+    })
+    expect($heading).toBeInTheDocument()
+    expect(
+      container.getByText('The security code was sent to: shown@example.com')
+    ).toBeInTheDocument()
+    expect(
+      container.getByText('Security codes expire after 15 minutes.')
+    ).toBeInTheDocument()
+    expect(
+      container.getByText(
+        'Ask us to send a new code, then enter it on the next page.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      container.getByRole('button', { name: 'Send a new security code' })
+    ).toBeInTheDocument()
   })
 
   it('auto-grants consent prompts', async () => {

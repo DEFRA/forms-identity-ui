@@ -265,6 +265,9 @@ export default /** @type {ServerRoute[]} */ (
         if (result.outcome === signinService.PHONE_REQUIRED) {
           return h.redirect(`/interaction/${details.uid}/phone`)
         }
+        if (result.outcome === signinService.INVALID_CODE_CONSUMED_OR_EXPIRED) {
+          return h.redirect(`/interaction/${details.uid}/code/expired`)
+        }
 
         const email = await signinService.getSigninEmail(details.uid)
 
@@ -279,6 +282,26 @@ export default /** @type {ServerRoute[]} */ (
           email,
           errorKey: result.errorKey
         })
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    ({
+      method: 'GET',
+      path: '/interaction/{uid}/code/expired',
+      options: {
+        validate: { params: uidParams },
+        plugins: { blankie: signinFormCsp },
+        pre: [GATE]
+      },
+      async handler(request, h) {
+        const { uid } = request.pre.details
+        const email = await signinService.getSigninEmail(uid)
+
+        if (!email) {
+          return h.redirect(`/interaction/${uid}`)
+        }
+
+        return h.view('interaction/code-expired', { email })
       }
     }),
     /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */

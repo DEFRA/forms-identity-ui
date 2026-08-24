@@ -12,6 +12,8 @@ export const INVALID_EMAIL = 'invalid-email'
 export const CODE_SENT = 'code-sent'
 export const INVALID_CODE = 'invalid-code'
 export const INVALID_CODE_FORMAT = 'invalid-code-format'
+export const INVALID_CODE_CONSUMED_OR_EXPIRED =
+  'invalid-code-consumed-or-expired'
 export const PHONE_REQUIRED = 'phone-required'
 export const INVALID_PHONE = 'invalid-phone'
 export const SIGNED_IN = 'signed-in'
@@ -28,6 +30,7 @@ const phoneSchema = /** @type {TelephoneSchema} */ (telephoneJoi.string())
  * @typedef {{ outcome: 'invalid-email', email: string, errorKey: string }
  *   | { outcome: 'code-sent', email: string }} EmailOutcome
  * @typedef {{ outcome: 'invalid-code', errorKey: string }
+ *   | { outcome: 'invalid-code-consumed-or-expired' }
  *   | { outcome: 'signed-in', accountId: string }
  *   | { outcome: 'phone-required' }} CodeOutcome
  * @typedef {{ outcome: 'invalid-phone', phone: string, errorKey: string }
@@ -87,6 +90,9 @@ export async function submitCode(uid, code) {
   }
   if (result.status === INVALID_CODE_FORMAT) {
     return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalidFormat' }
+  }
+  if (result.status === INVALID_CODE_CONSUMED_OR_EXPIRED) {
+    return { outcome: INVALID_CODE_CONSUMED_OR_EXPIRED }
   }
 
   return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalid' }
