@@ -16,8 +16,8 @@ import { createHash, randomBytes } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
 
 // The journey now mints a caller token for every request the adapter and
-// sign-in service make, so STS is stubbed here too — this test proves the
-// digest and leakage properties of the API traffic, not STS connectivity,
+// sign-in service make, so STS is stubbed here too — this test checks what
+// the API traffic contains and what it must not leak, not STS connectivity,
 // which service-token.test.js already covers.
 const mockStsSend = jest.fn()
 
@@ -53,8 +53,8 @@ const PHONE = '07911 123456'
 const seenPaths = []
 /**
  * The Authorization header the stub saw on each request, in the same order
- * as seenPaths — the only proof the caller token survives the real server,
- * adapter and Wreck rather than being dropped somewhere in that stack
+ * as seenPaths — this is what shows the caller token passes through the
+ * real server, adapter and Wreck without being dropped along the way
  * @type {(string | undefined)[]}
  */
 const seenAuthorizations = []
@@ -459,9 +459,9 @@ describe('sign-in round trip', () => {
       seenPaths.some((path) => path.includes(hashId(authorizationCode)))
     ).toBe(true)
 
-    // The caller token survives the real server, adapter and Wreck: every
-    // request the stub saw carried it, proving nothing along that path drops
-    // or mangles the header.
+    // The caller token passes through the real server, adapter and Wreck:
+    // every request the stub saw carried it, so nothing along that path
+    // drops or changes the header.
     expect(seenAuthorizations.length).toBeGreaterThan(0)
     for (const authorization of seenAuthorizations) {
       expect(authorization).toBe('Bearer stub-service-token')

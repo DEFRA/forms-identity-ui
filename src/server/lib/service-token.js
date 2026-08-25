@@ -8,7 +8,7 @@ const CACHE_SEGMENT = 'service-token'
 const CACHE_KEY = 'identity-api'
 
 // Retire a cached token before STS expires it, so a request never carries
-// one that dies in flight.
+// a token that expires while the request is still in progress.
 const TTL_SAFETY_MARGIN = 0.8
 
 /**
@@ -22,9 +22,10 @@ let tokenCache
 /**
  * The cache lifetime for a minted token, in milliseconds.
  *
- * STS's own `Expiration` is authoritative when present, so a duration STS
- * clamped is not overstated; the requested duration is the fallback for a
- * response that omits it, or for an `Expiration` that has already passed.
+ * STS's own `Expiration` wins when present, so if STS shortened the
+ * requested duration the cache does not outlive the token; the requested
+ * duration is the fallback for a response that omits `Expiration`, or for
+ * an `Expiration` that has already passed.
  * @param {Date | undefined} expiration
  * @param {number} requestedDurationSeconds
  * @returns {number}
@@ -40,7 +41,7 @@ export function tokenTtlMs(expiration, requestedDurationSeconds) {
 /**
  * Mints a token identifying this service to forms-identity-api.
  *
- * The subject is stamped by STS from the container's own credentials, so the
+ * The subject is set by STS from the container's own credentials, so the
  * receiving service can tell who called rather than only that the caller knew
  * a shared secret.
  * @param {STSClient} sts
@@ -77,8 +78,8 @@ export async function getServiceToken() {
 
   const token = await tokenCache.get(CACHE_KEY)
 
-  // A configured generateFunc always yields a value or throws, so a null
-  // here would mean the cache was mis-provisioned without one
+  // A configured generateFunc always returns a value or throws, so a null
+  // here would mean the cache was set up without one
   if (!token) {
     throw new Error('service-token cache returned no token')
   }
