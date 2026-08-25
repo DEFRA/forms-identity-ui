@@ -41,6 +41,11 @@ ENV TZ="Europe/London"
 USER root
 RUN apk update && \
     apk add curl
+# Create the app directory owned by node before WORKDIR touches it, so
+# `npm ci` can create node_modules; builders differ on which user owns a
+# directory that WORKDIR creates.
+RUN mkdir -p /home/node/app && \
+    chown node:node /home/node/app
 USER node
 
 ARG PARENT_VERSION
