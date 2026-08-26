@@ -1,6 +1,7 @@
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
+import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
 import { view } from '~/src/server/plugins/nunjucks/render.js'
 
@@ -72,7 +73,7 @@ export function buildProviderConfig(adapter) {
     ttl: TTL_SECONDS,
     claims: { openid: ['sub'], email: ['email'] },
     async findAccount(_ctx, id) {
-      const account = await getAccount(id)
+      const account = await getAccount(id, await getServiceToken())
 
       if (!account) {
         return undefined

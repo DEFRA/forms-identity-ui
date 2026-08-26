@@ -3,6 +3,7 @@ import { NodeHttpHandler } from '@smithy/node-http-handler'
 import { ProxyAgent } from 'proxy-agent'
 
 import { config } from '~/src/config/index.js'
+import { bearerHeaders } from '~/src/server/common/helpers/fetch.js'
 
 const CACHE_SEGMENT = 'service-token'
 const CACHE_KEY = 'identity-api'
@@ -88,13 +89,12 @@ export async function getServiceToken() {
 }
 
 /**
- * Request headers identifying this service, for a call to forms-identity-api.
- * Built here so the header shape is defined once, next to the token it
- * carries; callers spread it into the generic fetch options.
+ * Request headers identifying this service, for a call to forms-identity-api;
+ * callers spread it into the generic fetch options.
  * @returns {Promise<Record<string, string>>}
  */
 export async function serviceAuthHeaders() {
-  return { Authorization: `Bearer ${await getServiceToken()}` }
+  return bearerHeaders(await getServiceToken())
 }
 
 /**

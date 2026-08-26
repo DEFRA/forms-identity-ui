@@ -1,11 +1,11 @@
 import { config } from '~/src/config/index.js'
 import {
+  bearerHeaders,
   getJson,
   isNotFoundError,
   postJson
 } from '~/src/server/common/helpers/fetch.js'
 import { hashId } from '~/src/server/common/helpers/hash-id.js'
-import { serviceAuthHeaders } from '~/src/server/lib/service-token.js'
 
 const baseUrl = config.get('identityApi.url')
 
@@ -26,23 +26,25 @@ const baseUrl = config.get('identityApi.url')
 /**
  * Mints and emails a security code for the interaction
  * @param {{ uid: string, email: string }} input
+ * @param {string} token - the caller token to present
  */
-export async function requestOtp({ uid, email }) {
+export async function requestOtp({ uid, email }, token) {
   await postJson(new URL('/otp/request', baseUrl), {
     payload: { uid: hashId(uid), email },
-    headers: await serviceAuthHeaders()
+    headers: bearerHeaders(token)
   })
 }
 
 /**
  * Verifies a security code
  * @param {{ uid: string, code: string }} input
+ * @param {string} token - the caller token to present
  * @returns {Promise<VerifyResult>}
  */
-export async function verifyOtp({ uid, code }) {
+export async function verifyOtp({ uid, code }, token) {
   const { body } = await postJson(new URL('/otp/verify', baseUrl), {
     payload: { uid: hashId(uid), code },
-    headers: await serviceAuthHeaders()
+    headers: bearerHeaders(token)
   })
   return /** @type {VerifyResult} */ (body)
 }
@@ -50,12 +52,13 @@ export async function verifyOtp({ uid, code }) {
 /**
  * Completes JIT signup with the recovery phone number
  * @param {{ uid: string, phone: string }} input
+ * @param {string} token - the caller token to present
  * @returns {Promise<CompleteResult>}
  */
-export async function completeSignup({ uid, phone }) {
+export async function completeSignup({ uid, phone }, token) {
   const { body } = await postJson(new URL('/accounts', baseUrl), {
     payload: { uid: hashId(uid), phone },
-    headers: await serviceAuthHeaders()
+    headers: bearerHeaders(token)
   })
   return /** @type {CompleteResult} */ (body)
 }
@@ -64,12 +67,13 @@ export async function completeSignup({ uid, phone }) {
  * The email a sign-in code was sent to (display data for the
  * check-your-email page)
  * @param {string} uid
+ * @param {string} token - the caller token to present
  * @returns {Promise<string | null>} null when no code has been requested
  */
-export async function getOtpEmail(uid) {
+export async function getOtpEmail(uid, token) {
   try {
     const { body } = await getJson(new URL(`/otp/${hashId(uid)}`, baseUrl), {
-      headers: await serviceAuthHeaders()
+      headers: bearerHeaders(token)
     })
     return /** @type {{ email: string }} */ (body).email
   } catch (err) {
@@ -83,13 +87,14 @@ export async function getOtpEmail(uid) {
 /**
  * Account lookup backing the provider's claims/userinfo
  * @param {string} id
+ * @param {string} token - the caller token to present
  * @returns {Promise<{ id: string, email: string } | null>} null when unknown
  */
-export async function getAccount(id) {
+export async function getAccount(id, token) {
   try {
     const { body } = await getJson(
       new URL(`/accounts/${encodeURIComponent(id)}`, baseUrl),
-      { headers: await serviceAuthHeaders() }
+      { headers: bearerHeaders(token) }
     )
     return /** @type {{ id: string, email: string }} */ (body)
   } catch (err) {

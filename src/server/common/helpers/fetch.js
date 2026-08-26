@@ -15,6 +15,16 @@ export function isNotFoundError(err) {
 }
 
 /**
+ * Request headers presenting a bearer token, for the options of any of the
+ * verbs below
+ * @param {string} token
+ * @returns {Record<string, string>}
+ */
+export function bearerHeaders(token) {
+  return { Authorization: `Bearer ${token}` }
+}
+
+/**
  * Base request function using `@hapi/wreck`
  * @param {string} method - HTTP method
  * @param {URL} url - URL object

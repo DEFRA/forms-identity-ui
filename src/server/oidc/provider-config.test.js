@@ -1,8 +1,13 @@
 import { getAccount } from '~/src/server/lib/identity-api.js'
+import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 
 jest.mock('~/src/server/lib/identity-api.js', () => ({
   getAccount: jest.fn()
+}))
+
+jest.mock('~/src/server/lib/service-token.js', () => ({
+  getServiceToken: jest.fn()
 }))
 
 const fakeAdapter = /** @type {AdapterConstructor} */ (
@@ -54,12 +59,14 @@ describe('buildProviderConfig', () => {
 
   it('findAccount resolves claims from the API and undefined on 404', async () => {
     const cfg = buildProviderConfig(fakeAdapter)
+    jest.mocked(getServiceToken).mockResolvedValue('token-1')
     jest.mocked(getAccount).mockResolvedValue({
       id: 'acc-1',
       email: 'a@b.com'
     })
 
     const account = await cfg.findAccount?.(fakeCtx, 'acc-1', undefined)
+    expect(getAccount).toHaveBeenCalledWith('acc-1', 'token-1')
     expect(account?.accountId).toBe('acc-1')
     await expect(
       account?.claims('userinfo', 'openid email', {}, [])
