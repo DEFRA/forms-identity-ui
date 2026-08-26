@@ -88,6 +88,16 @@ export async function getServiceToken() {
 }
 
 /**
+ * Request headers identifying this service, for a call to forms-identity-api.
+ * Built here so the header shape is defined once, next to the token it
+ * carries; callers spread it into the generic fetch options.
+ * @returns {Promise<Record<string, string>>}
+ */
+export async function serviceAuthHeaders() {
+  return { Authorization: `Bearer ${await getServiceToken()}` }
+}
+
+/**
  * Owns the STS client and the token cache for their whole lifetime.
  *
  * The cache is in memory rather than the shared session cache: a bearer

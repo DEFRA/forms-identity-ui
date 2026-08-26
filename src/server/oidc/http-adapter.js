@@ -1,13 +1,13 @@
 import { config } from '~/src/config/index.js'
-import { isNotFoundError } from '~/src/server/common/helpers/fetch.js'
-import { hashId } from '~/src/server/common/helpers/hash-id.js'
 import {
   delJson,
   getJson,
+  isNotFoundError,
   postJson,
   putJson
-} from '~/src/server/lib/identity-api-request.js'
-import { getServiceToken } from '~/src/server/lib/service-token.js'
+} from '~/src/server/common/helpers/fetch.js'
+import { hashId } from '~/src/server/common/helpers/hash-id.js'
+import { serviceAuthHeaders } from '~/src/server/lib/service-token.js'
 
 const IDENTITY_API_URL = config.get('identityApi.url')
 
@@ -41,8 +41,8 @@ function throwUnlessNotFound(err) {
  * forms-identity-api's /oidc endpoints (the UI keeps no database).
  * oidc-provider instantiates it as `new Adapter(modelName)`.
  *
- * Each call fetches the current caller token and hands it to the transport
- * verbs, which take the token as a plain parameter.
+ * Each call carries the caller credential as request headers, built by
+ * serviceAuthHeaders from the current token.
  * @returns {AdapterConstructor}
  */
 export function makeHttpAdapter() {
@@ -89,15 +89,18 @@ export function makeHttpAdapter() {
         ? Math.max(1, /** @type {number} */ (expiresIn))
         : undefined
 
-      await putJson(this.url(id), await getServiceToken(), {
-        payload: { payload, ...(ttl !== undefined && { expiresIn: ttl }) }
+      await putJson(this.url(id), {
+        payload: { payload, ...(ttl !== undefined && { expiresIn: ttl }) },
+        headers: await serviceAuthHeaders()
       })
     }
 
     /** @param {string} id */
     async find(id) {
       try {
-        const { body } = await getJson(this.url(id), await getServiceToken())
+        const { body } = await getJson(this.url(id), {
+          headers: await serviceAuthHeaders()
+        })
         return /** @type {AdapterPayload} */ (body)
       } catch (err) {
         throwUnlessNotFound(err)
@@ -118,7 +121,7 @@ export function makeHttpAdapter() {
             `/oidc/${this.model}/uid/${encodeURIComponent(uid)}`,
             IDENTITY_API_URL
           ),
-          await getServiceToken()
+          { headers: await serviceAuthHeaders() }
         )
         return /** @type {AdapterPayload} */ (body)
       } catch (err) {
@@ -135,12 +138,14 @@ export function makeHttpAdapter() {
 
     /** @param {string} id */
     async consume(id) {
-      await postJson(this.url(id, '/consume'), await getServiceToken(), {})
+      await postJson(this.url(id, '/consume'), {
+        headers: await serviceAuthHeaders()
+      })
     }
 
     /** @param {string} id */
     async destroy(id) {
-      await delJson(this.url(id), await getServiceToken(), {})
+      await delJson(this.url(id), { headers: await serviceAuthHeaders() })
     }
 
     /**
@@ -154,8 +159,7 @@ export function makeHttpAdapter() {
           `/oidc/grants/${encodeURIComponent(grantId)}`,
           IDENTITY_API_URL
         ),
-        await getServiceToken(),
-        {}
+        { headers: await serviceAuthHeaders() }
       )
     }
   }

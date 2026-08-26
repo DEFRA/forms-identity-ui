@@ -1,16 +1,19 @@
 import Boom from '@hapi/boom'
 
-import { hashId } from '~/src/server/common/helpers/hash-id.js'
 import {
   delJson,
   getJson,
   postJson,
   putJson
-} from '~/src/server/lib/identity-api-request.js'
-import { getServiceToken } from '~/src/server/lib/service-token.js'
+} from '~/src/server/common/helpers/fetch.js'
+import { hashId } from '~/src/server/common/helpers/hash-id.js'
+import { serviceAuthHeaders } from '~/src/server/lib/service-token.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 
-jest.mock('~/src/server/lib/identity-api-request.js', () => ({
+jest.mock('~/src/server/common/helpers/fetch.js', () => ({
+  // the transport functions are faked; the Boom-404 predicate stays real
+  isNotFoundError: jest.requireActual('~/src/server/common/helpers/fetch.js')
+    .isNotFoundError,
   delJson: jest.fn(),
   getJson: jest.fn(),
   postJson: jest.fn(),
@@ -18,17 +21,18 @@ jest.mock('~/src/server/lib/identity-api-request.js', () => ({
 }))
 
 jest.mock('~/src/server/lib/service-token.js', () => ({
-  getServiceToken: jest.fn()
+  serviceAuthHeaders: jest.fn()
 }))
 
 const API = 'http://localhost:3010'
+const AUTH_HEADERS = { Authorization: 'Bearer token-1' }
 
 describe('http adapter', () => {
   const Adapter = makeHttpAdapter()
   const adapter = new Adapter('AuthorizationCode')
 
   beforeEach(() => {
-    jest.mocked(getServiceToken).mockResolvedValue('token-1')
+    jest.mocked(serviceAuthHeaders).mockResolvedValue(AUTH_HEADERS)
   })
 
   it('snake_cases the model name onto the wire', async () => {
@@ -36,11 +40,11 @@ describe('http adapter', () => {
 
     await adapter.upsert('id-1', { foo: 'bar' }, 60)
 
-    const [url, token, options] =
-      /** @type {[URL, string, { payload: object }]} */ (
+    const [url, options] =
+      /** @type {[URL, { payload: object, headers: object }]} */ (
         jest.mocked(putJson).mock.calls[0]
       )
-    expect(token).toBe('token-1')
+    expect(options.headers).toEqual(AUTH_HEADERS)
     expect(url.href).toBe(`${API}/oidc/authorization_code/${hashId('id-1')}`)
     expect(url.href).not.toContain('id-1')
     expect(options.payload).toEqual({
@@ -59,7 +63,7 @@ describe('http adapter', () => {
 
       await adapter.upsert('id-exp', { foo: 'bar' }, remainingTtl)
 
-      const [, , options] = /** @type {[URL, string, { payload: object }]} */ (
+      const [, options] = /** @type {[URL, { payload: object }]} */ (
         jest.mocked(putJson).mock.calls.at(-1)
       )
       // dropping it would tell the API to clear the expiry, leaving an
@@ -76,7 +80,7 @@ describe('http adapter', () => {
 
     await adapter.upsert('id-noexp', { foo: 'bar' }, undefined)
 
-    const [, , options] = /** @type {[URL, string, { payload: object }]} */ (
+    const [, options] = /** @type {[URL, { payload: object }]} */ (
       jest.mocked(putJson).mock.calls.at(-1)
     )
     expect(options.payload).toEqual({ payload: { foo: 'bar' } })
@@ -162,7 +166,7 @@ describe('http adapter', () => {
   })
 
   it('makes no request when no token can be minted', async () => {
-    jest.mocked(getServiceToken).mockRejectedValue(new Error('STS is down'))
+    jest.mocked(serviceAuthHeaders).mockRejectedValue(new Error('STS is down'))
 
     await expect(adapter.find('id-7')).rejects.toThrow('STS is down')
     expect(getJson).not.toHaveBeenCalled()

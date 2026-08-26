@@ -1,7 +1,7 @@
 import Boom from '@hapi/boom'
 
+import { getJson, postJson } from '~/src/server/common/helpers/fetch.js'
 import { hashId } from '~/src/server/common/helpers/hash-id.js'
-import { getJson, postJson } from '~/src/server/lib/identity-api-request.js'
 import {
   completeSignup,
   getAccount,
@@ -9,18 +9,22 @@ import {
   requestOtp,
   verifyOtp
 } from '~/src/server/lib/identity-api.js'
-import { getServiceToken } from '~/src/server/lib/service-token.js'
+import { serviceAuthHeaders } from '~/src/server/lib/service-token.js'
 
-jest.mock('~/src/server/lib/identity-api-request.js', () => ({
+jest.mock('~/src/server/common/helpers/fetch.js', () => ({
+  // the transport functions are faked; the Boom-404 predicate stays real
+  isNotFoundError: jest.requireActual('~/src/server/common/helpers/fetch.js')
+    .isNotFoundError,
   getJson: jest.fn(),
   postJson: jest.fn()
 }))
 
 jest.mock('~/src/server/lib/service-token.js', () => ({
-  getServiceToken: jest.fn()
+  serviceAuthHeaders: jest.fn()
 }))
 
 const API = 'http://localhost:3010'
+const AUTH_HEADERS = { Authorization: 'Bearer token-1' }
 
 /**
  * The payload a recorded POST carried
@@ -28,8 +32,8 @@ const API = 'http://localhost:3010'
  * @returns {Record<string, string>}
  */
 function postPayload(index) {
-  const [, , options] =
-    /** @type {[URL, string, { payload: Record<string, string> }]} */ (
+  const [, options] =
+    /** @type {[URL, { payload: Record<string, string> }]} */ (
       jest.mocked(postJson).mock.calls[index]
     )
 
@@ -38,7 +42,7 @@ function postPayload(index) {
 
 describe('identity-api client', () => {
   beforeEach(() => {
-    jest.mocked(getServiceToken).mockResolvedValue('token-1')
+    jest.mocked(serviceAuthHeaders).mockResolvedValue(AUTH_HEADERS)
   })
 
   it('requestOtp posts uid and email', async () => {
@@ -46,12 +50,12 @@ describe('identity-api client', () => {
 
     await requestOtp({ uid: 'uid-1', email: 'a@b.com' })
 
-    const [url, token, options] =
-      /** @type {[URL, string, { payload: object }]} */ (
+    const [url, options] =
+      /** @type {[URL, { payload: object, headers: object }]} */ (
         jest.mocked(postJson).mock.calls[0]
       )
     expect(url.href).toBe(`${API}/otp/request`)
-    expect(token).toBe('token-1')
+    expect(options.headers).toEqual(AUTH_HEADERS)
     expect(options.payload).toEqual({
       uid: hashId('uid-1'),
       email: 'a@b.com'
@@ -116,6 +120,37 @@ describe('identity-api client', () => {
     expect(sent).toEqual(Array(4).fill(hashId('uid-1')))
   })
 
+  it('every call carries the caller credential', async () => {
+    jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({ body: {} }))
+    jest
+      .mocked(getJson)
+      .mockResolvedValue(
+        /** @type {never} */ ({ body: { email: 'a@b.com', id: 'acc-1' } })
+      )
+
+    await requestOtp({ uid: 'uid-1', email: 'a@b.com' })
+    await verifyOtp({ uid: 'uid-1', code: '123456' })
+    await completeSignup({ uid: 'uid-1', phone: '07911 123456' })
+    await getOtpEmail('uid-1')
+    await getAccount('acc-1')
+
+    const calls = [
+      ...jest.mocked(postJson).mock.calls,
+      ...jest.mocked(getJson).mock.calls
+    ]
+    expect(calls).toHaveLength(5)
+    for (const [, options] of calls) {
+      expect(options.headers).toEqual(AUTH_HEADERS)
+    }
+  })
+
+  it('makes no request when no token can be minted', async () => {
+    jest.mocked(serviceAuthHeaders).mockRejectedValue(new Error('STS is down'))
+
+    await expect(getAccount('acc-1')).rejects.toThrow('STS is down')
+    expect(getJson).not.toHaveBeenCalled()
+  })
+
   it('getAccount returns the account, and null on 404', async () => {
     jest.mocked(getJson).mockResolvedValue(
       /** @type {never} */ ({
@@ -135,13 +170,6 @@ describe('identity-api client', () => {
   it('getAccount rethrows non-404 errors', async () => {
     jest.mocked(getJson).mockRejectedValue(new Error('boom'))
     await expect(getAccount('acc-1')).rejects.toThrow('boom')
-  })
-
-  it('makes no request when no token can be minted', async () => {
-    jest.mocked(getServiceToken).mockRejectedValue(new Error('STS is down'))
-
-    await expect(getAccount('acc-1')).rejects.toThrow('STS is down')
-    expect(getJson).not.toHaveBeenCalled()
   })
 
   it('getOtpEmail returns the email, and null on 404', async () => {

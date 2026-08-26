@@ -5,6 +5,7 @@ import Hapi from '@hapi/hapi'
 import { config } from '~/src/config/index.js'
 import {
   getServiceToken,
+  serviceAuthHeaders,
   serviceToken,
   tokenTtlMs
 } from '~/src/server/lib/service-token.js'
@@ -71,6 +72,16 @@ describe('service-token', () => {
     await getServiceToken()
 
     expect(sendOf()).toHaveBeenCalledTimes(1)
+    await server.stop()
+  })
+
+  it('serviceAuthHeaders carries the minted token as a bearer header', async () => {
+    const server = await buildServer()
+    sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
+
+    await expect(serviceAuthHeaders()).resolves.toEqual({
+      Authorization: 'Bearer token-1'
+    })
     await server.stop()
   })
 
