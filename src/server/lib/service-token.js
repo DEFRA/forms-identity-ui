@@ -8,9 +8,9 @@ import { bearerHeaders } from '~/src/server/common/helpers/fetch.js'
 const CACHE_SEGMENT = 'service-token'
 const CACHE_KEY = 'identity-api'
 
-// Retire a cached token before STS expires it, so a request never carries
-// a token that expires while the request is still in progress.
-const TTL_SAFETY_MARGIN = 0.8
+// Retire a cached token a full minute before STS expires it, so a request
+// never carries a token that expires while the request is still in progress.
+const TTL_SAFETY_BUFFER_MS = 60_000
 
 /**
  * Set when the plugin registers. The OIDC adapter is constructed by
@@ -21,49 +21,26 @@ const TTL_SAFETY_MARGIN = 0.8
 let tokenCache
 
 /**
- * The cache lifetime for a minted token, in milliseconds.
- *
- * STS's own `Expiration` wins when present, so if STS shortened the
- * requested duration the cache does not outlive the token; the requested
- * duration is the fallback for a response that omits `Expiration`, or for
- * an `Expiration` that has already passed.
- * @param {Date | undefined} expiration
- * @param {number} requestedDurationSeconds
- * @returns {number}
- */
-export function tokenTtlMs(expiration, requestedDurationSeconds) {
-  const untilExpiry = expiration ? expiration.getTime() - Date.now() : 0
-  const availableMs =
-    untilExpiry > 0 ? untilExpiry : requestedDurationSeconds * 1000
-
-  return Math.floor(availableMs * TTL_SAFETY_MARGIN)
-}
-
-/**
  * Mints a token identifying this service to forms-identity-api.
  *
  * The subject is set by STS from the container's own credentials, so the
  * receiving service can tell who called rather than only that the caller knew
  * a shared secret.
  * @param {STSClient} sts
- * @param {GenerateFuncFlags} flags
  * @returns {Promise<string>}
  */
-async function mintToken(sts, flags) {
-  const durationSeconds = config.get('identityApi.tokenDurationSeconds')
-  const { WebIdentityToken, Expiration } = await sts.send(
+async function mintToken(sts) {
+  const { WebIdentityToken } = await sts.send(
     new GetWebIdentityTokenCommand({
       SigningAlgorithm: 'RS256',
       Audience: [config.get('identityApi.audience')],
-      DurationSeconds: durationSeconds
+      DurationSeconds: config.get('identityApi.tokenDurationSeconds')
     })
   )
 
   if (!WebIdentityToken) {
     throw new Error('STS returned no web identity token')
   }
-
-  flags.ttl = tokenTtlMs(Expiration, durationSeconds)
 
   return WebIdentityToken
 }
@@ -122,14 +99,11 @@ export const serviceToken = {
       tokenCache = server.cache({
         cache: CACHE_SEGMENT,
         segment: CACHE_SEGMENT,
-        // A fallback for catbox's own internal ttl() computations; mintToken
-        // sets the ttl actually used on every generated value via flags.ttl.
         expiresIn:
-          config.get('identityApi.tokenDurationSeconds') *
-          1000 *
-          TTL_SAFETY_MARGIN,
+          config.get('identityApi.tokenDurationSeconds') * 1000 -
+          TTL_SAFETY_BUFFER_MS,
         generateTimeout: 5000,
-        generateFunc: (id, flags) => mintToken(sts, flags)
+        generateFunc: () => mintToken(sts)
       })
 
       server.events.on('stop', () => {
@@ -141,5 +115,5 @@ export const serviceToken = {
 
 /**
  * @import { ServerRegisterPluginObject } from '@hapi/hapi'
- * @import { GenerateFuncFlags, Policy, PolicyOptions } from '@hapi/catbox'
+ * @import { Policy, PolicyOptions } from '@hapi/catbox'
  */
