@@ -106,6 +106,10 @@ export const serviceToken = {
         generateFunc: () => mintToken(sts)
       })
 
+      // 'stop' is hapi's documented server event, emitted once the server
+      // has stopped. destroy() is the SDK's own teardown: it closes the
+      // client's keep-alive sockets, so the process can exit rather than
+      // wait on idle agents.
       server.events.on('stop', () => {
         sts.destroy()
       })
