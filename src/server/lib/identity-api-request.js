@@ -1,18 +1,16 @@
 import * as fetch from '~/src/server/common/helpers/fetch.js'
-import { getServiceToken } from '~/src/server/lib/service-token.js'
 
 /**
- * Adds the caller credential to a set of request options.
- *
- * Every request to forms-identity-api goes through here, so a call site cannot
- * reach the API without identifying itself. The generic fetch helper stays
- * unauthenticated, since it is not specific to this downstream service.
+ * The JSON verbs for forms-identity-api, which require the caller credential
+ * on every request. The token comes in as a parameter: this module only
+ * attaches it, so it stays free of how tokens are minted and cached. The
+ * generic fetch helper stays unauthenticated, since it is not specific to
+ * this downstream service.
+ * @param {string} token
  * @param {RequestOptions} options
- * @returns {Promise<RequestOptions>}
+ * @returns {RequestOptions}
  */
-async function authenticate(options) {
-  const token = await getServiceToken()
-
+function authenticate(token, options) {
   return {
     ...options,
     headers: { ...options.headers, Authorization: `Bearer ${token}` }
@@ -21,34 +19,38 @@ async function authenticate(options) {
 
 /**
  * @param {URL} url
+ * @param {string} token
  * @param {RequestOptions} [options]
  */
-export async function getJson(url, options = {}) {
-  return fetch.getJson(url, await authenticate(options))
+export async function getJson(url, token, options = {}) {
+  return fetch.getJson(url, authenticate(token, options))
 }
 
 /**
  * @param {URL} url
+ * @param {string} token
  * @param {RequestOptions} [options]
  */
-export async function postJson(url, options = {}) {
-  return fetch.postJson(url, await authenticate(options))
+export async function postJson(url, token, options = {}) {
+  return fetch.postJson(url, authenticate(token, options))
 }
 
 /**
  * @param {URL} url
+ * @param {string} token
  * @param {RequestOptions} [options]
  */
-export async function putJson(url, options = {}) {
-  return fetch.putJson(url, await authenticate(options))
+export async function putJson(url, token, options = {}) {
+  return fetch.putJson(url, authenticate(token, options))
 }
 
 /**
  * @param {URL} url
+ * @param {string} token
  * @param {RequestOptions} [options]
  */
-export async function delJson(url, options = {}) {
-  return fetch.delJson(url, await authenticate(options))
+export async function delJson(url, token, options = {}) {
+  return fetch.delJson(url, authenticate(token, options))
 }
 
 /**

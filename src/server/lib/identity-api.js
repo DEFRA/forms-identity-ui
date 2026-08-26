@@ -2,6 +2,7 @@ import { config } from '~/src/config/index.js'
 import { isNotFoundError } from '~/src/server/common/helpers/fetch.js'
 import { hashId } from '~/src/server/common/helpers/hash-id.js'
 import { getJson, postJson } from '~/src/server/lib/identity-api-request.js'
+import { getServiceToken } from '~/src/server/lib/service-token.js'
 
 const baseUrl = config.get('identityApi.url')
 
@@ -24,7 +25,7 @@ const baseUrl = config.get('identityApi.url')
  * @param {{ uid: string, email: string }} input
  */
 export async function requestOtp({ uid, email }) {
-  await postJson(new URL('/otp/request', baseUrl), {
+  await postJson(new URL('/otp/request', baseUrl), await getServiceToken(), {
     payload: { uid: hashId(uid), email }
   })
 }
@@ -35,9 +36,11 @@ export async function requestOtp({ uid, email }) {
  * @returns {Promise<VerifyResult>}
  */
 export async function verifyOtp({ uid, code }) {
-  const { body } = await postJson(new URL('/otp/verify', baseUrl), {
-    payload: { uid: hashId(uid), code }
-  })
+  const { body } = await postJson(
+    new URL('/otp/verify', baseUrl),
+    await getServiceToken(),
+    { payload: { uid: hashId(uid), code } }
+  )
   return /** @type {VerifyResult} */ (body)
 }
 
@@ -47,9 +50,11 @@ export async function verifyOtp({ uid, code }) {
  * @returns {Promise<CompleteResult>}
  */
 export async function completeSignup({ uid, phone }) {
-  const { body } = await postJson(new URL('/accounts', baseUrl), {
-    payload: { uid: hashId(uid), phone }
-  })
+  const { body } = await postJson(
+    new URL('/accounts', baseUrl),
+    await getServiceToken(),
+    { payload: { uid: hashId(uid), phone } }
+  )
   return /** @type {CompleteResult} */ (body)
 }
 
@@ -61,7 +66,10 @@ export async function completeSignup({ uid, phone }) {
  */
 export async function getOtpEmail(uid) {
   try {
-    const { body } = await getJson(new URL(`/otp/${hashId(uid)}`, baseUrl))
+    const { body } = await getJson(
+      new URL(`/otp/${hashId(uid)}`, baseUrl),
+      await getServiceToken()
+    )
     return /** @type {{ email: string }} */ (body).email
   } catch (err) {
     if (isNotFoundError(err)) {
@@ -79,7 +87,8 @@ export async function getOtpEmail(uid) {
 export async function getAccount(id) {
   try {
     const { body } = await getJson(
-      new URL(`/accounts/${encodeURIComponent(id)}`, baseUrl)
+      new URL(`/accounts/${encodeURIComponent(id)}`, baseUrl),
+      await getServiceToken()
     )
     return /** @type {{ id: string, email: string }} */ (body)
   } catch (err) {

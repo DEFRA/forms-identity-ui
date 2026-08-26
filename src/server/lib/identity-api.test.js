@@ -9,10 +9,15 @@ import {
   requestOtp,
   verifyOtp
 } from '~/src/server/lib/identity-api.js'
+import { getServiceToken } from '~/src/server/lib/service-token.js'
 
 jest.mock('~/src/server/lib/identity-api-request.js', () => ({
   getJson: jest.fn(),
   postJson: jest.fn()
+}))
+
+jest.mock('~/src/server/lib/service-token.js', () => ({
+  getServiceToken: jest.fn()
 }))
 
 const API = 'http://localhost:3010'
@@ -23,8 +28,8 @@ const API = 'http://localhost:3010'
  * @returns {Record<string, string>}
  */
 function postPayload(index) {
-  const [, options] =
-    /** @type {[URL, { payload: Record<string, string> }]} */ (
+  const [, , options] =
+    /** @type {[URL, string, { payload: Record<string, string> }]} */ (
       jest.mocked(postJson).mock.calls[index]
     )
 
@@ -32,15 +37,21 @@ function postPayload(index) {
 }
 
 describe('identity-api client', () => {
+  beforeEach(() => {
+    jest.mocked(getServiceToken).mockResolvedValue('token-1')
+  })
+
   it('requestOtp posts uid and email', async () => {
     jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
 
     await requestOtp({ uid: 'uid-1', email: 'a@b.com' })
 
-    const [url, options] = /** @type {[URL, { payload: object }]} */ (
-      jest.mocked(postJson).mock.calls[0]
-    )
+    const [url, token, options] =
+      /** @type {[URL, string, { payload: object }]} */ (
+        jest.mocked(postJson).mock.calls[0]
+      )
     expect(url.href).toBe(`${API}/otp/request`)
+    expect(token).toBe('token-1')
     expect(options.payload).toEqual({
       uid: hashId('uid-1'),
       email: 'a@b.com'
@@ -124,6 +135,13 @@ describe('identity-api client', () => {
   it('getAccount rethrows non-404 errors', async () => {
     jest.mocked(getJson).mockRejectedValue(new Error('boom'))
     await expect(getAccount('acc-1')).rejects.toThrow('boom')
+  })
+
+  it('makes no request when no token can be minted', async () => {
+    jest.mocked(getServiceToken).mockRejectedValue(new Error('STS is down'))
+
+    await expect(getAccount('acc-1')).rejects.toThrow('STS is down')
+    expect(getJson).not.toHaveBeenCalled()
   })
 
   it('getOtpEmail returns the email, and null on 404', async () => {

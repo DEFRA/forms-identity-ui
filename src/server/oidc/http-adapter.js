@@ -7,6 +7,7 @@ import {
   postJson,
   putJson
 } from '~/src/server/lib/identity-api-request.js'
+import { getServiceToken } from '~/src/server/lib/service-token.js'
 
 const IDENTITY_API_URL = config.get('identityApi.url')
 
@@ -39,6 +40,9 @@ function throwUnlessNotFound(err) {
  * Builds an oidc-provider Adapter class whose persistence is
  * forms-identity-api's /oidc endpoints (the UI keeps no database).
  * oidc-provider instantiates it as `new Adapter(modelName)`.
+ *
+ * Each call fetches the current caller token and hands it to the transport
+ * verbs, which take the token as a plain parameter.
  * @returns {AdapterConstructor}
  */
 export function makeHttpAdapter() {
@@ -85,7 +89,7 @@ export function makeHttpAdapter() {
         ? Math.max(1, /** @type {number} */ (expiresIn))
         : undefined
 
-      await putJson(this.url(id), {
+      await putJson(this.url(id), await getServiceToken(), {
         payload: { payload, ...(ttl !== undefined && { expiresIn: ttl }) }
       })
     }
@@ -93,7 +97,7 @@ export function makeHttpAdapter() {
     /** @param {string} id */
     async find(id) {
       try {
-        const { body } = await getJson(this.url(id))
+        const { body } = await getJson(this.url(id), await getServiceToken())
         return /** @type {AdapterPayload} */ (body)
       } catch (err) {
         throwUnlessNotFound(err)
@@ -113,7 +117,8 @@ export function makeHttpAdapter() {
           new URL(
             `/oidc/${this.model}/uid/${encodeURIComponent(uid)}`,
             IDENTITY_API_URL
-          )
+          ),
+          await getServiceToken()
         )
         return /** @type {AdapterPayload} */ (body)
       } catch (err) {
@@ -130,12 +135,12 @@ export function makeHttpAdapter() {
 
     /** @param {string} id */
     async consume(id) {
-      await postJson(this.url(id, '/consume'), {})
+      await postJson(this.url(id, '/consume'), await getServiceToken(), {})
     }
 
     /** @param {string} id */
     async destroy(id) {
-      await delJson(this.url(id), {})
+      await delJson(this.url(id), await getServiceToken(), {})
     }
 
     /**
@@ -149,6 +154,7 @@ export function makeHttpAdapter() {
           `/oidc/grants/${encodeURIComponent(grantId)}`,
           IDENTITY_API_URL
         ),
+        await getServiceToken(),
         {}
       )
     }
