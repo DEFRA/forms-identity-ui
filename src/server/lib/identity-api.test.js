@@ -11,8 +11,6 @@ import {
 } from '~/src/server/lib/identity-api.js'
 
 jest.mock('~/src/server/common/helpers/fetch.js', () => ({
-  // the transport functions are faked; the pure helpers (the Boom-404
-  // predicate, the bearer header shape) stay real
   ...jest.requireActual('~/src/server/common/helpers/fetch.js'),
   getJson: jest.fn(),
   postJson: jest.fn()
