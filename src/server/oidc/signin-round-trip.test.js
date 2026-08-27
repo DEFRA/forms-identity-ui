@@ -15,7 +15,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
 
-// The journey now mints a caller token for every request the adapter and
+// The journey retrieves a caller token for every request the adapter and
 // sign-in service make, so STS is stubbed here too — this test checks what
 // the API traffic contains and what it must not leak, not STS connectivity,
 // which service-token.test.js already covers.

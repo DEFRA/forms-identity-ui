@@ -15,8 +15,8 @@ export function isNotFoundError(err) {
 }
 
 /**
- * Request headers presenting a bearer token, for the options of any of the
- * verbs below
+ * Request headers carrying a bearer token, for the options of the verbs
+ * below
  * @param {string} token
  * @returns {Record<string, string>}
  */

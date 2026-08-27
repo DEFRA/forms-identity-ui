@@ -26,7 +26,7 @@ const baseUrl = config.get('identityApi.url')
 /**
  * Mints and emails a security code for the interaction
  * @param {{ uid: string, email: string }} input
- * @param {string} token - the caller token to present
+ * @param {string} token
  */
 export async function requestOtp({ uid, email }, token) {
   await postJson(new URL('/otp/request', baseUrl), {
@@ -38,7 +38,7 @@ export async function requestOtp({ uid, email }, token) {
 /**
  * Verifies a security code
  * @param {{ uid: string, code: string }} input
- * @param {string} token - the caller token to present
+ * @param {string} token
  * @returns {Promise<VerifyResult>}
  */
 export async function verifyOtp({ uid, code }, token) {
@@ -52,7 +52,7 @@ export async function verifyOtp({ uid, code }, token) {
 /**
  * Completes JIT signup with the recovery phone number
  * @param {{ uid: string, phone: string }} input
- * @param {string} token - the caller token to present
+ * @param {string} token
  * @returns {Promise<CompleteResult>}
  */
 export async function completeSignup({ uid, phone }, token) {
@@ -67,7 +67,7 @@ export async function completeSignup({ uid, phone }, token) {
  * The email a sign-in code was sent to (display data for the
  * check-your-email page)
  * @param {string} uid
- * @param {string} token - the caller token to present
+ * @param {string} token
  * @returns {Promise<string | null>} null when no code has been requested
  */
 export async function getOtpEmail(uid, token) {
@@ -87,7 +87,7 @@ export async function getOtpEmail(uid, token) {
 /**
  * Account lookup backing the provider's claims/userinfo
  * @param {string} id
- * @param {string} token - the caller token to present
+ * @param {string} token
  * @returns {Promise<{ id: string, email: string } | null>} null when unknown
  */
 export async function getAccount(id, token) {

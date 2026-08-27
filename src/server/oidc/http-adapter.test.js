@@ -165,7 +165,7 @@ describe('http adapter', () => {
     )
   })
 
-  it('makes no request when no token can be minted', async () => {
+  it('makes no request when no token can be retrieved', async () => {
     jest.mocked(serviceAuthHeaders).mockRejectedValue(new Error('STS is down'))
 
     await expect(adapter.find('id-7')).rejects.toThrow('STS is down')

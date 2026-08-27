@@ -65,8 +65,8 @@ That starts three things at once:
 The session cache uses memory by default. To use Redis instead, run
 `docker compose up -d redis` and set `SESSION_CACHE_ENGINE=redis` in `.env`.
 
-Every call to forms-identity-api needs a caller token, minted from
-`AWS_ENDPOINT_URL_STS` on first use. Start that stub before signing in, or the
+Every call to forms-identity-api needs a caller token, minted by the STS
+stub at `AWS_ENDPOINT_URL_STS` on first use. Start that stub before signing in, or the
 first request 500s:
 
 ```sh

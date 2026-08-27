@@ -14,7 +14,7 @@ jest.mock('~/src/server/lib/identity-api.js', () => ({
   getOtpEmail: jest.fn()
 }))
 
-// The signin service mints a caller token before each identity API call;
+// The signin service retrieves a caller token before each identity API call;
 // these tests assert the journey, so the token is a constant. The plugin
 // export stays real because createServer registers it.
 jest.mock('~/src/server/lib/service-token.js', () => ({

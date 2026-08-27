@@ -54,7 +54,7 @@ describe('service-token', () => {
     await server.stop()
   })
 
-  it('returns the minted token', async () => {
+  it('returns the token from STS', async () => {
     const server = await buildServer()
     sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
 
@@ -62,7 +62,7 @@ describe('service-token', () => {
     await server.stop()
   })
 
-  it('reuses a cached token rather than minting one per call', async () => {
+  it('reuses a cached token rather than calling STS each time', async () => {
     const server = await buildServer()
     sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
 
@@ -74,7 +74,7 @@ describe('service-token', () => {
     await server.stop()
   })
 
-  it('serviceAuthHeaders carries the minted token as a bearer header', async () => {
+  it('serviceAuthHeaders carries the current token as a bearer header', async () => {
     const server = await buildServer()
     sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
 

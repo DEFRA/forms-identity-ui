@@ -8,14 +8,14 @@ import { bearerHeaders } from '~/src/server/common/helpers/fetch.js'
 const CACHE_SEGMENT = 'service-token'
 const CACHE_KEY = 'identity-api'
 
-// Retire a cached token a full minute before STS expires it, so a request
-// never carries a token that expires while the request is still in progress.
+// Retire a cached token one minute before STS expires it, so a request in
+// flight still holds a valid token.
 const TTL_SAFETY_BUFFER_MS = 60_000
 
 /**
  * Set when the plugin registers. The OIDC adapter is constructed by
- * `oidc-provider` with no request in scope, so the policy is reached from
- * module scope rather than threaded through the lib layer.
+ * `oidc-provider` with no request in scope, so the adapter reads the
+ * policy from module scope.
  * @type {Policy<string, PolicyOptions<string>> | undefined}
  */
 let tokenCache
@@ -46,7 +46,7 @@ async function retrieveToken(sts) {
 }
 
 /**
- * The current caller token, minted on demand and reused until it nears expiry
+ * The current caller token, retrieved on demand and reused until it nears expiry
  * @returns {Promise<string>}
  */
 export async function getServiceToken() {
