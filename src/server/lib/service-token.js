@@ -21,7 +21,7 @@ const TTL_SAFETY_BUFFER_MS = 60_000
 let tokenCache
 
 /**
- * Mints a token identifying this service to forms-identity-api.
+ * Retrieves a token identifying this service to forms-identity-api.
  *
  * The subject is set by STS from the container's own credentials, so the
  * receiving service can tell who called rather than only that the caller knew
@@ -29,7 +29,7 @@ let tokenCache
  * @param {STSClient} sts
  * @returns {Promise<string>}
  */
-async function mintToken(sts) {
+async function retrieveToken(sts) {
   const { WebIdentityToken } = await sts.send(
     new GetWebIdentityTokenCommand({
       SigningAlgorithm: 'RS256',
@@ -103,7 +103,7 @@ export const serviceToken = {
           config.get('identityApi.tokenDurationSeconds') * 1000 -
           TTL_SAFETY_BUFFER_MS,
         generateTimeout: 5000,
-        generateFunc: () => mintToken(sts)
+        generateFunc: () => retrieveToken(sts)
       })
 
       // 'stop' is hapi's documented server event, emitted once the server
