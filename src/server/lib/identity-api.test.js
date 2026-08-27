@@ -129,10 +129,10 @@ describe('identity-api client', () => {
       ...jest.mocked(postJson).mock.calls,
       ...jest.mocked(getJson).mock.calls
     ]
-    expect(calls).toHaveLength(5)
-    for (const [, options] of calls) {
-      expect(options.headers).toEqual(AUTH_HEADERS)
-    }
+    const headers = calls.map(
+      ([, options]) => /** @type {{ headers?: object }} */ (options).headers
+    )
+    expect(headers).toEqual(Array(5).fill(AUTH_HEADERS))
   })
 
   it('getAccount returns the account, and null on 404', async () => {
