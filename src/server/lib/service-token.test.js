@@ -93,4 +93,54 @@ describe('service-token', () => {
     )
     await server.stop()
   })
+
+  describe('token lifetime', () => {
+    beforeEach(() => {
+      jest.useFakeTimers()
+    })
+
+    afterEach(() => {
+      jest.useRealTimers()
+    })
+
+    it('serves the same token throughout the four-minute cache lifetime', async () => {
+      const server = await buildServer()
+      sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
+
+      await getServiceToken()
+      jest.advanceTimersByTime(4 * 60_000 - 1000)
+
+      await expect(getServiceToken()).resolves.toBe('token-1')
+      expect(sendOf()).toHaveBeenCalledTimes(1)
+      await server.stop()
+    })
+
+    it('refreshes inside the safety buffer, before the token itself expires', async () => {
+      const server = await buildServer()
+      sendOf()
+        .mockResolvedValueOnce({ WebIdentityToken: 'token-1' })
+        .mockResolvedValueOnce({ WebIdentityToken: 'token-2' })
+
+      await getServiceToken()
+      jest.advanceTimersByTime(4 * 60_000 + 30_000)
+
+      await expect(getServiceToken()).resolves.toBe('token-2')
+      expect(sendOf()).toHaveBeenCalledTimes(2)
+      await server.stop()
+    })
+
+    it('never serves a token past its five-minute expiry', async () => {
+      const server = await buildServer()
+      sendOf()
+        .mockResolvedValueOnce({ WebIdentityToken: 'token-1' })
+        .mockResolvedValueOnce({ WebIdentityToken: 'token-2' })
+
+      await getServiceToken()
+      jest.advanceTimersByTime(5 * 60_000 + 1000)
+
+      await expect(getServiceToken()).resolves.toBe('token-2')
+      expect(sendOf()).toHaveBeenCalledTimes(2)
+      await server.stop()
+    })
+  })
 })
