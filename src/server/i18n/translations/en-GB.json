@@ -19,17 +19,24 @@
     "email": {
       "title": "Enter your email address",
       "continue": "Continue",
-      "errorRequired": "Enter your email address",
+      "errorRequired": "Enter an email address",
       "errorFormat": "Enter an email address in the correct format, like name@example.com"
     },
     "code": {
       "title": "Check your email",
+      "resendNotificationTitleText": "Success",
+      "resendNotificationText": "We’ve sent you a new security code.",
       "sentTo": "We have sent an email to: [[email]]",
       "body": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
       "label": "Enter the 6 digit security code",
       "continue": "Continue",
       "errorRequired": "Enter the 6 digit security code",
-      "errorInvalid": "The code you entered is not correct or has expired – enter it again or request a new code"
+      "errorInvalidFormat": "Enter the security code using only 6 digits",
+      "errorInvalid": "The code you entered is not correct or has expired – enter it again or request a new code",
+      "problemsDetails": {
+        "summaryText": "Problems with the security code?",
+        "body": "We can <a class=\"govuk-link\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link\" href=\".\">use a different email address</a>."
+      }
     },
     "phone": {
       "title": "Enter your mobile phone number",
@@ -37,7 +44,21 @@
       "label": "Mobile phone number",
       "continue": "Continue",
       "errorRequired": "Enter your mobile phone number",
-      "errorInvalid": "Enter a mobile phone number in the correct format, like 07911 123456"
+      "errorInvalid": "Enter a mobile phone number in the correct format"
+    },
+    "codeExpired": {
+      "title": "Your security code has expired",
+      "sentTo": "The security code was sent to: [[email]]",
+      "expiryInfo": "Security codes expire after 15 minutes.",
+      "resendInfo": "Ask us to send a new code, then enter it on the next page.",
+      "continue": "Send a new security code"
+    },
+    "codeResend": {
+      "title": "Get security code",
+      "sentTo": "We will send a security code to: [[email]]",
+      "lockoutInfo": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
+      "emailInfo": "Your email might take a few minutes to arrive. If you do not get an email, check your spam folder.",
+      "continue": "Get security code"
     },
     "timedOut": {
       "title": "For your security, we ended your sign in",
