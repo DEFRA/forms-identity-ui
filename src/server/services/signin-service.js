@@ -2,6 +2,7 @@ import Joi from 'joi'
 
 import { joi as telephoneJoi } from '~/src/server/common/helpers/telephone.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
+import { getServiceToken } from '~/src/server/lib/service-token.js'
 
 /**
  * Outcomes named once, so a typo cannot silently change a journey. Exported
@@ -56,7 +57,7 @@ export async function submitEmail(uid, email) {
     }
   }
 
-  await identityApi.requestOtp({ uid, email: trimmed })
+  await identityApi.requestOtp({ uid, email: trimmed }, await getServiceToken())
 
   return { outcome: CODE_SENT, email: trimmed }
 }
@@ -76,7 +77,10 @@ export async function submitCode(uid, code) {
     return { outcome: INVALID_CODE, errorKey: 'signin.code.errorRequired' }
   }
 
-  const result = await identityApi.verifyOtp({ uid, code: trimmed })
+  const result = await identityApi.verifyOtp(
+    { uid, code: trimmed },
+    await getServiceToken()
+  )
 
   if (result.status === SIGNED_IN) {
     return { outcome: SIGNED_IN, accountId: result.accountId }
@@ -118,7 +122,10 @@ export async function submitPhone(uid, phone) {
     }
   }
 
-  const result = await identityApi.completeSignup({ uid, phone: trimmed })
+  const result = await identityApi.completeSignup(
+    { uid, phone: trimmed },
+    await getServiceToken()
+  )
 
   if (result.status === SIGNED_IN) {
     return { outcome: SIGNED_IN, accountId: result.accountId }
@@ -140,7 +147,7 @@ export async function submitPhone(uid, phone) {
  * @param {string} uid
  */
 export async function getSigninEmail(uid) {
-  return (await identityApi.getOtpEmail(uid)) ?? ''
+  return (await identityApi.getOtpEmail(uid, await getServiceToken())) ?? ''
 }
 
 /**

@@ -45,7 +45,16 @@ export default {
       'quick-lru', // Supports ESM only
       'raw-body', // Supports ESM only
       'eta', // Supports ESM only
-      'jose' // Supports ESM only
+      'jose', // Supports ESM only
+      'proxy-agent', // Supports ESM only
+      'pac-proxy-agent', // Supports ESM only
+      'socks-proxy-agent', // Supports ESM only
+      'pac-resolver', // Supports ESM only
+      'degenerator', // Supports ESM only
+      'get-uri', // Supports ESM only
+      'agent-base', // Supports ESM only
+      'http-proxy-agent', // Supports ESM only
+      'https-proxy-agent' // Supports ESM only
     ].join('|')}/)`
   ],
   testEnvironment: 'node',

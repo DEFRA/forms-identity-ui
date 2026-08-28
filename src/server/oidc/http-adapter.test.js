@@ -7,6 +7,7 @@ import {
   putJson
 } from '~/src/server/common/helpers/fetch.js'
 import { hashId } from '~/src/server/common/helpers/hash-id.js'
+import { serviceAuthHeaders } from '~/src/server/lib/service-token.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 
 jest.mock('~/src/server/common/helpers/fetch.js', () => ({
@@ -19,20 +20,31 @@ jest.mock('~/src/server/common/helpers/fetch.js', () => ({
   putJson: jest.fn()
 }))
 
+jest.mock('~/src/server/lib/service-token.js', () => ({
+  serviceAuthHeaders: jest.fn()
+}))
+
 const API = 'http://localhost:3010'
+const AUTH_HEADERS = { Authorization: 'Bearer token-1' }
 
 describe('http adapter', () => {
   const Adapter = makeHttpAdapter()
   const adapter = new Adapter('AuthorizationCode')
+
+  beforeEach(() => {
+    jest.mocked(serviceAuthHeaders).mockResolvedValue(AUTH_HEADERS)
+  })
 
   it('snake_cases the model name onto the wire', async () => {
     jest.mocked(putJson).mockResolvedValue(/** @type {never} */ ({}))
 
     await adapter.upsert('id-1', { foo: 'bar' }, 60)
 
-    const [url, options] = /** @type {[URL, { payload: object }]} */ (
-      jest.mocked(putJson).mock.calls[0]
-    )
+    const [url, options] =
+      /** @type {[URL, { payload: object, headers: object }]} */ (
+        jest.mocked(putJson).mock.calls[0]
+      )
+    expect(options.headers).toEqual(AUTH_HEADERS)
     expect(url.href).toBe(`${API}/oidc/authorization_code/${hashId('id-1')}`)
     expect(url.href).not.toContain('id-1')
     expect(options.payload).toEqual({
@@ -151,6 +163,13 @@ describe('http adapter', () => {
     expect(jest.mocked(delJson).mock.calls.at(-1)?.[0].href).toBe(
       `${API}/oidc/grants/g-1`
     )
+  })
+
+  it('makes no request when no token can be retrieved', async () => {
+    jest.mocked(serviceAuthHeaders).mockRejectedValue(new Error('STS is down'))
+
+    await expect(adapter.find('id-7')).rejects.toThrow('STS is down')
+    expect(getJson).not.toHaveBeenCalled()
   })
 
   it('keeps a traversal attempt inside the /oidc route family', async () => {

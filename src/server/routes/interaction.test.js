@@ -2,6 +2,7 @@ import { errors } from 'oidc-provider'
 
 import { createServer } from '~/src/server/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
+import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { assertInteractionRoutesGated } from '~/src/server/routes/interaction.js'
 import { renderResponse } from '~/test/helpers/component-helpers.js'
 
@@ -11,6 +12,14 @@ jest.mock('~/src/server/lib/identity-api.js', () => ({
   completeSignup: jest.fn(),
   getAccount: jest.fn(),
   getOtpEmail: jest.fn()
+}))
+
+// The signin service retrieves a caller token before each identity API call;
+// these tests assert the journey, so the token is a constant. The plugin
+// export stays real because createServer registers it.
+jest.mock('~/src/server/lib/service-token.js', () => ({
+  ...jest.requireActual('~/src/server/lib/service-token.js'),
+  getServiceToken: jest.fn()
 }))
 
 describe('interaction pages', () => {
@@ -31,6 +40,7 @@ describe('interaction pages', () => {
   })
 
   beforeEach(() => {
+    jest.mocked(getServiceToken).mockResolvedValue('token-1')
     jest.mocked(identityApi.getOtpEmail).mockResolvedValue('a@b.com')
     const provider = server.app.oidcProvider
     detailsSpy = jest.spyOn(provider, 'interactionDetails').mockResolvedValue(
@@ -151,10 +161,10 @@ describe('interaction pages', () => {
 
     expect(res.statusCode).toBe(302)
     expect(res.headers.location).toBe('/interaction/uid-1/code')
-    expect(identityApi.requestOtp).toHaveBeenCalledWith({
-      uid: 'uid-1',
-      email: 'Citizen@Example.com'
-    })
+    expect(identityApi.requestOtp).toHaveBeenCalledWith(
+      { uid: 'uid-1', email: 'Citizen@Example.com' },
+      'token-1'
+    )
   })
 
   it('POST email re-renders with a GDS error for an invalid email', async () => {
@@ -373,10 +383,10 @@ describe('interaction pages', () => {
       payload: { crumb, code: '000001' }
     })
 
-    expect(identityApi.verifyOtp).toHaveBeenCalledWith({
-      uid: 'uid-1',
-      code: '000001'
-    })
+    expect(identityApi.verifyOtp).toHaveBeenCalledWith(
+      { uid: 'uid-1', code: '000001' },
+      'token-1'
+    )
   })
 
   it('POST a malformed code reaches the API, which judges the shape invalid', async () => {
@@ -394,10 +404,10 @@ describe('interaction pages', () => {
       })
 
       expect(response.statusCode).toBe(200)
-      expect(identityApi.verifyOtp).toHaveBeenLastCalledWith({
-        uid: 'uid-1',
-        code
-      })
+      expect(identityApi.verifyOtp).toHaveBeenLastCalledWith(
+        { uid: 'uid-1', code },
+        'token-1'
+      )
       expect(
         container.getByRole('link', {
           name: 'The code you entered is not correct or has expired – enter it again or request a new code'

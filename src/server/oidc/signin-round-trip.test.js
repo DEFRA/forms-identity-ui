@@ -15,6 +15,20 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
 
+// The journey retrieves a caller token for every request the adapter and
+// sign-in service make, so STS is stubbed here too — this test checks what
+// the API traffic contains and what it must not leak, not STS connectivity,
+// which service-token.test.js already covers.
+const mockStsSend = jest.fn()
+
+jest.mock('@aws-sdk/client-sts', () => ({
+  STSClient: jest.fn().mockImplementation(() => ({
+    send: mockStsSend,
+    destroy: jest.fn()
+  })),
+  GetWebIdentityTokenCommand: jest.fn((input) => ({ input }))
+}))
+
 // Jest runs a suite in its own realm while Node's own globals belong to the
 // host realm, so a structuredClone result carries the host's Object as its
 // constructor. oidc-provider recognises plain objects by that identity and
@@ -37,6 +51,13 @@ const PHONE = '07911 123456'
  * @type {string[]}
  */
 const seenPaths = []
+/**
+ * The Authorization header the stub saw on each request, in the same order
+ * as seenPaths — this is what shows the caller token passes through the
+ * real server, adapter and Wreck without being dropped along the way
+ * @type {(string | undefined)[]}
+ */
+const seenAuthorizations = []
 /**
  * Artifact payloads by `${model}/${id}`, standing in for the API's store
  * @type {Map<string, Record<string, unknown>>}
@@ -196,6 +217,7 @@ async function handle(req, res) {
   const path = /** @type {string} */ (req.url)
   const method = /** @type {string} */ (req.method)
   seenPaths.push(`${method} ${path}`)
+  seenAuthorizations.push(req.headers.authorization)
 
   const body =
     method === 'GET' || method === 'DELETE' ? {} : await readBody(req)
@@ -251,6 +273,13 @@ describe('sign-in round trip', () => {
   afterAll(async () => {
     await server.stop()
     await new Promise((resolve) => stub.close(resolve))
+  })
+
+  // resetMocks wipes a jest.fn() implementation before every test, so the
+  // token STS hands back is reinstated here rather than relied on from the
+  // jest.mock() call above
+  beforeEach(() => {
+    mockStsSend.mockResolvedValue({ WebIdentityToken: 'stub-service-token' })
   })
 
   /**
@@ -429,5 +458,13 @@ describe('sign-in round trip', () => {
     expect(
       seenPaths.some((path) => path.includes(hashId(authorizationCode)))
     ).toBe(true)
+
+    // The caller token passes through the real server, adapter and Wreck:
+    // every request the stub saw carried it, so nothing along that path
+    // drops or changes the header.
+    expect(seenAuthorizations.length).toBeGreaterThan(0)
+    for (const authorization of seenAuthorizations) {
+      expect(authorization).toBe('Bearer stub-service-token')
+    }
   })
 })
