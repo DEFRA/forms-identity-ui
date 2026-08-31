@@ -62,7 +62,7 @@
     "convict": "^6.2.5",
     "dotenv": "^17.4.2",
     "google-libphonenumber": "^3.2.46",
-    "govuk-frontend": "^5.13.0",
+    "govuk-frontend": "^6.5.0",
     "hapi-pino": "^13.0.0",
     "hapi-pulse": "^3.0.1",
     "http-status-codes": "^2.3.0",
