@@ -89,7 +89,7 @@
     "@types/hapi__crumb": "^7.3.7",
     "@types/jest": "^30.0.0",
     "@types/jsdom": "^28.0.3",
-    "@types/node": "^25.9.1",
+    "@types/node": "^26.4.0",
     "@types/nunjucks": "^3.2.6",
     "@types/oidc-provider": "^9.11.0",
     "autoprefixer": "^10.5.2",
