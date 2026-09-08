@@ -1,3 +1,5 @@
+import { errors } from 'oidc-provider'
+
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
@@ -15,6 +17,18 @@ const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.runnerJwks'))
 )
 const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris').split(',')
+/**
+ * One algorithm throughout. A reader verifies these tokens with a stock JWKS
+ * reader, and those read RSA keys.
+ */
+const SIGNING_ALG = 'RS256'
+
+/**
+ * The APIs this provider issues access tokens for. Each API refuses a token
+ * carrying any other `aud`, so both sides must hold the same name.
+ */
+const RESOURCE_SERVERS = new Set(config.get('oidc.resourceServers').split(','))
+
 const TTL_SECONDS = {
   AuthorizationCode: config.get('oidc.ttl.authorizationCode'),
   IdToken: config.get('oidc.ttl.idToken'),
@@ -43,7 +57,7 @@ export function buildProviderConfig(adapter) {
         // this service stores can impersonate the client, and there is no
         // shared secret to distribute or rotate in step.
         token_endpoint_auth_method: 'private_key_jwt',
-        id_token_signed_response_alg: 'ES256',
+        id_token_signed_response_alg: SIGNING_ALG,
         jwks: RUNNER_JWKS
       }
     ],
@@ -52,18 +66,39 @@ export function buildProviderConfig(adapter) {
     pkce: { required: () => true },
     // Discovery is a promise to every relying party, so it states what this
     // deployment does and nothing more: one client, the authorization code
-    // flow, one scope beyond the claims below, and ES256 both for the ID
-    // tokens signed here and for the assertions the client signs
+    // flow, one scope beyond the claims below, and RS256 for the tokens
+    // signed here and for the assertions a client signs
     responseTypes: ['code'],
     scopes: ['openid'],
     enabledJWA: {
-      idTokenSigningAlgValues: ['ES256'],
-      clientAuthSigningAlgValues: ['ES256']
+      idTokenSigningAlgValues: [SIGNING_ALG],
+      clientAuthSigningAlgValues: [SIGNING_ALG]
     },
     features: {
       devInteractions: { enabled: false },
       // On by default, and its endpoint is deliberately not mounted
-      pushedAuthorizationRequests: { enabled: false }
+      pushedAuthorizationRequests: { enabled: false },
+      // A client names the API it wants a token for, and gets a JWT with
+      // that name as its `aud`. Every API here is sent the same kind of
+      // token. Without a resource server the token would be opaque.
+      resourceIndicators: {
+        enabled: true,
+        getResourceServerInfo(_ctx, resourceIndicator) {
+          if (!RESOURCE_SERVERS.has(resourceIndicator)) {
+            throw new errors.InvalidTarget()
+          }
+
+          return {
+            // A citizen sees the records that carry their subject, so the
+            // token needs no scope.
+            scope: '',
+            audience: resourceIndicator,
+            accessTokenFormat: 'jwt',
+            accessTokenTTL: TTL_SECONDS.AccessToken,
+            jwt: { sign: { alg: SIGNING_ALG } }
+          }
+        }
+      }
     },
     interactions: {
       url(_ctx, interaction) {

@@ -41,5 +41,7 @@ process.env.OIDC_TTL_GRANT = '86400'
 // override variables that are already set)
 process.env.OIDC_ISSUER = 'http://localhost:3011'
 process.env.IDENTITY_API_URL = 'http://localhost:3010'
+process.env.OIDC_RESOURCE_SERVERS =
+  'urn:defra:forms:forms-submission-api,urn:defra:forms:another-api'
 process.env.OIDC_RUNNER_REDIRECT_URIS =
   'http://localhost:3009/callback,http://localhost:3000/callback'

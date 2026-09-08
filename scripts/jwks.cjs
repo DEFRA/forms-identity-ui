@@ -4,13 +4,12 @@ const crypto = require('node:crypto')
  * Key generation for the OIDC provider and its clients. CommonJS so the CLI
  * scripts (ESM) and jest.setup.cjs share one implementation.
  *
- * Everything is ES256 over P-256 — the algorithm GOV.UK One Login requires,
- * so staying on it keeps a future move to One Login a change of
- * configuration rather than of code.
+ * Everything is RS256. A reader verifies these keys with a stock JWKS
+ * reader, and those read RSA keys.
  */
 
-const CURVE = 'P-256'
-const ALG = 'ES256'
+const ALG = 'RS256'
+const MODULUS_LENGTH = 2048
 
 /**
  * A key id travels in the header of everything the key signs, and it is all
@@ -22,9 +21,10 @@ const ALG = 'ES256'
  *   for the one a client signs its assertions with
  */
 function generateKeyPair(role) {
-  const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', {
-    namedCurve: CURVE
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: MODULUS_LENGTH
   })
+
   const kid = `${role}-${ALG.toLowerCase()}-${crypto.randomBytes(6).toString('hex')}`
 
   /**
@@ -38,8 +38,9 @@ function generateKeyPair(role) {
 }
 
 /**
- * The provider's own signing JWKS (private). It signs ID tokens; the public
- * half is published at the JWKS endpoint for clients to verify against.
+ * The provider's own signing JWKS (private). It signs ID tokens and access
+ * tokens; the public half is published at the JWKS endpoint for clients and
+ * APIs to verify against.
  */
 function generateJwks() {
   return generateKeyPair('sig').private

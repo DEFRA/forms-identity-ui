@@ -246,6 +246,12 @@ export const config = convict({
       default: isProduction,
       env: 'OIDC_COOKIE_SECURE'
     },
+    resourceServers: {
+      doc: 'Comma-separated names of the APIs this provider issues access tokens for. The name becomes the audience of the token. A name that is not here gets no token.',
+      format: String,
+      default: /** @type {string | null} */ (null),
+      env: 'OIDC_RESOURCE_SERVERS'
+    },
     runnerJwks: {
       doc: 'Public JWKS of the `runner` client, whose private half signs the assertion it authenticates with (run `node scripts/generate-client-keypair.mjs`). Public key material, so not a secret.',
       format: String,
