@@ -9,6 +9,8 @@ import { type ServerYar, type Yar } from '@hapi/yar'
 import type OidcProvider from 'oidc-provider'
 import { type Logger } from 'pino'
 
+import { type sessionNames } from '~/src/server/common/constants/session-names.js'
+
 declare module '@hapi/hapi' {
   // Here we are decorating Hapi interface types with
   // props from plugins which doesn't export @types
@@ -41,6 +43,20 @@ declare module '@hapi/hapi' {
 
   interface ServerApplicationState {
     oidcProvider: OidcProvider
+  }
+}
+
+declare module '@hapi/yar' {
+  type SuccessNotification =
+    (typeof sessionNames)['codeResendSuccessNotification']
+
+  interface YarFlashes {
+    // String flash types using actual constants
+    [sessionNames.codeResendSuccessNotification]: string
+  }
+
+  interface YarValues {
+    [sessionNames.codeResendSuccessNotification]: boolean
   }
 }
 

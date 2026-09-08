@@ -4,6 +4,7 @@ import Joi from 'joi'
 import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
+import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { formatDuration } from '~/src/server/common/helpers/duration.js'
 import { signinFormCsp } from '~/src/server/plugins/blankie.js'
 import * as signinService from '~/src/server/services/signin-service.js'
@@ -13,6 +14,7 @@ import * as signinService from '~/src/server/services/signin-service.js'
 const INTERACTION_DURATION = formatDuration(config.get('oidc.ttl.interaction'))
 
 const uidParams = Joi.object({ uid: Joi.string().required() })
+const emailQuery = Joi.object({ resend: Joi.boolean().optional() })
 
 /**
  * Each form posts exactly one field plus the crumb. A duplicated key makes
@@ -131,6 +133,23 @@ async function finishLogin(request, h, accountId) {
 }
 
 /**
+ *
+ * @param {Request<{ Pres: InteractionPres; }>} request
+ * @param {ResponseToolkit<{ Pres: InteractionPres; }>} h
+ * @param {string} viewName - the view name
+ */
+async function commonOTPHandler(request, h, viewName) {
+  const { uid } = request.pre.details
+  const email = await signinService.getSigninEmail(uid)
+
+  if (!email) {
+    return h.redirect(`/interaction/${uid}`)
+  }
+
+  return h.view(`interaction/${viewName}`, { email })
+}
+
+/**
  * Sign-in interaction pages. Every route runs behind the requireInteraction
  * pre (request.pre.details); handlers hand raw request data to the signin
  * service and translate the returned outcome into a response. Rendering is
@@ -197,12 +216,16 @@ export default /** @type {ServerRoute[]} */ (
         return h.view('interaction/email', { uid: details.uid })
       }
     }),
-    /** @satisfies {ServerRoute<{ Payload: { email?: string }, Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Payload: { email?: string }, Pres: InteractionPres, Query: { resend?: boolean} }>} */
     ({
       method: 'POST',
       path: '/interaction/{uid}/email',
       options: {
-        validate: { params: uidParams, payload: formPayload('email') },
+        validate: {
+          params: uidParams,
+          payload: formPayload('email'),
+          query: emailQuery
+        },
         pre: [GATE]
       },
       async handler(request, h) {
@@ -216,6 +239,12 @@ export default /** @type {ServerRoute[]} */ (
             email: result.email,
             errorKey: result.errorKey
           })
+        }
+
+        const { resend = false } = request.query
+
+        if (resend) {
+          request.yar.flash(sessionNames.codeResendSuccessNotification, true)
         }
 
         return h.redirect(`/interaction/${details.uid}/code`)
@@ -242,7 +271,15 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(`/interaction/${details.uid}`)
         }
 
-        return h.view('interaction/code', { uid: details.uid, email })
+        const showResendNotification = request.yar
+          .flash(sessionNames.codeResendSuccessNotification)
+          .at(0)
+
+        return h.view('interaction/code', {
+          uid: details.uid,
+          email,
+          showResendNotification
+        })
       }
     }),
     /** @satisfies {ServerRoute<{ Payload: { code?: string }, Pres: InteractionPres }>} */
@@ -265,6 +302,9 @@ export default /** @type {ServerRoute[]} */ (
         if (result.outcome === signinService.PHONE_REQUIRED) {
           return h.redirect(`/interaction/${details.uid}/phone`)
         }
+        if (result.outcome === signinService.INVALID_CODE_CONSUMED_OR_EXPIRED) {
+          return h.redirect(`/interaction/${details.uid}/code/expired`)
+        }
 
         const email = await signinService.getSigninEmail(details.uid)
 
@@ -279,6 +319,32 @@ export default /** @type {ServerRoute[]} */ (
           email,
           errorKey: result.errorKey
         })
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    ({
+      method: 'GET',
+      path: '/interaction/{uid}/code/expired',
+      options: {
+        validate: { params: uidParams },
+        plugins: { blankie: signinFormCsp },
+        pre: [GATE]
+      },
+      async handler(request, h) {
+        return commonOTPHandler(request, h, 'code-expired')
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    ({
+      method: 'GET',
+      path: '/interaction/{uid}/code/resend',
+      options: {
+        validate: { params: uidParams },
+        plugins: { blankie: signinFormCsp },
+        pre: [GATE]
+      },
+      async handler(request, h) {
+        return commonOTPHandler(request, h, 'code-resend')
       }
     }),
     /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */

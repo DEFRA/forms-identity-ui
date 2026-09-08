@@ -19,7 +19,7 @@ const baseUrl = config.get('identityApi.url')
  * stores and matches the digest with no change of its own. All four sites
  * have to agree: a digest on one side and a plaintext uid on the other gives
  * a 404, not an error.
- * @typedef {{ status: 'invalid' } | { status: 'phone-required' } | { status: 'signed-in', accountId: string }} VerifyResult
+ * @typedef {{ status: 'invalid' } | { status: 'invalid-code-format' } | { status: 'invalid-code-consumed-or-expired' } | { status: 'phone-required' } | { status: 'signed-in', accountId: string }} VerifyResult
  * @typedef {{ status: 'invalid' } | { status: 'invalid-phone' } | { status: 'signed-in', accountId: string }} CompleteResult
  */
 

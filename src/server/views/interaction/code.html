@@ -4,6 +4,8 @@
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% from "govuk/components/input/macro.njk" import govukInput %}
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
 {% set pageTitle = t('signin.code.title') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
@@ -11,6 +13,14 @@
 {% block content %}
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
+
+      {% if showResendNotification %}
+        {{ govukNotificationBanner({
+          type: "success",
+          titleText: t('signin.code.resendNotificationTitleText'),
+          text: t('signin.code.resendNotificationText')
+        }) }}
+      {% endif %}
 
       {% if errorKey %}
         {{ govukErrorSummary({
@@ -43,6 +53,10 @@
         {{ govukButton({ text: t('signin.code.continue') }) }}
       </form>
 
+      {{ govukDetails({
+        summaryText: t('signin.code.problemsDetails.summaryText'),
+        html: t('signin.code.problemsDetails.body')
+      }) }}
     </div>
   </div>
 {% endblock %}
