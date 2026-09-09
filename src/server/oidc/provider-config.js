@@ -27,7 +27,8 @@ const SIGNING_ALG = 'RS256'
  * The APIs this provider issues access tokens for. Each API refuses a token
  * carrying any other `aud`, so both sides must hold the same name.
  */
-const RESOURCE_SERVERS = new Set(config.get('oidc.resourceServers').split(','))
+const RESOURCE_SERVER_NAMES = config.get('oidc.resourceServers')
+const RESOURCE_SERVERS = new Set(RESOURCE_SERVER_NAMES.split(','))
 
 const TTL_SECONDS = {
   AuthorizationCode: config.get('oidc.ttl.authorizationCode'),
