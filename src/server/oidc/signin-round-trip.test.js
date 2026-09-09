@@ -562,15 +562,18 @@ describe('sign-in round trip', () => {
     // an opaque token is one segment, so this tells the two apart
     expect(accessToken.split('.')).toHaveLength(3)
 
+    const signedIn = [...accounts.values()].find(
+      (account) => account.email === email
+    )
+    expect(signedIn).toBeDefined()
+
     expect(decodeSegment(accessToken, 0)).toMatchObject({ alg: 'RS256' })
     expect(decodeSegment(accessToken, 1)).toMatchObject({
       iss: ISSUER,
       aud: RESOURCE,
-      client_id: 'runner'
+      client_id: 'runner',
+      sub: signedIn?.id
     })
-    expect(decodeSegment(accessToken, 1).sub).toBe(
-      [...accounts.values()].find((account) => account.email === email)?.id
-    )
 
     // A resource-bound token cannot reach userinfo, so the claims move to
     // the ID token and the client reads the email there
