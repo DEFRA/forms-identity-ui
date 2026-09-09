@@ -17,15 +17,10 @@ const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.runnerJwks'))
 )
 const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris').split(',')
-/**
- * One algorithm throughout. A reader verifies these tokens with a stock JWKS
- * reader, and those read RSA keys.
- */
 const SIGNING_ALG = 'RS256'
 
 /**
- * The APIs this provider issues access tokens for. Each API refuses a token
- * carrying any other `aud`, so both sides must hold the same name.
+ * The APIs this provider issues access tokens for.
  */
 const RESOURCE_SERVER_NAMES = config.get('oidc.resourceServers')
 const RESOURCE_SERVERS = new Set(RESOURCE_SERVER_NAMES.split(','))
@@ -79,9 +74,6 @@ export function buildProviderConfig(adapter) {
       devInteractions: { enabled: false },
       // On by default, and its endpoint is deliberately not mounted
       pushedAuthorizationRequests: { enabled: false },
-      // A client names the API it wants a token for, and gets a JWT with
-      // that name as its `aud`. Every API here is sent the same kind of
-      // token. Without a resource server the token would be opaque.
       resourceIndicators: {
         enabled: true,
         getResourceServerInfo(_ctx, resourceIndicator) {
@@ -90,8 +82,8 @@ export function buildProviderConfig(adapter) {
           }
 
           return {
-            // A citizen sees the records that carry their subject, so the
-            // token needs no scope.
+            // Data is filtered on the APIs by `sub`, so scopes aren't
+            // required for now
             scope: '',
             audience: resourceIndicator,
             accessTokenFormat: 'jwt',
