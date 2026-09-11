@@ -171,7 +171,10 @@ server.route([
 
       const logoutUrl = client.buildEndSessionUrl(config, {
         ...(idToken && { id_token_hint: idToken }),
-        client_id: 'runner'
+        client_id: 'runner',
+        // Registered in OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS — without it
+        // the provider shows its own success page instead of returning here
+        post_logout_redirect_uri: `${BASE}/`
       })
       return h.redirect(logoutUrl.href)
     }
