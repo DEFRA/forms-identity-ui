@@ -6,6 +6,7 @@ import { errors } from 'oidc-provider'
 import { config } from '~/src/config/index.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { formatDuration } from '~/src/server/common/helpers/duration.js'
+import { setLanguage } from '~/src/server/i18n/index.js'
 import { signinFormCsp } from '~/src/server/plugins/blankie.js'
 import * as signinService from '~/src/server/services/signin-service.js'
 
@@ -50,6 +51,7 @@ export async function requireInteraction(request, h) {
   const provider = request.server.app.oidcProvider
 
   try {
+    setLanguage(request)
     return await provider.interactionDetails(request.raw.req, request.raw.res)
   } catch (err) {
     if (err instanceof errors.SessionNotFound) {
@@ -212,6 +214,17 @@ export default /** @type {ServerRoute[]} */ (
             `Unsupported interaction prompt: ${details.prompt.name}`
           )
         }
+
+        return h.redirect(`/interaction/${details.uid}/email`)
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    ({
+      method: 'GET',
+      path: '/interaction/{uid}/email',
+      options: { validate: { params: uidParams }, pre: [GATE] },
+      handler(request, h) {
+        const details = request.pre.details
 
         return h.view('interaction/email', { uid: details.uid })
       }

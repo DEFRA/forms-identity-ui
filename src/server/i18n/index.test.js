@@ -1,12 +1,10 @@
-import { resolveLanguage } from '~/src/server/i18n/index.js'
+import { getLanguage } from '~/src/server/i18n/index.js'
 
 describe('i18n', () => {
   describe('resolveLanguage()', () => {
     it('returns the default language', () => {
       const blankRequest = /** @type {Request} */ (/** @type {unknown} */ ({}))
-      expect(resolveLanguage(blankRequest.query, blankRequest.yar)).toBe(
-        'en-GB'
-      )
+      expect(getLanguage(blankRequest.query, blankRequest.yar)).toBe('en-GB')
     })
 
     it('returns the language set in the session', () => {
@@ -17,7 +15,7 @@ describe('i18n', () => {
           }
         })
       )
-      expect(resolveLanguage(blankRequest.query, blankRequest.yar)).toBe('cy')
+      expect(getLanguage(blankRequest.query, blankRequest.yar)).toBe('cy')
     })
 
     it('sets the language in the session if passed as a param', () => {
@@ -33,7 +31,7 @@ describe('i18n', () => {
           }
         })
       )
-      resolveLanguage(blankRequest.query, blankRequest.yar)
+      getLanguage(blankRequest.query, blankRequest.yar)
       expect(mockYarSet).toHaveBeenCalledWith('language', 'cy')
     })
   })
