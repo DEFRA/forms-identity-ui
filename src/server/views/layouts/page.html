@@ -26,6 +26,10 @@
   }) }}
 {% endblock %}
 
+{% block beforeContent %}
+  {% include "partials/language-selector.html" %}
+{% endblock %}
+
 {% block bodyEnd %}
   <script type="module" nonce="{{ cspNonce }}" src="{{ getAssetPath("application.js") }}"></script>
 {% endblock %}
