@@ -28,9 +28,21 @@ const baseUrl = config.get('identityApi.url')
  * @param {{ uid: string, email: string }} input
  * @param {string} token
  */
-export async function requestOtp({ uid, email }, token) {
+export async function requestOtpViaEmail({ uid, email }, token) {
   await postJson(new URL('/otp/request', baseUrl), {
     payload: { uid: hashId(uid), email },
+    headers: bearerHeaders(token)
+  })
+}
+
+/**
+ * Mints and emails a security code for the interaction
+ * @param {{ uid: string, phoneNumber: string }} input
+ * @param {string} token
+ */
+export async function requestOtpViaSms({ uid, phoneNumber }, token) {
+  await postJson(new URL('/otp/request', baseUrl), {
+    payload: { uid: hashId(uid), phoneNumber },
     headers: bearerHeaders(token)
   })
 }
@@ -85,10 +97,10 @@ export async function getOtpEmail(uid, token) {
 }
 
 /**
- * Account lookup backing the provider's claims/userinfo
+ * Account lookup backing the provider's claims/userinfo and the account page
  * @param {string} id
  * @param {string} token
- * @returns {Promise<{ id: string, email: string } | null>} null when unknown
+ * @returns {Promise<{ id: string, email: string, phone?: string } | null>} null when unknown
  */
 export async function getAccount(id, token) {
   try {
@@ -96,7 +108,7 @@ export async function getAccount(id, token) {
       new URL(`/accounts/${encodeURIComponent(id)}`, baseUrl),
       { headers: bearerHeaders(token) }
     )
-    return /** @type {{ id: string, email: string }} */ (body)
+    return /** @type {{ id: string, email: string, phone?: string }} */ (body)
   } catch (err) {
     if (isNotFoundError(err)) {
       return null

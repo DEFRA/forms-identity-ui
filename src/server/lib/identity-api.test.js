@@ -6,7 +6,7 @@ import {
   completeSignup,
   getAccount,
   getOtpEmail,
-  requestOtp,
+  requestOtpViaEmail,
   verifyOtp
 } from '~/src/server/lib/identity-api.js'
 
@@ -34,10 +34,10 @@ function postPayload(index) {
 }
 
 describe('identity-api client', () => {
-  it('requestOtp posts uid and email', async () => {
+  it('requestOtpViaEmail posts uid and email', async () => {
     jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
 
-    await requestOtp({ uid: 'uid-1', email: 'a@b.com' }, 'token-1')
+    await requestOtpViaEmail({ uid: 'uid-1', email: 'a@b.com' }, 'token-1')
 
     const [url, options] =
       /** @type {[URL, { payload: object, headers: object }]} */ (
@@ -95,7 +95,7 @@ describe('identity-api client', () => {
       .mocked(getJson)
       .mockResolvedValue(/** @type {never} */ ({ body: { email: 'a@b.com' } }))
 
-    await requestOtp({ uid: 'uid-1', email: 'a@b.com' }, 'token-1')
+    await requestOtpViaEmail({ uid: 'uid-1', email: 'a@b.com' }, 'token-1')
     await verifyOtp({ uid: 'uid-1', code: '123456' }, 'token-1')
     await completeSignup({ uid: 'uid-1', phone: '07911 123456' }, 'token-1')
     await getOtpEmail('uid-1', 'token-1')
@@ -119,7 +119,7 @@ describe('identity-api client', () => {
         /** @type {never} */ ({ body: { email: 'a@b.com', id: 'acc-1' } })
       )
 
-    await requestOtp({ uid: 'uid-1', email: 'a@b.com' }, 'token-1')
+    await requestOtpViaEmail({ uid: 'uid-1', email: 'a@b.com' }, 'token-1')
     await verifyOtp({ uid: 'uid-1', code: '123456' }, 'token-1')
     await completeSignup({ uid: 'uid-1', phone: '07911 123456' }, 'token-1')
     await getOtpEmail('uid-1', 'token-1')

@@ -7,7 +7,8 @@ import { assertInteractionRoutesGated } from '~/src/server/routes/interaction.js
 import { renderResponse } from '~/test/helpers/component-helpers.js'
 
 jest.mock('~/src/server/lib/identity-api.js', () => ({
-  requestOtp: jest.fn(),
+  requestOtpViaEmail: jest.fn(),
+  requestOtpViaSms: jest.fn(),
   verifyOtp: jest.fn(),
   completeSignup: jest.fn(),
   getAccount: jest.fn(),
@@ -149,7 +150,7 @@ describe('interaction pages', () => {
   })
 
   it('POST email requests a code and redirects to the code page', async () => {
-    jest.mocked(identityApi.requestOtp).mockResolvedValue(undefined)
+    jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue(undefined)
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1')
 
     const res = await server.inject({
@@ -161,7 +162,7 @@ describe('interaction pages', () => {
 
     expect(res.statusCode).toBe(302)
     expect(res.headers.location).toBe('/interaction/uid-1/code')
-    expect(identityApi.requestOtp).toHaveBeenCalledWith(
+    expect(identityApi.requestOtpViaEmail).toHaveBeenCalledWith(
       { uid: 'uid-1', email: 'Citizen@Example.com' },
       'token-1'
     )
@@ -187,7 +188,7 @@ describe('interaction pages', () => {
         name: 'Enter an email address in the correct format, like name@example.com'
       })
     ).toHaveAttribute('href', '#email')
-    expect(identityApi.requestOtp).not.toHaveBeenCalled()
+    expect(identityApi.requestOtpViaEmail).not.toHaveBeenCalled()
   })
 
   it('POST email without a crumb is rejected', async () => {

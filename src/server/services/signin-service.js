@@ -61,7 +61,10 @@ export async function submitEmail(uid, email) {
     }
   }
 
-  await identityApi.requestOtp({ uid, email: trimmed }, await getServiceToken())
+  await identityApi.requestOtpViaEmail(
+    { uid, email: trimmed },
+    await getServiceToken()
+  )
 
   return { outcome: CODE_SENT, email: trimmed }
 }

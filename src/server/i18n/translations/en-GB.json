@@ -9,6 +9,34 @@
     "step1": "Go back to the website, app, or form you were using.",
     "step2": "Select Sign in or Log in to try again."
   },
+  "account": {
+    "pageTitle": "Security",
+    "cardTitle": "Your sign-in details",
+    "email": "Email address",
+    "phone": "Mobile phone number",
+    "changeEmail": "Change email address",
+    "requestPhoneOtp": {
+      "title": "Get security code",
+      "inset": "We will send a security code to your mobile phone number ending with",
+      "para1": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
+      "para2": "It might take a few minutes to arrive.",
+      "getCode": "Get security code"
+    },
+    "sentPhoneOtp": {
+      "title": "Check your phone",
+      "resendNotificationTitleText": "Success",
+      "resendNotificationText": "We’ve sent you a new security code.",
+      "para1": "We need to check it’s you before you can change your email address.",
+      "inset": "We will send a security code to your mobile phone number ending with",
+      "para2": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
+      "enterCode": "Enter the 6 digit security code",
+      "continue": "Continue",
+      "problemsDetails": {
+        "summaryText": "Problems with the security code?",
+        "body": "We can <a class=\"govuk-link\" href=\"./code-resend\">send the security code again</a> if the security code is not working or you did not receive it."
+      }
+    }
+  },
   "layout": {
     "footer": {
       "contentLicenceHtml": "All content is available under the <a class=\"govuk-footer__link\" href=\"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/\" rel=\"license\">Open Government Licence v3.0</a>, except where otherwise stated",
@@ -66,8 +94,7 @@
         "You have [[duration]] to finish signing in.",
         "Go back to the service you were using and sign in again."
       ]
-    },
-    "errorSummaryTitle": "There is a problem"
+    }
   },
   "errors": {
     "notFound": {
@@ -81,6 +108,7 @@
       "canYou": "You can:",
       "tryBack": "try your browser back button",
       "contact": "<a class=\"govuk-link\" href=\"https://www.gov.uk/guidance/contact-defra\">contact the Defra Helpline</a> if you have any questions"
-    }
+    },
+    "errorSummaryTitle": "There is a problem"
   }
 }
