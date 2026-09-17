@@ -15,7 +15,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
 
-import { SignJWT, importJWK } from 'jose'
+import { SignJWT, generateKeyPair, importJWK } from 'jose'
 
 // The journey retrieves a caller token for every request the adapter and
 // sign-in service make, so STS is stubbed here too — this test checks what
@@ -48,6 +48,8 @@ const KNOWN_CODE = '123456'
 const RESOURCE = 'urn:defra:forms:forms-submission-api'
 const EMAIL = 'someone@example.com'
 const PHONE = '07911 123456'
+const CLIENT_ASSERTION_TYPE =
+  'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
 
 /**
  * Every request line the stub answered, in order
@@ -498,21 +500,26 @@ describe('sign-in round trip', () => {
     )
   }
 
-  it('issues a JWT access token for the API the client named', async () => {
-    // a fresh browser: the earlier journey left a session that would resume
+  /**
+   * Signs a citizen in through the whole journey in a fresh browser, asking
+   * for a token for RESOURCE, and redeems the code at the token endpoint
+   * @param {string} email
+   * @param {string} state
+   */
+  async function signInAndRedeem(email, state) {
+    // a fresh browser: an earlier journey left a session that would resume
     jar.clear()
 
     const verifier = randomBytes(32).toString('base64url')
     const challenge = createHash('sha256').update(verifier).digest('base64url')
-    const email = 'token-journey@example.com'
 
     const authorize = `/auth?${new URLSearchParams({
       client_id: 'runner',
       response_type: 'code',
       scope: 'openid email',
       redirect_uri: REDIRECT_URI,
-      state: 'state-2',
-      nonce: 'nonce-2',
+      state,
+      nonce: `nonce-${state}`,
       code_challenge: challenge,
       code_challenge_method: 'S256',
       // Naming the resource only at the token endpoint returns an opaque
@@ -537,22 +544,50 @@ describe('sign-in round trip', () => {
     const code = /** @type {string} */ (callback.searchParams.get('code'))
     expect(code).toBeTruthy()
 
-    const redeemed = await server.inject({
+    return tokenRequest({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: REDIRECT_URI,
+      code_verifier: verifier,
+      client_assertion_type: CLIENT_ASSERTION_TYPE,
+      client_assertion: await clientAssertion(),
+      resource: RESOURCE
+    })
+  }
+
+  /**
+   * Posts a form to the token endpoint as the runner
+   * @param {Record<string, string>} params
+   */
+  function tokenRequest(params) {
+    return server.inject({
       method: 'POST',
       url: '/token',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       payload: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: REDIRECT_URI,
-        code_verifier: verifier,
         client_id: 'runner',
-        client_assertion_type:
-          'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
-        client_assertion: await clientAssertion(),
-        resource: RESOURCE
+        ...params
       }).toString()
     })
+  }
+
+  /**
+   * The body of a refresh request, with a new client assertion
+   * @param {string} refreshToken
+   */
+  async function refreshParams(refreshToken) {
+    return {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_assertion_type: CLIENT_ASSERTION_TYPE,
+      client_assertion: await clientAssertion(),
+      resource: RESOURCE
+    }
+  }
+
+  it('issues a JWT access token for the API the client named', async () => {
+    const email = 'token-journey@example.com'
+    const redeemed = await signInAndRedeem(email, 'state-2')
 
     expect(redeemed.statusCode).toBe(200)
 
@@ -578,5 +613,113 @@ describe('sign-in round trip', () => {
     // A resource-bound token cannot reach userinfo, so the claims move to
     // the ID token and the client reads the email there
     expect(decodeSegment(String(body.id_token), 1)).toMatchObject({ email })
+
+    // short-lived, with a refresh token to renew it
+    expect(body.expires_in).toBe(300)
+    expect(typeof body.refresh_token).toBe('string')
+  })
+
+  it('rotates the refresh token, and revokes the grant when a used one is sent again', async () => {
+    const email = 'refresh-journey@example.com'
+    const redeemed = await signInAndRedeem(email, 'state-3')
+    expect(redeemed.statusCode).toBe(200)
+
+    const first = JSON.parse(redeemed.payload)
+    const originalRefreshToken = String(first.refresh_token)
+
+    const refreshed = await tokenRequest(
+      await refreshParams(originalRefreshToken)
+    )
+    expect(refreshed.statusCode).toBe(200)
+
+    const second = JSON.parse(refreshed.payload)
+    const accessToken = String(second.access_token)
+
+    // a new JWT for the same API and citizen
+    expect(accessToken).not.toBe(first.access_token)
+    expect(accessToken.split('.')).toHaveLength(3)
+    expect(decodeSegment(accessToken, 1)).toMatchObject({
+      aud: RESOURCE,
+      sub: decodeSegment(String(first.access_token), 1).sub
+    })
+    expect(second.expires_in).toBe(300)
+
+    // a new refresh token, and a new ID token
+    expect(typeof second.refresh_token).toBe('string')
+    expect(second.refresh_token).not.toBe(originalRefreshToken)
+    // (the ID token can be byte-identical to the first when both are issued
+    // in the same second, so only its subject is compared)
+    expect(typeof second.id_token).toBe('string')
+    expect(decodeSegment(String(second.id_token), 1)).toMatchObject({
+      sub: decodeSegment(String(first.id_token), 1).sub
+    })
+
+    // Using the replaced token again looks like a stolen token, so the
+    // provider refuses it and revokes the grant
+    const reused = await tokenRequest(await refreshParams(originalRefreshToken))
+    expect(reused.statusCode).toBe(400)
+    expect(JSON.parse(reused.payload)).toMatchObject({ error: 'invalid_grant' })
+
+    // which also ends the refresh token issued in its place
+    const afterRevocation = await tokenRequest(
+      await refreshParams(String(second.refresh_token))
+    )
+    expect(afterRevocation.statusCode).toBe(400)
+    expect(JSON.parse(afterRevocation.payload)).toMatchObject({
+      error: 'invalid_grant'
+    })
+  })
+
+  it('refuses a refresh without a valid client assertion', async () => {
+    const redeemed = await signInAndRedeem(
+      'refresh-client-auth@example.com',
+      'state-4'
+    )
+    expect(redeemed.statusCode).toBe(200)
+
+    const refreshToken = String(JSON.parse(redeemed.payload).refresh_token)
+
+    // no assertion at all
+    const unauthenticated = await tokenRequest({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      resource: RESOURCE
+    })
+    expect(unauthenticated.statusCode).toBe(401)
+    expect(JSON.parse(unauthenticated.payload)).toMatchObject({
+      error: 'invalid_client'
+    })
+
+    // an assertion signed with a key the provider does not hold for runner,
+    // even under the registered key id
+    const [registered] = JSON.parse(
+      String(process.env.OIDC_RUNNER_PRIVATE_JWKS)
+    ).keys
+    const { privateKey } = await generateKeyPair('RS256')
+    const forged = await new SignJWT({})
+      .setProtectedHeader({ alg: 'RS256', kid: registered.kid })
+      .setIssuer('runner')
+      .setSubject('runner')
+      .setAudience(ISSUER)
+      .setJti(randomUUID())
+      .setIssuedAt()
+      .setExpirationTime('2m')
+      .sign(privateKey)
+
+    const wrongKey = await tokenRequest({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_assertion_type: CLIENT_ASSERTION_TYPE,
+      client_assertion: forged,
+      resource: RESOURCE
+    })
+    expect(wrongKey.statusCode).toBe(401)
+    expect(JSON.parse(wrongKey.payload)).toMatchObject({
+      error: 'invalid_client'
+    })
+
+    // neither attempt used up the token: the real client can still refresh
+    const genuine = await tokenRequest(await refreshParams(refreshToken))
+    expect(genuine.statusCode).toBe(200)
   })
 })
