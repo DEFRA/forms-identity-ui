@@ -3,7 +3,7 @@
  *
  * Two things are proved here that unit tests cannot. First, that the digest
  * is applied consistently: a mismatch between what one call site writes and
- * what another reads gives a 404, so the journey simply stops rather than
+ * what another reads reads as absent, so the journey simply stops rather than
  * raising anything. Second, the acceptance criterion for this change — no
  * request path the stub saw carries a value the browser holds as a cookie or
  * the relying party receives in its callback.
@@ -125,7 +125,7 @@ function oidcStore(method, segments, body) {
       ([key, artifact]) =>
         key.startsWith(`${model}/`) && artifact.uid === segments[2]
     )
-    return found ? { status: 200, body: found[1] } : NOT_FOUND
+    return found ? { status: 200, body: found[1] } : NO_CONTENT
   }
 
   const key = `${model}/${id}`
@@ -146,9 +146,11 @@ function oidcStore(method, segments, body) {
     artifacts.delete(key)
     return NO_CONTENT
   }
+  // absent is a 204 here, matching the store: a bodiless response reads back
+  // as an empty Buffer, so this also proves the adapter keys off the status
   return artifacts.has(key)
     ? { status: 200, body: artifacts.get(key) }
-    : NOT_FOUND
+    : NO_CONTENT
 }
 
 /**
@@ -237,8 +239,19 @@ async function handle(req, res) {
           /** @type {Record<string, string>} */ (body)
         )
 
+  // A bodiless response carries no content type, exactly as hapi sends it.
+  // That matters here: Wreck only parses JSON when the content type says so,
+  // so a real 204 reads back as an empty Buffer while a JSON-typed one reads
+  // as null. Declaring JSON on an empty body would let a body test stand in
+  // for a status test and hide the difference.
+  if (result.body === undefined) {
+    res.writeHead(result.status)
+    res.end()
+    return
+  }
+
   res.writeHead(result.status, { 'content-type': 'application/json' })
-  res.end(result.body === undefined ? '' : JSON.stringify(result.body))
+  res.end(JSON.stringify(result.body))
 }
 
 describe('sign-in round trip', () => {
@@ -454,7 +467,7 @@ describe('sign-in round trip', () => {
 
     // and the digest is what took its place — the journey only reaches here
     // if every key matched, because a digest on one side and a plaintext
-    // value on the other is a 404 rather than a failure
+    // value on the other reads as absent rather than as a failure
     const sessionCookie = /** @type {string} */ (jar.get('_session')?.value)
     expect(sessionCookie).toBeTruthy()
     expect(seenPaths.some((path) => path.includes(hashId(sessionCookie)))).toBe(
