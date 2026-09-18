@@ -17,6 +17,9 @@ const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.runnerJwks'))
 )
 const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris').split(',')
+const RUNNER_POST_LOGOUT_REDIRECT_URIS = config
+  .get('oidc.runnerPostLogoutRedirectUris')
+  .split(',')
 const SIGNING_ALG = 'RS256'
 
 /**
@@ -63,6 +66,7 @@ export function buildProviderConfig(adapter) {
       {
         client_id: 'runner',
         redirect_uris: RUNNER_REDIRECT_URIS,
+        post_logout_redirect_uris: RUNNER_POST_LOGOUT_REDIRECT_URIS,
         response_types: ['code'],
         grant_types: ['authorization_code', 'refresh_token'],
         // The client proves itself by signing a short-lived assertion with a

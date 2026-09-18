@@ -29,6 +29,10 @@ describe('buildProviderConfig', () => {
           'http://localhost:3009/callback',
           'http://localhost:3000/callback'
         ],
+        post_logout_redirect_uris: [
+          'http://localhost:3009/auth/signed-out',
+          'http://localhost:3000/'
+        ],
         response_types: ['code'],
         grant_types: ['authorization_code', 'refresh_token'],
         token_endpoint_auth_method: 'private_key_jwt',
