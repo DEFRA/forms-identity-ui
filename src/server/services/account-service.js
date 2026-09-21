@@ -69,7 +69,7 @@ export async function submitCode(uid, code, purpose) {
  * @param {string} email
  */
 export async function changeEmailAddress(uid, accountId, email) {
-  return await identityApi.updateEmail(
+  return identityApi.updateEmail(
     { uid, accountId, email },
     await getServiceToken()
   )
