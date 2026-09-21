@@ -283,11 +283,7 @@ export default /** @type {ServerRoute[]} */ (
     ({
       method: 'GET',
       path: '/interaction/{uid}/code',
-      options: {
-        validate: { params: uidParams, query: querySchema },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE]
-      },
+      options: commonOptions,
       async handler(request, h) {
         const details = request.pre.details
         // display-only, from the API's stored record — the same source
@@ -358,11 +354,7 @@ export default /** @type {ServerRoute[]} */ (
     ({
       method: 'GET',
       path: '/interaction/{uid}/code/expired',
-      options: {
-        validate: { params: uidParams, query: querySchema },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE]
-      },
+      options: commonOptions,
       async handler(request, h) {
         return commonOTPHandler(request, h, 'code-expired')
       }
@@ -371,11 +363,7 @@ export default /** @type {ServerRoute[]} */ (
     ({
       method: 'GET',
       path: '/interaction/{uid}/code/resend',
-      options: {
-        validate: { params: uidParams, query: querySchema },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE]
-      },
+      options: commonOptions,
       async handler(request, h) {
         return commonOTPHandler(request, h, 'code-resend')
       }
@@ -384,7 +372,7 @@ export default /** @type {ServerRoute[]} */ (
     ({
       method: 'GET',
       path: '/interaction/{uid}/phone',
-      options: commonOptions(),
+      options: commonOptions,
       handler(request, h) {
         return h.view('interaction/phone', { uid: request.pre.details.uid })
       }
