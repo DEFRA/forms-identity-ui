@@ -32,7 +32,7 @@ describe('i18n', () => {
     })
   })
   describe('setLanguage()', () => {
-    it('gets the language from query if passed as a param', () => {
+    it('sets the language from query if passed as a param', () => {
       const mockYarSet = jest.fn()
       const blankRequest = /** @type {Request} */ (
         /** @type {unknown} */ ({
