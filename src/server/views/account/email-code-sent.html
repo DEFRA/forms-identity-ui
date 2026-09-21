@@ -6,7 +6,7 @@
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
-{% set pageTitle = t('account.changeEmail') + " : " + t('account.sentPhoneOtp.title') %}
+{% set pageTitle = t('account.changeEmail') + " : " + t('account.sentEmailOtp.title') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
 {% block content %}
@@ -16,8 +16,8 @@
       {% if showResendNotification %}
         {{ govukNotificationBanner({
           type: "success",
-          titleText: t('account.sentPhoneOtp.resendNotificationTitleText'),
-          text: t('account.sentPhoneOtp.resendNotificationText')
+          titleText: t('account.sentEmailOtp.resendNotificationTitleText'),
+          text: t('account.sentEmailOtp.resendNotificationText')
         }) }}
       {% endif %}
 
@@ -29,21 +29,19 @@
       {% endif %}
 
       <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
-      <h1 class="govuk-heading-l">{{ t('account.sentPhoneOtp.title') }}</h1>
-
-      <p class="govuk-body">{{ t('account.sentPhoneOtp.para1') }}</p>
+      <h1 class="govuk-heading-l">{{ t('account.sentEmailOtp.title') }}</h1>
 
       <div class="govuk-inset-text">
-        {{ t('account.sentPhoneOtp.inset') }} <strong>{{ phoneEndDigits }}</strong>
+        {{ t('account.sentEmailOtp.inset') }} <strong>{{ email }}</strong>
       </div>
 
-      <p class="govuk-body">{{ t('account.sentPhoneOtp.para2') }}</p>
+      <p class="govuk-body">{{ t('account.sentEmailOtp.para1') }}</p>
 
-      <form method="post" action="/account/{{ uid }}/phone-code" novalidate>
+      <form method="post" action="/account/{{ uid }}/email-code" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
         {{ govukInput({
-          label: { text: t('account.sentPhoneOtp.enterCode') },
+          label: { text: t('account.sentEmailOtp.enterCode') },
           classes: "govuk-input--width-10 govuk-input--extra-letter-spacing",
           id: "code",
           name: "code",
@@ -54,12 +52,12 @@
           errorMessage: errorMessage
         }) }}
 
-        {{ govukButton({ text: t('account.sentPhoneOtp.continue') }) }}
+        {{ govukButton({ text: t('account.sentEmailOtp.continue') }) }}
       </form>
 
       {{ govukDetails({
-        summaryText: t('account.sentPhoneOtp.problemsDetails.summaryText'),
-        html: t('account.sentPhoneOtp.problemsDetails.body')
+        summaryText: t('account.sentEmailOtp.problemsDetails.summaryText'),
+        html: t('account.sentEmailOtp.problemsDetails.body')
       }) }}
     </div>
   </div>

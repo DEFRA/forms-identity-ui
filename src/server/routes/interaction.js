@@ -22,7 +22,7 @@ const emailQuery = Joi.object({ resend: Joi.boolean().optional() })
  * the handlers and the signin service only ever see a string or nothing.
  * @param {string} field
  */
-function formPayload(field) {
+export function formPayload(field) {
   return Joi.object({
     crumb: Joi.string().optional(),
     [field]: Joi.string().allow('').optional()
@@ -169,7 +169,7 @@ export default /** @type {ServerRoute[]} */ (
     ({
       method: 'GET',
       path: '/interaction/{uid}',
-      options: { validate: { params: uidParams }, pre: [GATE] },
+      options: { validate: { params: uidParams }, pre: [GATE], auth: false },
       async handler(request, h) {
         const details = request.pre.details
         const provider = request.server.app.oidcProvider
@@ -226,7 +226,8 @@ export default /** @type {ServerRoute[]} */ (
           payload: formPayload('email'),
           query: emailQuery
         },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         const details = request.pre.details
@@ -257,7 +258,8 @@ export default /** @type {ServerRoute[]} */ (
       options: {
         validate: { params: uidParams },
         plugins: { blankie: signinFormCsp },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         const details = request.pre.details
@@ -289,7 +291,8 @@ export default /** @type {ServerRoute[]} */ (
       options: {
         validate: { params: uidParams, payload: formPayload('code') },
         plugins: { blankie: signinFormCsp },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         const details = request.pre.details
@@ -328,7 +331,8 @@ export default /** @type {ServerRoute[]} */ (
       options: {
         validate: { params: uidParams },
         plugins: { blankie: signinFormCsp },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         return commonOTPHandler(request, h, 'code-expired')
@@ -341,7 +345,8 @@ export default /** @type {ServerRoute[]} */ (
       options: {
         validate: { params: uidParams },
         plugins: { blankie: signinFormCsp },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         return commonOTPHandler(request, h, 'code-resend')
@@ -354,7 +359,8 @@ export default /** @type {ServerRoute[]} */ (
       options: {
         validate: { params: uidParams },
         plugins: { blankie: signinFormCsp },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       handler(request, h) {
         return h.view('interaction/phone', { uid: request.pre.details.uid })
@@ -367,7 +373,8 @@ export default /** @type {ServerRoute[]} */ (
       options: {
         validate: { params: uidParams, payload: formPayload('phone') },
         plugins: { blankie: signinFormCsp },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         const details = request.pre.details

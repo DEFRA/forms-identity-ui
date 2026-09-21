@@ -1,5 +1,6 @@
 import Joi from 'joi'
 
+import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { joi as telephoneJoi } from '~/src/server/common/helpers/telephone.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
@@ -62,7 +63,7 @@ export async function submitEmail(uid, email) {
   }
 
   await identityApi.requestOtpViaEmail(
-    { uid, email: trimmed },
+    { uid, email: trimmed, purpose: PURPOSE.SIGNIN_VERIFY_EMAIL },
     await getServiceToken()
   )
 
@@ -161,7 +162,7 @@ export async function submitPhone(uid, phone) {
  * @param {string} uid
  */
 export async function getSigninEmail(uid) {
-  return (await identityApi.getOtpEmail(uid, await getServiceToken())) ?? ''
+  return (await identityApi.getOtpTarget(uid, await getServiceToken())) ?? ''
 }
 
 /**
