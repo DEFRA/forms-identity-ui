@@ -218,13 +218,11 @@ describe('/account', () => {
       email: 'a@b.com',
       phone: '07911 123456'
     })
-    jest
-      .mocked(identityApi.getOtp)
-      .mockResolvedValueOnce({
-        consumed: false,
-        verified: true,
-        target: '+447507123456'
-      })
+    jest.mocked(identityApi.getOtp).mockResolvedValueOnce({
+      consumed: false,
+      verified: true,
+      target: '+447507123456'
+    })
     jest.mocked(identityApi.getOtp).mockResolvedValueOnce(null)
 
     const { crumb, cookie } = await getWithCrumb('/account/uid-1/change-email')
