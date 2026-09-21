@@ -76,6 +76,12 @@ const GATE = {
   assign: /** @type {const} */ ('details')
 }
 
+const commonOptions = {
+  validate: { params: uidParams, query: querySchema },
+  plugins: { blankie: signinFormCsp },
+  pre: [GATE]
+}
+
 /**
  * Startup guard called from the router: the server refuses to boot if any
  * /interaction route is missing the gate, so forgetting the pre entry on a
@@ -378,11 +384,7 @@ export default /** @type {ServerRoute[]} */ (
     ({
       method: 'GET',
       path: '/interaction/{uid}/phone',
-      options: {
-        validate: { params: uidParams, query: querySchema },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE]
-      },
+      options: commonOptions(),
       handler(request, h) {
         return h.view('interaction/phone', { uid: request.pre.details.uid })
       }
