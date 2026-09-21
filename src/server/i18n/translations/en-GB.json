@@ -27,13 +27,32 @@
       "resendNotificationTitleText": "Success",
       "resendNotificationText": "We’ve sent you a new security code.",
       "para1": "We need to check it’s you before you can change your email address.",
-      "inset": "We will send a security code to your mobile phone number ending with",
+      "inset": "We have sent a security code to your mobile phone number ending with",
       "para2": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
       "enterCode": "Enter the 6 digit security code",
       "continue": "Continue",
       "problemsDetails": {
         "summaryText": "Problems with the security code?",
         "body": "We can <a class=\"govuk-link\" href=\"./code-resend\">send the security code again</a> if the security code is not working or you did not receive it."
+      }
+    },
+    "newEmail": {
+      "title": "Enter your new email address",
+      "continue": "Continue",
+      "errorRequired": "Enter an email address",
+      "errorFormat": "Enter an email address in the correct format, like name@example.com"
+    },
+    "sentEmailOtp": {
+      "title": "Check your email",
+      "resendNotificationTitleText": "Success",
+      "resendNotificationText": "We’ve sent you a new security code.",
+      "inset": "We have sent an email to: ",
+      "para1": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
+      "enterCode": "Enter the 6 digit security code",
+      "continue": "Continue",
+      "problemsDetails": {
+        "summaryText": "Problems with the security code?",
+        "body": "We can <a class=\"govuk-link\" href=\"./code-resend\">send the security code again</a> or you can <a class=\"govuk-link\" href=\"./enter-email\">use a different email address</a>."
       }
     }
   },

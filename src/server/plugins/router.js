@@ -1,20 +1,22 @@
 import { StatusCodes } from 'http-status-codes'
 
 import {
-  accountRoutes,
+  accountRoute,
+  changeEmailRoutes,
   healthRoute,
   homeRoute,
-  interactionRoutes,
-  publicRoutes
+  publicRoutes,
+  signinRoutes
 } from '~/src/server/routes/index.js'
-import { assertInteractionRoutesGated } from '~/src/server/routes/interaction.js'
+import { assertInteractionRoutesGated } from '~/src/server/routes/interactions/signin.js'
 
 const routes = [
-  ...publicRoutes,
+  accountRoute,
+  ...changeEmailRoutes,
   healthRoute,
   homeRoute,
-  ...accountRoutes,
-  ...interactionRoutes
+  ...publicRoutes,
+  ...signinRoutes
 ]
 
 /**

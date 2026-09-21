@@ -1,43 +1,25 @@
 import Joi from 'joi'
 
+import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { joi as telephoneJoi } from '~/src/server/common/helpers/telephone.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-
-/**
- * Outcomes named once, so a typo cannot silently change a journey. Exported
- * because the route handlers branch on the same names, and the API returns
- * these same verdicts as its `status`.
- */
-export const INVALID_EMAIL = 'invalid-email'
-export const CODE_SENT = 'code-sent'
-export const INVALID_CODE = 'invalid-code'
-export const INVALID_CODE_FORMAT = 'invalid-code-format'
-export const INVALID_CODE_CONSUMED_OR_EXPIRED =
-  'invalid-code-consumed-or-expired'
-export const PHONE_REQUIRED = 'phone-required'
-export const INVALID_PHONE = 'invalid-phone'
-export const SIGNED_IN = 'signed-in'
-export const RESTART = 'restart'
+import {
+  CODE_SENT,
+  INVALID_CODE,
+  INVALID_CODE_CONSUMED_OR_EXPIRED,
+  INVALID_CODE_FORMAT,
+  INVALID_EMAIL,
+  INVALID_PHONE,
+  PHONE_REQUIRED,
+  RESTART,
+  SIGNED_IN
+} from '~/src/server/services/outcomes.js'
 
 const emailSchema = Joi.string().email().required()
 const phoneSchema = /** @type {TelephoneSchema} */ (telephoneJoi.string())
   .phoneNumber()
   .required()
-
-/**
- * Journey outcomes: plain data the route handlers translate into
- * responses (views, redirects, or completing the OIDC interaction)
- * @typedef {{ outcome: 'invalid-email', email: string, errorKey: string }
- *   | { outcome: 'code-sent', email: string }} EmailOutcome
- * @typedef {{ outcome: 'invalid-code', errorKey: string }
- *   | { outcome: 'invalid-code-consumed-or-expired' }
- *   | { outcome: 'signed-in', accountId: string }
- *   | { outcome: 'phone-required' }} CodeOutcome
- * @typedef {{ outcome: 'invalid-phone', phone: string, errorKey: string }
- *   | { outcome: 'signed-in', accountId: string }
- *   | { outcome: 'restart' }} PhoneOutcome
- */
 
 /**
  * Email step: UX validation here, then ask the API to mint and send a
@@ -62,8 +44,9 @@ export async function submitEmail(uid, email) {
   }
 
   await identityApi.requestOtpViaEmail(
-    { uid, email: trimmed },
-    await getServiceToken()
+    { uid, targetEmail: trimmed, accountEmail: trimmed },
+    await getServiceToken(),
+    PURPOSE.SIGNIN_VERIFY_EMAIL
   )
 
   return { outcome: CODE_SENT, email: trimmed }
@@ -86,7 +69,8 @@ export async function submitCode(uid, code) {
 
   const result = await identityApi.verifyOtp(
     { uid, code: trimmed },
-    await getServiceToken()
+    await getServiceToken(),
+    PURPOSE.SIGNIN_VERIFY_EMAIL
   )
 
   if (result.status === SIGNED_IN) {
@@ -161,9 +145,15 @@ export async function submitPhone(uid, phone) {
  * @param {string} uid
  */
 export async function getSigninEmail(uid) {
-  return (await identityApi.getOtpEmail(uid, await getServiceToken())) ?? ''
+  const otp = await identityApi.getOtp(
+    uid,
+    await getServiceToken(),
+    PURPOSE.SIGNIN_VERIFY_EMAIL
+  )
+  return otp?.target ?? ''
 }
 
 /**
  * @import { TelephoneSchema } from '~/src/server/common/helpers/telephone.js'
+ * @import { CodeOutcome, EmailOutcome, PhoneOutcome } from '~/src/server/services/outcomes.js'
  */

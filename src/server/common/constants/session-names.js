@@ -3,3 +3,5 @@ export const sessionNames = {
     'codeResendSuccessNotification'
   )
 }
+
+export const SESSION_KEY_BACK_LINK = 'session-back-link'

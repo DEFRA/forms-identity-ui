@@ -1,8 +1,10 @@
 import { config } from '~/src/config/index.js'
 import {
   bearerHeaders,
+  delJson,
   getJson,
   isNotFoundError,
+  patchJson,
   postJson
 } from '~/src/server/common/helpers/fetch.js'
 import { hashId } from '~/src/server/common/helpers/hash-id.js'
@@ -19,42 +21,49 @@ const baseUrl = config.get('identityApi.url')
  * stores and matches the digest with no change of its own. All four sites
  * have to agree: a digest on one side and a plaintext uid on the other gives
  * a 404, not an error.
- * @typedef {{ status: 'invalid' } | { status: 'invalid-code-format' } | { status: 'invalid-code-consumed-or-expired' } | { status: 'phone-required' } | { status: 'signed-in', accountId: string }} VerifyResult
+ * @typedef {{ status: 'invalid' } | { status: 'invalid-code-format' } | { status: 'invalid-code-consumed-or-expired' } | { status: 'phone-required' } | { status: 'signed-in', accountId: string } | { status: 'valid' }} VerifyResult
  * @typedef {{ status: 'invalid' } | { status: 'invalid-phone' } | { status: 'signed-in', accountId: string }} CompleteResult
  */
 
 /**
  * Mints and emails a security code for the interaction
- * @param {{ uid: string, email: string }} input
+ * @param {{ uid: string, targetEmail: string, accountEmail: string }} input
  * @param {string} token
+ * @param {PurposeType} purpose
  */
-export async function requestOtpViaEmail({ uid, email }, token) {
-  await postJson(new URL('/otp/request', baseUrl), {
-    payload: { uid: hashId(uid), email },
+export async function requestOtpViaEmail(
+  { uid, targetEmail, accountEmail },
+  token,
+  purpose
+) {
+  await postJson(new URL(`/otp/request/email/${purpose}`, baseUrl), {
+    payload: { uid: hashId(uid), targetEmail, accountEmail },
     headers: bearerHeaders(token)
   })
 }
 
 /**
  * Mints and emails a security code for the interaction
- * @param {{ uid: string, phoneNumber: string }} input
+ * @param {{ uid: string, phone: string, email:string }} input - both email and phone are required here
  * @param {string} token
+ * @param {PurposeType} purpose
  */
-export async function requestOtpViaSms({ uid, phoneNumber }, token) {
-  await postJson(new URL('/otp/request', baseUrl), {
-    payload: { uid: hashId(uid), phoneNumber },
+export async function requestOtpViaSms({ uid, phone, email }, token, purpose) {
+  await postJson(new URL(`/otp/request/phone/${purpose}`, baseUrl), {
+    payload: { uid: hashId(uid), phone, email },
     headers: bearerHeaders(token)
   })
 }
 
 /**
- * Verifies a security code
+ * Verifies a security code sent by email or SMS
  * @param {{ uid: string, code: string }} input
  * @param {string} token
+ * @param {PurposeType} purpose
  * @returns {Promise<VerifyResult>}
  */
-export async function verifyOtp({ uid, code }, token) {
-  const { body } = await postJson(new URL('/otp/verify', baseUrl), {
+export async function verifyOtp({ uid, code }, token, purpose) {
+  const { body } = await postJson(new URL(`/otp/verify/${purpose}`, baseUrl), {
     payload: { uid: hashId(uid), code },
     headers: bearerHeaders(token)
   })
@@ -76,23 +85,67 @@ export async function completeSignup({ uid, phone }, token) {
 }
 
 /**
- * The email a sign-in code was sent to (display data for the
- * check-your-email page)
+ * Information regarding a sign-in code (sucha as target it was sent to (display data for the
+ * check-your-email page), whether ist has been consumed, and whether it has been verified.
  * @param {string} uid
  * @param {string} token
- * @returns {Promise<string | null>} null when no code has been requested
+ * @param {PurposeType} purpose
+ * @returns {Promise<{ target: string, verified: boolean, consumed: boolean } | null >} null when no code has been requested
  */
-export async function getOtpEmail(uid, token) {
+export async function getOtp(uid, token, purpose) {
   try {
-    const { body } = await getJson(new URL(`/otp/${hashId(uid)}`, baseUrl), {
-      headers: bearerHeaders(token)
-    })
-    return /** @type {{ email: string }} */ (body).email
+    const { body } = await getJson(
+      new URL(`/otp/${hashId(uid)}/${purpose}`, baseUrl),
+      {
+        headers: bearerHeaders(token)
+      }
+    )
+    const bodyTyped =
+      /** @type {{ target: string, verified: boolean, consumed: boolean }} */ (
+        body
+      )
+    return {
+      target: bodyTyped.target,
+      consumed: bodyTyped.consumed,
+      verified: bodyTyped.verified
+    }
   } catch (err) {
     if (isNotFoundError(err)) {
       return null
     }
     throw err
+  }
+}
+
+/**
+ * Completes JIT change email address
+ * @param {{ uid: string, accountId: string, email: string }} input
+ * @param {string} token
+ * @returns {Promise<CompleteResult>}
+ */
+export async function updateEmail({ uid, accountId, email }, token) {
+  const { body } = await patchJson(
+    new URL(`/accounts/${hashId(uid)}/${accountId}/email`, baseUrl),
+    {
+      payload: { email },
+      headers: bearerHeaders(token)
+    }
+  )
+  return /** @type {CompleteResult} */ (body)
+}
+
+/**
+ * Remove any OTPs associated with an interaction uid
+ * @param {string} uid
+ * @param {string} token
+ */
+export async function cleanupOtps(uid, token) {
+  try {
+    await delJson(new URL(`/otp/${hashId(uid)}`, baseUrl), {
+      headers: bearerHeaders(token)
+    })
+  } catch {
+    // Swallow any errors
   }
 }
 
@@ -116,3 +169,7 @@ export async function getAccount(id, token) {
     throw err
   }
 }
+
+/**
+ * @import { PurposeType } from '~/src/server/common/constants/purposes.js'
+ */

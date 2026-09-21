@@ -39,13 +39,11 @@ describe('/account', () => {
 
   test('renders the signed-in account with their email and phone', async () => {
     sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'acc-1' }))
-    jest
-      .mocked(identityApi.getAccount)
-      .mockResolvedValue({
-        id: 'acc-1',
-        email: 'a@b.com',
-        phone: '07911 123456'
-      })
+    jest.mocked(identityApi.getAccount).mockResolvedValue({
+      id: 'acc-1',
+      email: 'a@b.com',
+      phone: '07911 123456'
+    })
 
     const { container, response } = await renderResponse(server, {
       method: 'GET',

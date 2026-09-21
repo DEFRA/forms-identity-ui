@@ -3,7 +3,7 @@ import { errors } from 'oidc-provider'
 import { createServer } from '~/src/server/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-import { assertInteractionRoutesGated } from '~/src/server/routes/interaction.js'
+import { assertInteractionRoutesGated } from '~/src/server/routes/interactions/signin.js'
 import { renderResponse } from '~/test/helpers/component-helpers.js'
 
 jest.mock('~/src/server/lib/identity-api.js', () => ({

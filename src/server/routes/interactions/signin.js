@@ -7,6 +7,14 @@ import { config } from '~/src/config/index.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { formatDuration } from '~/src/server/common/helpers/duration.js'
 import { signinFormCsp } from '~/src/server/plugins/blankie.js'
+import {
+  INVALID_CODE_CONSUMED_OR_EXPIRED,
+  INVALID_EMAIL,
+  INVALID_PHONE,
+  PHONE_REQUIRED,
+  SIGNED_IN,
+  VALID
+} from '~/src/server/services/outcomes.js'
 import * as signinService from '~/src/server/services/signin-service.js'
 
 // how long the timed-out page tells the user they had, taken from the
@@ -22,7 +30,7 @@ const emailQuery = Joi.object({ resend: Joi.boolean().optional() })
  * the handlers and the signin service only ever see a string or nothing.
  * @param {string} field
  */
-function formPayload(field) {
+export function formPayload(field) {
   return Joi.object({
     crumb: Joi.string().optional(),
     [field]: Joi.string().allow('').optional()
@@ -233,7 +241,7 @@ export default /** @type {ServerRoute[]} */ (
         const { email } = request.payload
         const result = await signinService.submitEmail(details.uid, email)
 
-        if (result.outcome === signinService.INVALID_EMAIL) {
+        if (result.outcome === INVALID_EMAIL) {
           return h.view('interaction/email', {
             uid: details.uid,
             email: result.email,
@@ -296,13 +304,13 @@ export default /** @type {ServerRoute[]} */ (
         const { code } = request.payload
         const result = await signinService.submitCode(details.uid, code)
 
-        if (result.outcome === signinService.SIGNED_IN) {
+        if (result.outcome === SIGNED_IN) {
           return finishLogin(request, h, result.accountId)
         }
-        if (result.outcome === signinService.PHONE_REQUIRED) {
+        if (result.outcome === PHONE_REQUIRED) {
           return h.redirect(`/interaction/${details.uid}/phone`)
         }
-        if (result.outcome === signinService.INVALID_CODE_CONSUMED_OR_EXPIRED) {
+        if (result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED) {
           return h.redirect(`/interaction/${details.uid}/code/expired`)
         }
 
@@ -310,7 +318,7 @@ export default /** @type {ServerRoute[]} */ (
 
         // the record backing this page is gone (expired, or never requested),
         // so re-rendering would offer another attempt that cannot succeed
-        if (!email) {
+        if (!email || result.outcome === VALID) {
           return h.redirect(`/interaction/${details.uid}`)
         }
 
@@ -378,10 +386,10 @@ export default /** @type {ServerRoute[]} */ (
         // never reach this page) and returns signed-in with the account id
         const result = await signinService.submitPhone(details.uid, phone)
 
-        if (result.outcome === signinService.SIGNED_IN) {
+        if (result.outcome === SIGNED_IN) {
           return finishLogin(request, h, result.accountId)
         }
-        if (result.outcome === signinService.INVALID_PHONE) {
+        if (result.outcome === INVALID_PHONE) {
           return h.view('interaction/phone', {
             uid: details.uid,
             phone: result.phone,
