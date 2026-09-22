@@ -75,6 +75,7 @@ export function buildProviderConfig(adapter) {
       pushedAuthorizationRequests: { enabled: false },
       resourceIndicators: {
         enabled: true,
+        useGrantedResource: () => true,
         getResourceServerInfo(_ctx, resourceIndicator) {
           if (!RESOURCE_SERVERS.has(resourceIndicator)) {
             throw new errors.InvalidTarget()

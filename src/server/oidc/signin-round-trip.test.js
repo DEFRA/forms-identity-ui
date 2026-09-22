@@ -498,85 +498,91 @@ describe('sign-in round trip', () => {
     )
   }
 
-  it('issues a JWT access token for the API the client named', async () => {
-    // a fresh browser: the earlier journey left a session that would resume
-    jar.clear()
+  it.each([
+    ['at the authorization and token endpoints', true],
+    ['at the authorization endpoint only', false]
+  ])(
+    'issues a JWT access token for the API the client named %s',
+    async (_where, resourceAtToken) => {
+      // a fresh browser: the earlier journey left a session that would resume
+      jar.clear()
 
-    const verifier = randomBytes(32).toString('base64url')
-    const challenge = createHash('sha256').update(verifier).digest('base64url')
-    const email = 'token-journey@example.com'
+      const verifier = randomBytes(32).toString('base64url')
+      const challenge = createHash('sha256')
+        .update(verifier)
+        .digest('base64url')
+      const email = `token-journey-${resourceAtToken}@example.com`
 
-    const authorize = `/auth?${new URLSearchParams({
-      client_id: 'runner',
-      response_type: 'code',
-      scope: 'openid email',
-      redirect_uri: REDIRECT_URI,
-      state: 'state-2',
-      nonce: 'nonce-2',
-      code_challenge: challenge,
-      code_challenge_method: 'S256',
-      // Naming the resource only at the token endpoint returns an opaque
-      // token and no error, so it is named here too
-      resource: RESOURCE
-    }).toString()}`
-
-    const start = await browse(authorize)
-    const interaction = String(start.headers.location)
-
-    // each page is loaded before it is submitted, to get its crumb
-    await browse(interaction)
-    await browse(`${interaction}/email`, { ...crumb(), email })
-    await browse(`${interaction}/code`)
-    await browse(`${interaction}/code`, { ...crumb(), code: KNOWN_CODE })
-    await browse(`${interaction}/phone`)
-    const finished = await follow(
-      await browse(`${interaction}/phone`, { ...crumb(), phone: PHONE })
-    )
-
-    const callback = new URL(String(finished.headers.location))
-    const code = /** @type {string} */ (callback.searchParams.get('code'))
-    expect(code).toBeTruthy()
-
-    const redeemed = await server.inject({
-      method: 'POST',
-      url: '/token',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      payload: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: REDIRECT_URI,
-        code_verifier: verifier,
+      const authorize = `/auth?${new URLSearchParams({
         client_id: 'runner',
-        client_assertion_type:
-          'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
-        client_assertion: await clientAssertion(),
+        response_type: 'code',
+        scope: 'openid email',
+        redirect_uri: REDIRECT_URI,
+        state: 'state-2',
+        nonce: 'nonce-2',
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
         resource: RESOURCE
-      }).toString()
-    })
+      }).toString()}`
 
-    expect(redeemed.statusCode).toBe(200)
+      const start = await browse(authorize)
+      const interaction = String(start.headers.location)
 
-    const body = JSON.parse(redeemed.payload)
-    const accessToken = String(body.access_token)
+      // each page is loaded before it is submitted, to get its crumb
+      await browse(interaction)
+      await browse(`${interaction}/email`, { ...crumb(), email })
+      await browse(`${interaction}/code`)
+      await browse(`${interaction}/code`, { ...crumb(), code: KNOWN_CODE })
+      await browse(`${interaction}/phone`)
+      const finished = await follow(
+        await browse(`${interaction}/phone`, { ...crumb(), phone: PHONE })
+      )
 
-    // an opaque token is one segment, so this tells the two apart
-    expect(accessToken.split('.')).toHaveLength(3)
+      const callback = new URL(String(finished.headers.location))
+      const code = /** @type {string} */ (callback.searchParams.get('code'))
+      expect(code).toBeTruthy()
 
-    const signedIn = [...accounts.values()].find(
-      (account) => account.email === email
-    )
-    expect(signedIn).toBeDefined()
+      const redeemed = await server.inject({
+        method: 'POST',
+        url: '/token',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        payload: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: REDIRECT_URI,
+          code_verifier: verifier,
+          client_id: 'runner',
+          client_assertion_type:
+            'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+          client_assertion: await clientAssertion(),
+          ...(resourceAtToken && { resource: RESOURCE })
+        }).toString()
+      })
 
-    expect(decodeSegment(accessToken, 0)).toMatchObject({ alg: 'RS256' })
-    expect(decodeSegment(accessToken, 1)).toMatchObject({
-      iss: ISSUER,
-      aud: RESOURCE,
-      client_id: 'runner',
-      sub: signedIn?.id
-    })
+      expect(redeemed.statusCode).toBe(200)
 
-    // A resource-bound token cannot reach userinfo, so the claims move to
-    // the ID token and the client reads the email there
-    expect(decodeSegment(String(body.id_token), 1)).toMatchObject({ email })
-  })
+      const body = JSON.parse(redeemed.payload)
+      const accessToken = String(body.access_token)
+
+      // an opaque token is one segment, so this tells the two apart
+      expect(accessToken.split('.')).toHaveLength(3)
+
+      const signedIn = [...accounts.values()].find(
+        (account) => account.email === email
+      )
+      expect(signedIn).toBeDefined()
+
+      expect(decodeSegment(accessToken, 0)).toMatchObject({ alg: 'RS256' })
+      expect(decodeSegment(accessToken, 1)).toMatchObject({
+        iss: ISSUER,
+        aud: RESOURCE,
+        client_id: 'runner',
+        sub: signedIn?.id
+      })
+
+      // A resource-bound token cannot reach userinfo, so the claims move to
+      // the ID token and the client reads the email there
+      expect(decodeSegment(String(body.id_token), 1)).toMatchObject({ email })
+    }
+  )
 })
