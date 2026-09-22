@@ -10,17 +10,12 @@
  * its mongo). Then open http://localhost:3901 and follow the links.
  */
 import Hapi from '@hapi/hapi'
+import { decodeJwt } from 'jose'
 import * as client from 'openid-client'
 
 import 'dotenv/config'
 
-import {
-  decodeJwt,
-  errorPage,
-  page,
-  signedInPage,
-  tokenSummary
-} from './views.mjs'
+import { errorPage, page, signedInPage, tokenSummary } from './views.mjs'
 
 const ISSUER = process.env.EXAMPLE_RP_ISSUER ?? 'http://localhost:3011'
 const DEFAULT_PORT = 3901

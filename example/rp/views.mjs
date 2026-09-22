@@ -56,16 +56,6 @@ export function tokenSummary(tokens, obtainedAt) {
 }
 
 /**
- * The payload of a JWT, read without checking the signature. The API that
- * receives the token checks it.
- * @param {string} token
- * @returns {object}
- */
-export function decodeJwt(token) {
-  return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
-}
-
-/**
  * The signed-in home page
  * @param {object} claims - ID token claims
  * @param {object} summary - token response summary
