@@ -5,7 +5,10 @@ import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
-import { formatDuration } from '~/src/server/common/helpers/duration.js'
+import {
+  formatDuration,
+  formatHoursUntil
+} from '~/src/server/common/helpers/duration.js'
 import { signinFormCsp } from '~/src/server/plugins/blankie.js'
 import * as signinService from '~/src/server/services/signin-service.js'
 
@@ -238,6 +241,12 @@ export default /** @type {ServerRoute[]} */ (
             uid: details.uid,
             email: result.email,
             errorKey: result.errorKey
+          })
+        }
+
+        if (result.outcome === signinService.LOCKED_OUT) {
+          return h.view('interaction/locked-out', {
+            retryAfter: formatHoursUntil(result.lockedUntil)
           })
         }
 

@@ -1,3 +1,4 @@
+import Boom from '@hapi/boom'
 import Joi from 'joi'
 
 import { joi as telephoneJoi } from '~/src/server/common/helpers/telephone.js'
@@ -11,6 +12,7 @@ import { getServiceToken } from '~/src/server/lib/service-token.js'
  */
 export const INVALID_EMAIL = 'invalid-email'
 export const CODE_SENT = 'code-sent'
+export const LOCKED_OUT = 'locked-out'
 export const INVALID_CODE = 'invalid-code'
 export const INVALID_CODE_FORMAT = 'invalid-code-format'
 export const INVALID_CODE_CONSUMED_OR_EXPIRED =
@@ -19,6 +21,10 @@ export const PHONE_REQUIRED = 'phone-required'
 export const INVALID_PHONE = 'invalid-phone'
 export const SIGNED_IN = 'signed-in'
 export const RESTART = 'restart'
+
+// the API's verdict on a code request; `code-sent` above is the journey
+// outcome the UI turns it into
+const OTP_ISSUED = 'otp-issued'
 
 const emailSchema = Joi.string().email().required()
 const phoneSchema = /** @type {TelephoneSchema} */ (telephoneJoi.string())
@@ -29,7 +35,8 @@ const phoneSchema = /** @type {TelephoneSchema} */ (telephoneJoi.string())
  * Journey outcomes: plain data the route handlers translate into
  * responses (views, redirects, or completing the OIDC interaction)
  * @typedef {{ outcome: 'invalid-email', email: string, errorKey: string }
- *   | { outcome: 'code-sent', email: string }} EmailOutcome
+ *   | { outcome: 'code-sent', email: string }
+ *   | { outcome: 'locked-out', lockedUntil: Date }} EmailOutcome
  * @typedef {{ outcome: 'invalid-code', errorKey: string }
  *   | { outcome: 'invalid-code-consumed-or-expired' }
  *   | { outcome: 'signed-in', accountId: string }
@@ -43,6 +50,11 @@ const phoneSchema = /** @type {TelephoneSchema} */ (telephoneJoi.string())
  * Email step: UX validation here, then ask the API to mint and send a
  * code. The API independently re-validates — a UI bug can degrade error
  * messages, never security.
+ *
+ * The API refuses to send a code while the address is locked out for asking
+ * too often, and says when the lockout lifts. Any verdict other than those
+ * two is treated as a fault rather than as a code sent, so the user is never
+ * told to check for an email that is not coming.
  * @param {string} uid
  * @param {string | undefined} email
  * @returns {Promise<EmailOutcome>}
@@ -61,9 +73,21 @@ export async function submitEmail(uid, email) {
     }
   }
 
-  await identityApi.requestOtp({ uid, email: trimmed }, await getServiceToken())
+  const result = await identityApi.requestOtp(
+    { uid, email: trimmed },
+    await getServiceToken()
+  )
 
-  return { outcome: CODE_SENT, email: trimmed }
+  switch (result.status) {
+    case OTP_ISSUED:
+      return { outcome: CODE_SENT, email: trimmed }
+    case LOCKED_OUT:
+      return { outcome: LOCKED_OUT, lockedUntil: new Date(result.lockedUntil) }
+    default:
+      throw Boom.badImplementation(
+        `Unexpected code request status: ${String(/** @type {{ status?: unknown }} */ (result).status)}`
+      )
+  }
 }
 
 /**

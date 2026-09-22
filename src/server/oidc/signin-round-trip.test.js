@@ -157,7 +157,7 @@ function signinEndpoints(method, segments, body) {
   if (segments[0] === 'otp') {
     if (segments[1] === 'request') {
       otps.set(body.uid, { email: body.email, verified: false })
-      return NO_CONTENT
+      return { status: 200, body: { status: 'otp-issued' } }
     }
     if (segments[1] === 'verify') {
       const record = otps.get(body.uid)
