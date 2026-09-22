@@ -1,0 +1,86 @@
+{
+  "service": {
+    "name": "Mewngofnodi i Ffurflenni Defra"
+  },
+  "home": {
+    "title": "Ni allwch fewngofnodi o'r dudalen hon",
+    "body": "Dim ond wrth fewngofnodi i wefan, ap neu ffurflen ar-lein y defnyddir y dudalen hon.",
+    "whatToDo": "Beth sydd angen i chi ei wneud",
+    "step1": "Ewch yn ôl i'r wefan, yr ap neu'r ffurflen roeddech yn ei defnyddio.",
+    "step2": "Dewiswch Mewngofnodi neu Mewngofnodi i geisio eto."
+  },
+  "layout": {
+    "footer": {
+      "contentLicenceHtml": "Mae'r holl gynnwys ar gael o dan y <a class=\"govuk-footer__link\" href=\"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/\" rel=\"license\">Drwydded Llywodraeth Agored v3.0</a>, ac eithrio lle nodir fel arall",
+      "copyright": "© Hawlfraint y Goron"
+    }
+  },
+  "signin": {
+    "email": {
+      "title": "Rhowch eich cyfeiriad e-bost",
+      "continue": "Parhau",
+      "errorRequired": "Rhowch gyfeiriad e-bost",
+      "errorFormat": "Rhowch gyfeiriad e-bost yn y fformat cywir, fel enw@example.com"
+    },
+    "code": {
+      "title": "Gwiriwch eich e-bost",
+      "resendNotificationTitleText": "Llwyddiant",
+      "resendNotificationText": "Rydym wedi anfon cod diogelwch newydd atoch.",
+      "sentTo": "Rydym wedi anfon e-bost at: [[email]]",
+      "body": "Gall gymryd ychydig funudau i gyrraedd. Bydd y cod diogelwch yn dod i ben ar ôl 15 munud.",
+      "label": "Rhowch y cod diogelwch 6 digid",
+      "continue": "Parhau",
+      "errorRequired": "Rhowch y cod diogelwch 6 digid",
+      "errorInvalidFormat": "Rhowch y cod diogelwch gan ddefnyddio 6 digid yn unig",
+      "errorInvalid": "Nid yw'r cod a roesoch yn gywir neu mae wedi dod i ben – rhowch gynnig arall arni neu gofynnwch am god newydd",
+      "problemsDetails": {
+        "summaryText": "Problemau gyda'r cod diogelwch?",
+        "body": "Gallwn <a class=\"govuk-link\" href=\"./code/resend\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link\" href=\".\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
+      }
+    },
+    "phone": {
+      "title": "Rhowch eich rhif ffôn symudol",
+      "body": "Os byddwch yn anghofio eich manylion mewngofnodi, byddwn yn anfon cod diogelwch 6 digid at y rhif a roddwch. Bydd hyn yn eich galluogi i fynd yn ôl i'ch ffurflen.",
+      "label": "Rhif ffôn symudol",
+      "continue": "Parhau",
+      "errorRequired": "Rhowch eich rhif ffôn symudol",
+      "errorInvalid": "Rhowch rif ffôn symudol yn y fformat cywir"
+    },
+    "codeExpired": {
+      "title": "Mae eich cod diogelwch wedi dod i ben",
+      "sentTo": "Anfonwyd y cod diogelwch at: [[email]]",
+      "expiryInfo": "Mae codau diogelwch yn dod i ben ar ôl 15 munud.",
+      "resendInfo": "Gofynnwch i ni anfon cod newydd, yna rhowch ef ar y dudalen nesaf.",
+      "continue": "Anfon cod diogelwch newydd"
+    },
+    "codeResend": {
+      "title": "Cael cod diogelwch",
+      "sentTo": "Byddwn yn anfon cod diogelwch at: [[email]]",
+      "lockoutInfo": "Gallwch ofyn am 5 cod diogelwch. Os byddwch yn gofyn am fwy na 5, cewch eich cloi allan am 2 awr.",
+      "emailInfo": "Gall gymryd ychydig funudau i'ch e-bost gyrraedd. Os na chewch e-bost, gwiriwch eich ffolder sbam.",
+      "continue": "Cael cod diogelwch"
+    },
+    "timedOut": {
+      "title": "Er eich diogelwch, daeth eich sesiwn fewngofnodi i ben",
+      "body": [
+        "Mae gennych [[duration]] i gwblhau'r broses fewngofnodi.",
+        "Ewch yn ôl i'r gwasanaeth roeddech yn ei ddefnyddio a mewngofnodwch eto."
+      ]
+    },
+    "errorSummaryTitle": "Mae problem wedi codi"
+  },
+  "errors": {
+    "notFound": {
+      "heading": "Heb ddod o hyd i'r dudalen",
+      "body1": "Os gwnaethoch deipio'r cyfeiriad gwe, gwiriwch ei fod yn gywir.",
+      "body2": "Os gwnaethoch ludo'r cyfeiriad gwe, gwiriwch eich bod wedi copïo'r cyfeiriad cyfan.",
+      "body3": "Os yw'r cyfeiriad gwe yn gywir neu os gwnaethoch ddewis dolen neu fotwm, <a href=\"https://www.gov.uk/guidance/contact-defra\" class=\"govuk-link\">cysylltwch â Llinell Gymorth Defra</a> os oes angen i chi siarad â rhywun."
+    },
+    "serverError": {
+      "heading": "Mae'n ddrwg gennym, mae problem gyda'r gwasanaeth",
+      "canYou": "Gallwch:",
+      "tryBack": "roi gynnig ar fotwm mynd yn ôl eich porwr",
+      "contact": "<a class=\"govuk-link\" href=\"https://www.gov.uk/guidance/contact-defra\">gysylltu â Llinell Gymorth Defra</a> os oes gennych unrhyw gwestiynau"
+    }
+  }
+}

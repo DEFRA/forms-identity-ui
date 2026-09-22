@@ -6,6 +6,7 @@ import { errors } from 'oidc-provider'
 import { config } from '~/src/config/index.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { formatDuration } from '~/src/server/common/helpers/duration.js'
+import { setLanguage } from '~/src/server/i18n/index.js'
 import { signinFormCsp } from '~/src/server/plugins/blankie.js'
 import * as signinService from '~/src/server/services/signin-service.js'
 
@@ -15,6 +16,10 @@ const INTERACTION_DURATION = formatDuration(config.get('oidc.ttl.interaction'))
 
 const uidParams = Joi.object({ uid: Joi.string().required() })
 const emailQuery = Joi.object({ resend: Joi.boolean().optional() })
+const languageSchema = Joi.string().valid('en-GB', 'cy').optional()
+const querySchema = Joi.object()
+  .keys({ language: languageSchema })
+  .unknown(true)
 
 /**
  * Each form posts exactly one field plus the crumb. A duplicated key makes
@@ -50,6 +55,7 @@ export async function requireInteraction(request, h) {
   const provider = request.server.app.oidcProvider
 
   try {
+    setLanguage(request)
     return await provider.interactionDetails(request.raw.req, request.raw.res)
   } catch (err) {
     if (err instanceof errors.SessionNotFound) {
@@ -68,6 +74,12 @@ export async function requireInteraction(request, h) {
 const GATE = {
   method: requireInteraction,
   assign: /** @type {const} */ ('details')
+}
+
+const commonOptions = {
+  validate: { params: uidParams, query: querySchema },
+  plugins: { blankie: signinFormCsp },
+  pre: [GATE]
 }
 
 /**
@@ -134,8 +146,8 @@ async function finishLogin(request, h, accountId) {
 
 /**
  *
- * @param {Request<{ Pres: InteractionPres; }>} request
- * @param {ResponseToolkit<{ Pres: InteractionPres; }>} h
+ * @param {Request<{ Pres: InteractionPres, Query: { language?: string }; }>} request
+ * @param {ResponseToolkit<{ Pres: InteractionPres, Query: { language?: string }; }>} h
  * @param {string} viewName - the view name
  */
 async function commonOTPHandler(request, h, viewName) {
@@ -165,11 +177,14 @@ async function commonOTPHandler(request, h, viewName) {
  */
 export default /** @type {ServerRoute[]} */ (
   /** @type {unknown[]} */ ([
-    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/interaction/{uid}',
-      options: { validate: { params: uidParams }, pre: [GATE], auth: false },
+      options: {
+        validate: { params: uidParams, query: querySchema },
+        pre: [GATE]
+      },
       async handler(request, h) {
         const details = request.pre.details
         const provider = request.server.app.oidcProvider
@@ -213,10 +228,24 @@ export default /** @type {ServerRoute[]} */ (
           )
         }
 
+        return h.redirect(`/interaction/${details.uid}/email`)
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
+    ({
+      method: 'GET',
+      path: '/interaction/{uid}/email',
+      options: {
+        validate: { params: uidParams, query: querySchema },
+        pre: [GATE]
+      },
+      handler(request, h) {
+        const details = request.pre.details
+
         return h.view('interaction/email', { uid: details.uid })
       }
     }),
-    /** @satisfies {ServerRoute<{ Payload: { email?: string }, Pres: InteractionPres, Query: { resend?: boolean} }>} */
+    /** @satisfies {ServerRoute<{ Payload: { email?: string }, Pres: InteractionPres, Query: { language?: string, resend?: boolean } }>} */
     ({
       method: 'POST',
       path: '/interaction/{uid}/email',
@@ -224,7 +253,7 @@ export default /** @type {ServerRoute[]} */ (
         validate: {
           params: uidParams,
           payload: formPayload('email'),
-          query: emailQuery
+          query: querySchema.concat(emailQuery)
         },
         pre: [GATE],
         auth: false
@@ -251,16 +280,11 @@ export default /** @type {ServerRoute[]} */ (
         return h.redirect(`/interaction/${details.uid}/code`)
       }
     }),
-    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/interaction/{uid}/code',
-      options: {
-        validate: { params: uidParams },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE],
-        auth: false
-      },
+      options: commonOptions,
       async handler(request, h) {
         const details = request.pre.details
         // display-only, from the API's stored record — the same source
@@ -284,12 +308,16 @@ export default /** @type {ServerRoute[]} */ (
         })
       }
     }),
-    /** @satisfies {ServerRoute<{ Payload: { code?: string }, Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Payload: { code?: string }, Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'POST',
       path: '/interaction/{uid}/code',
       options: {
-        validate: { params: uidParams, payload: formPayload('code') },
+        validate: {
+          params: uidParams,
+          payload: formPayload('code'),
+          query: querySchema
+        },
         plugins: { blankie: signinFormCsp },
         pre: [GATE],
         auth: false
@@ -324,54 +352,43 @@ export default /** @type {ServerRoute[]} */ (
         })
       }
     }),
-    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/interaction/{uid}/code/expired',
-      options: {
-        validate: { params: uidParams },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE],
-        auth: false
-      },
+      options: commonOptions,
       async handler(request, h) {
         return commonOTPHandler(request, h, 'code-expired')
       }
     }),
-    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/interaction/{uid}/code/resend',
-      options: {
-        validate: { params: uidParams },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE],
-        auth: false
-      },
+      options: commonOptions,
       async handler(request, h) {
         return commonOTPHandler(request, h, 'code-resend')
       }
     }),
-    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/interaction/{uid}/phone',
-      options: {
-        validate: { params: uidParams },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE],
-        auth: false
-      },
+      options: commonOptions,
       handler(request, h) {
         return h.view('interaction/phone', { uid: request.pre.details.uid })
       }
     }),
-    /** @satisfies {ServerRoute<{ Payload: { phone?: string }, Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Payload: { phone?: string }, Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'POST',
       path: '/interaction/{uid}/phone',
       options: {
-        validate: { params: uidParams, payload: formPayload('phone') },
+        validate: {
+          params: uidParams,
+          payload: formPayload('phone'),
+          query: querySchema
+        },
         plugins: { blankie: signinFormCsp },
         pre: [GATE],
         auth: false
