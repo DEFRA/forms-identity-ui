@@ -268,6 +268,12 @@ export const config = convict({
       default: /** @type {string[] | null} */ (null),
       env: 'OIDC_RUNNER_REDIRECT_URIS'
     },
+    runnerPostLogoutRedirectUris: {
+      doc: 'Comma-separated post_logout_redirect_uris for the runner client, landed on after logout',
+      format: 'csv',
+      default: /** @type {string[] | null} */ (null),
+      env: 'OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS'
+    },
     ttl: {
       authorizationCode: {
         doc: 'Authorization code lifetime in seconds',

@@ -11,7 +11,11 @@ describe('Config', () => {
     /** @type {const} */ ([
       ['oidc.cookieKeys', 'OIDC_COOKIE_KEYS'],
       ['oidc.resourceServers', 'OIDC_RESOURCE_SERVERS'],
-      ['oidc.runnerRedirectUris', 'OIDC_RUNNER_REDIRECT_URIS']
+      ['oidc.runnerRedirectUris', 'OIDC_RUNNER_REDIRECT_URIS'],
+      [
+        'oidc.runnerPostLogoutRedirectUris',
+        'OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS'
+      ]
     ])
   )('%s', (key, env) => {
     const original = process.env[env]
