@@ -1,9 +1,9 @@
 /**
  * Example relying party for trying the sign-in journey in a browser without
- * forms-runner. The OIDC mechanics (discovery, PKCE, code exchange,
- * userinfo, logout URLs) come from openid-client — the certified RP library
- * — so this file is only routing and session bookkeeping. Never deployed:
- * lives outside src/, so the babel build and Docker image never include it.
+ * forms-runner. The OIDC mechanics (discovery, PKCE, code exchange, logout
+ * URLs) come from openid-client — the certified RP library — so this file is
+ * only routing and session bookkeeping. Never deployed: lives outside src/,
+ * so the babel build and Docker image never include it.
  *
  * Started automatically by this repo's `npm run dev` (alongside the
  * service) on :3901; forms-identity-api must also be running (:3010, with
@@ -14,7 +14,13 @@ import * as client from 'openid-client'
 
 import 'dotenv/config'
 
-import { errorPage, page, signedInPage, tokenSummary } from './views.mjs'
+import {
+  decodeJwt,
+  errorPage,
+  page,
+  signedInPage,
+  tokenSummary
+} from './views.mjs'
 
 const ISSUER = process.env.EXAMPLE_RP_ISSUER ?? 'http://localhost:3011'
 const DEFAULT_PORT = 3901
@@ -22,6 +28,8 @@ const PORT = Number(process.env.EXAMPLE_RP_PORT ?? DEFAULT_PORT)
 const BASE = `http://localhost:${PORT}`
 const REDIRECT_URI = `${BASE}/callback`
 const PRIVATE_JWKS = process.env.EXAMPLE_RP_PRIVATE_JWKS
+const RESOURCE =
+  process.env.EXAMPLE_RP_RESOURCE ?? 'urn:defra:forms:forms-submission-api'
 
 if (!PRIVATE_JWKS) {
   throw new Error(
@@ -41,7 +49,7 @@ async function clientKey() {
     key: await crypto.subtle.importKey(
       'jwk',
       PRIVATE_JWK,
-      { name: 'ECDSA', namedCurve: 'P-256' },
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
       false,
       ['sign']
     ),
@@ -80,7 +88,7 @@ const pending = new Map()
 
 /**
  * Who is signed in. Single-user, in-memory — it's an example.
- * @type {{ tokens?: client.TokenEndpointResponse, claims?: object, userinfo?: object, obtainedAt: number }}
+ * @type {{ tokens?: client.TokenEndpointResponse, claims?: object, obtainedAt: number }}
  */
 const session = { obtainedAt: 0 }
 
@@ -95,7 +103,7 @@ server.route([
         return signedInPage(
           session.claims,
           tokenSummary(session.tokens, session.obtainedAt),
-          session.userinfo ?? {}
+          decodeJwt(session.tokens.access_token)
         )
       }
       return page('<p><a href="/login">Sign in</a></p>')
@@ -113,6 +121,9 @@ server.route([
       const authUrl = client.buildAuthorizationUrl(config, {
         redirect_uri: REDIRECT_URI,
         scope: 'openid email',
+        // Named here only: the provider issues the token for the granted API
+        // without it being sent again at the token endpoint
+        resource: RESOURCE,
         state,
         code_challenge: await client.calculatePKCECodeChallenge(verifier),
         code_challenge_method: 'S256'
@@ -146,11 +157,6 @@ server.route([
         session.tokens = tokens
         session.obtainedAt = Date.now()
         session.claims = claims
-        session.userinfo = await client.fetchUserInfo(
-          config,
-          tokens.access_token,
-          /** @type {string} */ (claims?.sub)
-        )
       } catch (err) {
         return errorPage(String(err))
       }
@@ -167,7 +173,6 @@ server.route([
 
       delete session.tokens
       delete session.claims
-      delete session.userinfo
 
       const logoutUrl = client.buildEndSessionUrl(config, {
         ...(idToken && { id_token_hint: idToken }),

@@ -9,7 +9,7 @@ GOV.UK-styled sign-in pages. It has no database: accounts, one-time codes and
 every protocol artefact live in
 [forms-identity-api](https://github.com/DEFRA/forms-identity-api), reached over
 the internal network. forms-runner is the relying party — it sends a citizen
-here and gets back an ID token.
+here and gets back an ID token, and an access token for the forms APIs.
 
 Authentication is a passwordless email OTP. A citizen enters an email address,
 receives a six digit code, and enters it back. First-time users also give a
@@ -34,7 +34,7 @@ without them, so a misconfigured environment fails at boot rather than at first
 sign-in. Two need generating:
 
 ```sh
-node scripts/generate-jwks.mjs            # OIDC_JWKS — our ID token signing key
+node scripts/generate-jwks.mjs            # OIDC_JWKS — signs our ID and access tokens
 node scripts/generate-client-keypair.mjs  # the client's keypair, both halves
 ```
 
@@ -44,9 +44,17 @@ local development that is the example RP, and in a real environment it is
 forms-runner and nothing else.
 
 Each key is named after its role, its algorithm and a random tail —
-`sig-es256-4c1f8ab390d7`. Rotating means running the script again and replacing
+`sig-rs256-4c1f8ab390d7`. Rotating means running the script again and replacing
 the value: the new key names itself, so there is nothing to keep track of, and
 a copy of the old key found later still answers to the old name.
+
+All keys are RS256. If your `.env` has older ES256 keys, run both scripts again
+and replace the values.
+
+`OIDC_RESOURCE_SERVERS` lists the APIs that can get an access token. Each name
+becomes the `aud` of the token, and a client names one in the `resource`
+parameter of the authorization request. `OIDC_TTL_ACCESS_TOKEN` matches the
+session lifetime, because there are no refresh tokens.
 
 ## Development
 
@@ -106,10 +114,11 @@ node -e "import('./e2e/support.mjs').then(m => m.captureCode('<uid>', '<email>')
 Then go back to `/interaction/<uid>/code` and enter `123456`.
 
 **5. Check the result.** After the mobile step the RP shows the ID token claims,
-the token response and userinfo. That page is proof the whole exchange worked,
-including the client assertion and the ID token signature check that
-`openid-client` performs. "Sign out" clears both sessions so you can run it
-again; "Sign in again" reuses the provider session and skips straight through.
+the token response and the access token claims. That page is proof the whole
+exchange worked, including the client assertion and the ID token signature
+check that `openid-client` performs. "Sign out" clears both sessions so you can
+run it again; "Sign in again" reuses the provider session and skips straight
+through.
 
 Two things that catch people out. Editing anything under `example/rp` needs the
 RP restarted by hand, since it is plain `node` rather than watched. And killing
@@ -129,8 +138,8 @@ npm run format    # prettier write
 ### End-to-end tests
 
 `npm run test:e2e` drives the whole journey through a real browser: JIT sign-up,
-single sign-on, the existing-account path, CSRF rejection, and client
-authentication at the token endpoint.
+single sign-on, the existing-account path, CSRF rejection, client
+authentication at the token endpoint, and the access token for the API.
 
 It uses the example RP as the relying party, so the tests exercise the same
 `openid-client` code a developer clicks through by hand, and a change that

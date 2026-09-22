@@ -33,9 +33,7 @@ function table(caption, values) {
 }
 
 /**
- * What the token response gives an RP. The access token is opaque by design
- * (not a JWT) — the decodable payload lives in the ID token — so the useful
- * parts here are the grant metadata and computed expiry.
+ * What the token response gives an RP: the grant metadata and computed expiry.
  * @param {{ token_type: string, scope?: string, expires_in?: number, access_token: string, id_token?: string }} tokens
  * @param {number} obtainedAt - epoch ms when the tokens were obtained
  */
@@ -58,17 +56,27 @@ export function tokenSummary(tokens, obtainedAt) {
 }
 
 /**
+ * The payload of a JWT, read without checking the signature. The API that
+ * receives the token checks it.
+ * @param {string} token
+ * @returns {object}
+ */
+export function decodeJwt(token) {
+  return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
+}
+
+/**
  * The signed-in home page
  * @param {object} claims - ID token claims
  * @param {object} summary - token response summary
- * @param {object} userinfo - userinfo response
+ * @param {object} accessTokenClaims - access token claims
  */
-export function signedInPage(claims, summary, userinfo) {
+export function signedInPage(claims, summary, accessTokenClaims) {
   return page(`
     <p>Signed in.</p>
     ${table('ID token claims', claims)}
     ${table('Token response', summary)}
-    ${table('Userinfo (fetched with the access token)', userinfo)}
+    ${table('Access token claims', accessTokenClaims)}
     <p><a href="/login">Sign in again</a> <a href="/logout">Sign out</a></p>`)
 }
 
