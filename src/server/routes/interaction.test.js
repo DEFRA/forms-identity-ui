@@ -91,10 +91,20 @@ describe('interaction pages', () => {
     return { res, crumb, cookie }
   }
 
+  it('GET redirects to the email page', async () => {
+    const { response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/interaction/uid-1'
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/interaction/uid-1/email')
+  })
+
   it('GET renders the email page for a login prompt', async () => {
     const { container, response } = await renderResponse(server, {
       method: 'GET',
-      url: '/interaction/uid-1'
+      url: '/interaction/uid-1/email'
     })
 
     expect(response.statusCode).toBe(200)
@@ -152,7 +162,7 @@ describe('interaction pages', () => {
     jest.mocked(identityApi.requestOtp).mockResolvedValue({
       status: 'otp-issued'
     })
-    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1')
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
 
     const res = await server.inject({
       method: 'POST',
@@ -182,7 +192,7 @@ describe('interaction pages', () => {
         status: 'locked-out',
         lockedUntil: lockedUntil.toISOString()
       })
-      const { crumb, cookie } = await getWithCrumb('/interaction/uid-1')
+      const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
 
       const { container, response } = await renderResponse(server, {
         method: 'POST',
@@ -194,7 +204,7 @@ describe('interaction pages', () => {
       expect(response.statusCode).toBe(200)
       expect(
         container.getByRole('heading', {
-          name: 'You have been locked out',
+          name: 'Too many security codes requested',
           level: 1
         })
       ).toBeInTheDocument()
@@ -210,7 +220,7 @@ describe('interaction pages', () => {
       status: 'locked-out',
       lockedUntil: new Date(Date.now() + 60 * 60 * 1000).toISOString()
     })
-    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1')
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
 
     const post = await server.inject({
       method: 'POST',
@@ -245,7 +255,7 @@ describe('interaction pages', () => {
     jest
       .mocked(identityApi.requestOtp)
       .mockResolvedValue(/** @type {never} */ ({ status: 'something-else' }))
-    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1')
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
 
     const res = await server.inject({
       method: 'POST',
@@ -258,7 +268,7 @@ describe('interaction pages', () => {
   })
 
   it('POST email re-renders with a GDS error for an invalid email', async () => {
-    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1')
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
 
     const { container, response } = await renderResponse(server, {
       method: 'POST',
@@ -291,7 +301,7 @@ describe('interaction pages', () => {
   })
 
   it.each([
-    ['email', '/interaction/uid-1/email', '/interaction/uid-1'],
+    ['email', '/interaction/uid-1/email', '/interaction/uid-1/email'],
     ['code', '/interaction/uid-1/code', '/interaction/uid-1/code'],
     ['phone', '/interaction/uid-1/phone', '/interaction/uid-1/phone']
   ])(

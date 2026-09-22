@@ -1,6 +1,7 @@
 import i18next from 'i18next'
 
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
+import cy from '~/src/server/i18n/translations/cy.json' with { type: 'json' }
 import enGB from '~/src/server/i18n/translations/en-GB.json' with { type: 'json' }
 
 export const i18n = i18next.createInstance()
@@ -8,7 +9,8 @@ export const i18n = i18next.createInstance()
 i18n
   .init({
     resources: {
-      'en-GB': { translation: enGB }
+      'en-GB': { translation: enGB },
+      cy: { translation: cy }
     },
     fallbackLng: 'en-GB',
     interpolation: {
@@ -34,29 +36,34 @@ export function t(key, lang, opts) {
 }
 
 /**
- * Resolve the request language, persisting a `?language=` override in the session
- * @param {RequestQuery} [query]
- * @param {Yar | null} [yar]
+ * Get the request language
+ * @param { RequestQuery | undefined } query - the request query parameters
+ * @param {Yar} [yar]
  * @returns {string}
  */
-export function resolveLanguage(query, yar) {
+export function getLanguage(query, yar) {
   const defaultLang = 'en-GB'
-
   query ??= {}
 
-  try {
-    if (yar && 'language' in query) {
-      yar.set('language', query.language)
-    }
+  return (
+    (yar?.id && yar.get('language')) ??
+    ('language' in query ? /** @type {string} */ (query.language) : defaultLang)
+  )
+}
 
-    return yar?.get('language') ?? defaultLang
-  } catch {
-    // yar has no store on unmatched routes (404) and throws on access
-    return defaultLang
+/**
+ * Set the language in the session if the query has a `language` key
+ * @param {Request<ReqRefDefaults>} request
+ */
+export function setLanguage(request) {
+  const { yar, query } = request
+
+  if ('language' in query) {
+    yar.set('language', query.language)
   }
 }
 
 /**
- * @import { RequestQuery } from '@hapi/hapi'
+ * @import { Request, RequestQuery, ReqRefDefaults } from '@hapi/hapi'
  * @import { Yar } from '@hapi/yar'
  */

@@ -1,9 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 
+import Boom from '@hapi/boom'
+import { StatusCodes } from 'http-status-codes'
+
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
-import { resolveLanguage, t } from '~/src/server/i18n/index.js'
+import { getLanguage, t } from '~/src/server/i18n/index.js'
 
 /** @type {Record<string, string> | undefined} */
 let webpackManifest
@@ -25,12 +28,23 @@ export function context(request) {
     }
   }
 
-  const language = resolveLanguage(request?.query, request?.yar)
+  const { response } = request ?? {}
+  const isResponseOK =
+    !Boom.isBoom(response) && response?.statusCode === StatusCodes.OK
+
+  const language = getLanguage(request?.query, request?.yar)
+  const availableLanguages = [
+    { code: 'en-GB', name: 'English' },
+    { code: 'cy', name: 'Cymraeg' }
+  ]
 
   return {
     assetPath: '/assets',
+    language,
+    availableLanguages,
     serviceName: t('service.name', language),
     cspNonce: request?.plugins.blankie?.nonces?.script,
+    currentPath: request ? `${request.path}${request.url.search}` : undefined,
 
     /**
      * @param {string} key
@@ -43,7 +57,8 @@ export function context(request) {
      */
     getAssetPath(asset = '') {
       return `/${webpackManifest?.[asset] ?? asset}`
-    }
+    },
+    isResponseOK
   }
 }
 

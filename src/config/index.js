@@ -4,12 +4,16 @@ import convict from 'convict'
 
 import 'dotenv/config'
 
+import { csvFormat } from '~/src/config/csv-format.js'
+
 const isProduction = process.env.NODE_ENV === 'production'
 const isDev = process.env.NODE_ENV !== 'production'
 const isTest = process.env.NODE_ENV === 'test'
 
 const fourHoursMs = 14400000
 const oneWeekSeconds = 604800
+
+convict.addFormat(csvFormat)
 
 export const config = convict({
   appDir: {
@@ -235,8 +239,8 @@ export const config = convict({
     },
     cookieKeys: {
       doc: 'Comma-separated cookie signing keys, identical across containers',
-      format: String,
-      default: /** @type {string | null} */ (null),
+      format: 'csv',
+      default: /** @type {string[] | null} */ (null),
       sensitive: true,
       env: 'OIDC_COOKIE_KEYS'
     },
@@ -246,6 +250,12 @@ export const config = convict({
       default: isProduction,
       env: 'OIDC_COOKIE_SECURE'
     },
+    resourceServers: {
+      doc: 'Comma-separated names of the APIs this provider issues access tokens for. The name becomes the audience of the token. A name that is not here gets no token.',
+      format: 'csv',
+      default: /** @type {string[] | null} */ (null),
+      env: 'OIDC_RESOURCE_SERVERS'
+    },
     runnerJwks: {
       doc: 'Public JWKS of the `runner` client, whose private half signs the assertion it authenticates with (run `node scripts/generate-client-keypair.mjs`). Public key material, so not a secret.',
       format: String,
@@ -254,14 +264,14 @@ export const config = convict({
     },
     runnerRedirectUris: {
       doc: 'Comma-separated redirect_uris for the runner client',
-      format: String,
-      default: /** @type {string | null} */ (null),
+      format: 'csv',
+      default: /** @type {string[] | null} */ (null),
       env: 'OIDC_RUNNER_REDIRECT_URIS'
     },
     runnerPostLogoutRedirectUris: {
       doc: 'Comma-separated post_logout_redirect_uris for the runner client, landed on after logout',
-      format: String,
-      default: /** @type {string | null} */ (null),
+      format: 'csv',
+      default: /** @type {string[] | null} */ (null),
       env: 'OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS'
     },
     ttl: {
@@ -282,6 +292,12 @@ export const config = convict({
         format: 'nat',
         default: /** @type {number | null} */ (null),
         env: 'OIDC_TTL_ACCESS_TOKEN'
+      },
+      refreshToken: {
+        doc: "Refresh token lifetime in seconds. Must be no longer than forms-runner's SESSION_TIMEOUT.",
+        format: 'nat',
+        default: /** @type {number | null} */ (null),
+        env: 'OIDC_TTL_REFRESH_TOKEN'
       },
       interaction: {
         doc: 'Sign-in interaction lifetime in seconds',

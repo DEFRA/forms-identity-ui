@@ -33,7 +33,10 @@ process.env.OIDC_RUNNER_JWKS = JSON.stringify(runnerKeypair.public)
 process.env.OIDC_RUNNER_PRIVATE_JWKS = JSON.stringify(runnerKeypair.private)
 process.env.OIDC_TTL_AUTHORIZATION_CODE = '60'
 process.env.OIDC_TTL_ID_TOKEN = '300'
+// Short, because the client refreshes it with a refresh token
 process.env.OIDC_TTL_ACCESS_TOKEN = '300'
+// No longer than forms-runner's SESSION_TIMEOUT
+process.env.OIDC_TTL_REFRESH_TOKEN = '86400'
 process.env.OIDC_TTL_INTERACTION = '3600'
 process.env.OIDC_TTL_SESSION = '86400'
 process.env.OIDC_TTL_GRANT = '86400'
@@ -41,6 +44,8 @@ process.env.OIDC_TTL_GRANT = '86400'
 // override variables that are already set)
 process.env.OIDC_ISSUER = 'http://localhost:3011'
 process.env.IDENTITY_API_URL = 'http://localhost:3010'
+process.env.OIDC_RESOURCE_SERVERS =
+  'urn:defra:forms:forms-submission-api,urn:defra:forms:another-api'
 process.env.OIDC_RUNNER_REDIRECT_URIS =
   'http://localhost:3009/callback,http://localhost:3000/callback'
 process.env.OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS =

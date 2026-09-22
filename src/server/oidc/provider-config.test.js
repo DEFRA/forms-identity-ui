@@ -34,9 +34,9 @@ describe('buildProviderConfig', () => {
           'http://localhost:3000/'
         ],
         response_types: ['code'],
-        grant_types: ['authorization_code'],
+        grant_types: ['authorization_code', 'refresh_token'],
         token_endpoint_auth_method: 'private_key_jwt',
-        id_token_signed_response_alg: 'ES256',
+        id_token_signed_response_alg: 'RS256',
         jwks: JSON.parse(String(process.env.OIDC_RUNNER_JWKS))
       }
     ])
@@ -51,6 +51,7 @@ describe('buildProviderConfig', () => {
       AuthorizationCode: 60,
       IdToken: 300,
       AccessToken: 300,
+      RefreshToken: expect.any(Function),
       Interaction: 3600,
       Session: 86400,
       Grant: 86400
@@ -58,6 +59,129 @@ describe('buildProviderConfig', () => {
     expect(cfg.claims).toEqual({
       openid: ['sub'],
       email: ['email']
+    })
+  })
+
+  describe('refresh tokens', () => {
+    it('issues a refresh token to a client allowed the grant, without offline_access', async () => {
+      const cfg = buildProviderConfig(fakeAdapter)
+      const client = /** @type {Client} */ (
+        /** @type {unknown} */ ({
+          grantTypeAllowed: (/** @type {string} */ grantType) =>
+            cfg.clients?.[0].grant_types?.includes(grantType)
+        })
+      )
+
+      expect(
+        await cfg.issueRefreshToken?.(
+          fakeCtx,
+          client,
+          /** @type {never} */ (null)
+        )
+      ).toBe(true)
+    })
+
+    it('does not issue a refresh token to a client not allowed the grant', async () => {
+      const cfg = buildProviderConfig(fakeAdapter)
+      const client = /** @type {Client} */ (
+        /** @type {unknown} */ ({ grantTypeAllowed: () => false })
+      )
+
+      expect(
+        await cfg.issueRefreshToken?.(
+          fakeCtx,
+          client,
+          /** @type {never} */ (null)
+        )
+      ).toBe(false)
+    })
+
+    it('rotates the refresh token on every refresh', () => {
+      const cfg = buildProviderConfig(fakeAdapter)
+
+      expect(cfg.rotateRefreshToken).toBe(true)
+    })
+
+    it('gives a new refresh token the configured lifetime', () => {
+      const ttl = refreshTokenTtl()
+
+      expect(ttl(/** @type {never} */ ({ oidc: { entities: {} } }))).toBe(86400)
+      // a token read outside a request has no context
+      expect(ttl(/** @type {never} */ (undefined))).toBe(86400)
+    })
+
+    it('gives a rotated refresh token only the time left on the one it replaces', () => {
+      const ttl = refreshTokenTtl()
+      const ctx = /** @type {never} */ ({
+        oidc: { entities: { RotatedRefreshToken: { remainingTTL: 1234 } } }
+      })
+
+      expect(ttl(ctx)).toBe(1234)
+    })
+
+    /**
+     * The refresh token lifetime function from the configuration
+     */
+    function refreshTokenTtl() {
+      const ttl = buildProviderConfig(fakeAdapter).ttl?.RefreshToken
+
+      if (typeof ttl !== 'function') {
+        throw new Error('ttl.RefreshToken is not a function')
+      }
+
+      return (/** @type {KoaContextWithOIDC} */ ctx) =>
+        ttl(ctx, /** @type {never} */ (null), /** @type {never} */ (null))
+    }
+  })
+
+  it('signs tokens and verifies client assertions with RS256', () => {
+    const cfg = buildProviderConfig(fakeAdapter)
+
+    expect(cfg.enabledJWA).toEqual({
+      idTokenSigningAlgValues: ['RS256'],
+      clientAuthSigningAlgValues: ['RS256']
+    })
+  })
+
+  describe('resource indicators', () => {
+    it.each([
+      'urn:defra:forms:forms-submission-api',
+      'urn:defra:forms:another-api'
+    ])(
+      'issues a JWT access token for %s, the audience being the name asked for',
+      (resourceIndicator) => {
+        const cfg = buildProviderConfig(fakeAdapter)
+        const { resourceIndicators } = cfg.features ?? {}
+
+        expect(resourceIndicators?.enabled).toBe(true)
+
+        const info = resourceIndicators?.getResourceServerInfo?.(
+          fakeCtx,
+          resourceIndicator,
+          /** @type {never} */ (null)
+        )
+
+        expect(info).toEqual({
+          scope: '',
+          audience: resourceIndicator,
+          accessTokenFormat: 'jwt',
+          accessTokenTTL: 300,
+          jwt: { sign: { alg: 'RS256' } }
+        })
+      }
+    )
+
+    it('refuses a resource it does not serve, so no token is minted for another audience', () => {
+      const cfg = buildProviderConfig(fakeAdapter)
+      const { resourceIndicators } = cfg.features ?? {}
+
+      expect(() =>
+        resourceIndicators?.getResourceServerInfo?.(
+          fakeCtx,
+          'urn:defra:forms:somewhere-else',
+          /** @type {never} */ (null)
+        )
+      ).toThrow('invalid_target')
     })
   })
 
@@ -87,5 +211,5 @@ describe('buildProviderConfig', () => {
 })
 
 /**
- * @import { AdapterConstructor } from 'oidc-provider'
+ * @import { AdapterConstructor, Client, KoaContextWithOIDC } from 'oidc-provider'
  */
