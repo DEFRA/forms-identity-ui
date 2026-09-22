@@ -4,12 +4,16 @@ import convict from 'convict'
 
 import 'dotenv/config'
 
+import { csvFormat } from '~/src/config/csv-format.js'
+
 const isProduction = process.env.NODE_ENV === 'production'
 const isDev = process.env.NODE_ENV !== 'production'
 const isTest = process.env.NODE_ENV === 'test'
 
 const fourHoursMs = 14400000
 const oneWeekSeconds = 604800
+
+convict.addFormat(csvFormat)
 
 export const config = convict({
   appDir: {
@@ -235,8 +239,8 @@ export const config = convict({
     },
     cookieKeys: {
       doc: 'Comma-separated cookie signing keys, identical across containers',
-      format: String,
-      default: /** @type {string | null} */ (null),
+      format: 'csv',
+      default: /** @type {string[] | null} */ (null),
       sensitive: true,
       env: 'OIDC_COOKIE_KEYS'
     },
@@ -248,8 +252,8 @@ export const config = convict({
     },
     resourceServers: {
       doc: 'Comma-separated names of the APIs this provider issues access tokens for. The name becomes the audience of the token. A name that is not here gets no token.',
-      format: String,
-      default: /** @type {string | null} */ (null),
+      format: 'csv',
+      default: /** @type {string[] | null} */ (null),
       env: 'OIDC_RESOURCE_SERVERS'
     },
     runnerJwks: {
@@ -260,8 +264,8 @@ export const config = convict({
     },
     runnerRedirectUris: {
       doc: 'Comma-separated redirect_uris for the runner client',
-      format: String,
-      default: /** @type {string | null} */ (null),
+      format: 'csv',
+      default: /** @type {string[] | null} */ (null),
       env: 'OIDC_RUNNER_REDIRECT_URIS'
     },
     ttl: {
