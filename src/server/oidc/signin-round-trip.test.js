@@ -518,8 +518,9 @@ describe('sign-in round trip', () => {
    * for a token for RESOURCE, and redeems the code at the token endpoint
    * @param {string} email
    * @param {string} state
+   * @param {Record<string, string>} tokenParams - added to the token request
    */
-  async function signInAndRedeem(email, state) {
+  async function signInAndRedeem(email, state, tokenParams) {
     // a fresh browser: an earlier journey left a session that would resume
     jar.clear()
 
@@ -564,7 +565,7 @@ describe('sign-in round trip', () => {
       code_verifier: verifier,
       client_assertion_type: CLIENT_ASSERTION_TYPE,
       client_assertion: await clientAssertion(),
-      resource: RESOURCE
+      ...tokenParams
     })
   }
 
@@ -598,43 +599,58 @@ describe('sign-in round trip', () => {
     }
   }
 
-  it('issues a JWT access token for the API the client named', async () => {
-    const email = 'token-journey@example.com'
-    const redeemed = await signInAndRedeem(email, 'state-2')
+  it.each([
+    [
+      'at the authorization and token endpoints',
+      'token-journey-both@example.com',
+      { resource: RESOURCE }
+    ],
+    [
+      'at the authorization endpoint only',
+      'token-journey-authorization@example.com',
+      {}
+    ]
+  ])(
+    'issues a JWT access token for the API the client named %s',
+    async (_where, email, tokenParams) => {
+      const redeemed = await signInAndRedeem(email, 'state-2', tokenParams)
 
-    expect(redeemed.statusCode).toBe(200)
+      expect(redeemed.statusCode).toBe(200)
 
-    const body = JSON.parse(redeemed.payload)
-    const accessToken = String(body.access_token)
+      const body = JSON.parse(redeemed.payload)
+      const accessToken = String(body.access_token)
 
-    // an opaque token is one segment, so this tells the two apart
-    expect(accessToken.split('.')).toHaveLength(3)
+      // an opaque token is one segment, so this tells the two apart
+      expect(accessToken.split('.')).toHaveLength(3)
 
-    const signedIn = [...accounts.values()].find(
-      (account) => account.email === email
-    )
-    expect(signedIn).toBeDefined()
+      const signedIn = [...accounts.values()].find(
+        (account) => account.email === email
+      )
+      expect(signedIn).toBeDefined()
 
-    expect(decodeSegment(accessToken, 0)).toMatchObject({ alg: 'RS256' })
-    expect(decodeSegment(accessToken, 1)).toMatchObject({
-      iss: ISSUER,
-      aud: RESOURCE,
-      client_id: 'runner',
-      sub: signedIn?.id
-    })
+      expect(decodeSegment(accessToken, 0)).toMatchObject({ alg: 'RS256' })
+      expect(decodeSegment(accessToken, 1)).toMatchObject({
+        iss: ISSUER,
+        aud: RESOURCE,
+        client_id: 'runner',
+        sub: signedIn?.id
+      })
 
-    // A resource-bound token cannot reach userinfo, so the claims move to
-    // the ID token and the client reads the email there
-    expect(decodeSegment(String(body.id_token), 1)).toMatchObject({ email })
+      // A resource-bound token cannot reach userinfo, so the claims move to
+      // the ID token and the client reads the email there
+      expect(decodeSegment(String(body.id_token), 1)).toMatchObject({ email })
 
-    // short-lived, with a refresh token to renew it
-    expect(body.expires_in).toBe(300)
-    expect(typeof body.refresh_token).toBe('string')
-  })
+      // short-lived, with a refresh token to renew it
+      expect(body.expires_in).toBe(300)
+      expect(typeof body.refresh_token).toBe('string')
+    }
+  )
 
   it('rotates the refresh token, and revokes the grant when a used one is sent again', async () => {
     const email = 'refresh-journey@example.com'
-    const redeemed = await signInAndRedeem(email, 'state-3')
+    const redeemed = await signInAndRedeem(email, 'state-3', {
+      resource: RESOURCE
+    })
     expect(redeemed.statusCode).toBe(200)
 
     const first = JSON.parse(redeemed.payload)
@@ -686,7 +702,8 @@ describe('sign-in round trip', () => {
   it('refuses a refresh without a valid client assertion', async () => {
     const redeemed = await signInAndRedeem(
       'refresh-client-auth@example.com',
-      'state-4'
+      'state-4',
+      { resource: RESOURCE }
     )
     expect(redeemed.statusCode).toBe(200)
 

@@ -2,6 +2,7 @@ import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
+import { SIGNING_ALG } from '~/src/server/constants.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
@@ -11,22 +12,20 @@ import { view } from '~/src/server/plugins/nunjucks/render.js'
 const JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.jwks'))
 )
-const COOKIE_KEYS = config.get('oidc.cookieKeys').split(',')
+const COOKIE_KEYS = config.get('oidc.cookieKeys')
 const COOKIE_SECURE = config.get('oidc.cookieSecure')
 const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.runnerJwks'))
 )
-const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris').split(',')
-const RUNNER_POST_LOGOUT_REDIRECT_URIS = config
-  .get('oidc.runnerPostLogoutRedirectUris')
-  .split(',')
-const SIGNING_ALG = 'RS256'
+const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris')
+const RUNNER_POST_LOGOUT_REDIRECT_URIS = config.get(
+  'oidc.runnerPostLogoutRedirectUris'
+)
 
 /**
  * The APIs this provider issues access tokens for.
  */
-const RESOURCE_SERVER_NAMES = config.get('oidc.resourceServers')
-const RESOURCE_SERVERS = new Set(RESOURCE_SERVER_NAMES.split(','))
+const RESOURCE_SERVERS = new Set(config.get('oidc.resourceServers'))
 
 const REFRESH_TOKEN_TTL = /** @type number */ config.get(
   'oidc.ttl.refreshToken'
@@ -110,6 +109,7 @@ export function buildProviderConfig(adapter) {
       pushedAuthorizationRequests: { enabled: false },
       resourceIndicators: {
         enabled: true,
+        useGrantedResource: () => true,
         getResourceServerInfo(_ctx, resourceIndicator) {
           if (!RESOURCE_SERVERS.has(resourceIndicator)) {
             throw new errors.InvalidTarget()

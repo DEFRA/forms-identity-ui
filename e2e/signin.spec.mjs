@@ -11,6 +11,7 @@ import { expect, test } from '@playwright/test'
 import {
   ISSUER,
   KNOWN_CODE,
+  RESOURCE,
   RP,
   captureCode,
   tokenEndpoint
@@ -107,8 +108,8 @@ test.describe.serial('citizen sign-in', () => {
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page.getByRole('alert')).toContainText('There is a problem')
 
-    // a mobile completes the interaction, and the RP exchanges the code and
-    // fetches userinfo before it renders
+    // a mobile completes the interaction, and the RP exchanges the code
+    // before it renders
     await phoneInput.fill('07911 123456')
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page.getByText('Signed in.')).toBeVisible()
@@ -123,9 +124,15 @@ test.describe.serial('citizen sign-in', () => {
     expect(firstSub).toMatch(UUID_PATTERN) // opaque UUID, never an email
 
     await expect(
-      detail(page, /^Userinfo/, `email ${EMAIL.toLowerCase()}`)
+      detail(page, 'ID token claims', `email ${EMAIL.toLowerCase()}`)
     ).toBeVisible()
-    await expect(detail(page, /^Userinfo/, `sub ${firstSub}`)).toBeVisible()
+
+    await expect(
+      detail(page, 'Access token claims', `aud ${RESOURCE}`)
+    ).toBeVisible()
+    await expect(
+      detail(page, 'Access token claims', `sub ${firstSub}`)
+    ).toBeVisible()
   })
 
   test('signs straight back in on the provider session (SSO)', async () => {
