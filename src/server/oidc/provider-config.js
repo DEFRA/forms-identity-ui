@@ -4,6 +4,7 @@ import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
+import { SIGNING_ALG } from '~/src/server/oidc/signing-alg.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
 import { view } from '~/src/server/plugins/nunjucks/render.js'
 
@@ -17,7 +18,6 @@ const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.runnerJwks'))
 )
 const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris').split(',')
-const SIGNING_ALG = 'RS256'
 
 /**
  * The APIs this provider issues access tokens for.
