@@ -25,6 +25,9 @@ const SIGNING_ALG = 'RS256'
 const RESOURCE_SERVER_NAMES = config.get('oidc.resourceServers')
 const RESOURCE_SERVERS = new Set(RESOURCE_SERVER_NAMES.split(','))
 
+const RUNNER_POST_LOGOUT_REDIRECT_URIS = config
+  .get('oidc.runnerPostLogoutRedirectUris')
+  .split(',')
 const TTL_SECONDS = {
   AuthorizationCode: config.get('oidc.ttl.authorizationCode'),
   IdToken: config.get('oidc.ttl.idToken'),
@@ -46,6 +49,7 @@ export function buildProviderConfig(adapter) {
       {
         client_id: 'runner',
         redirect_uris: RUNNER_REDIRECT_URIS,
+        post_logout_redirect_uris: RUNNER_POST_LOGOUT_REDIRECT_URIS,
         response_types: ['code'],
         grant_types: ['authorization_code'],
         // The client proves itself by signing a short-lived assertion with a
