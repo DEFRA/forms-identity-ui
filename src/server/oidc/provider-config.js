@@ -27,10 +27,27 @@ const RUNNER_POST_LOGOUT_REDIRECT_URIS = config.get(
  */
 const RESOURCE_SERVERS = new Set(config.get('oidc.resourceServers'))
 
+const REFRESH_TOKEN_TTL = /** @type number */ config.get(
+  'oidc.ttl.refreshToken'
+)
+
 const TTL_SECONDS = {
   AuthorizationCode: config.get('oidc.ttl.authorizationCode'),
   IdToken: config.get('oidc.ttl.idToken'),
   AccessToken: config.get('oidc.ttl.accessToken'),
+  /**
+   * A rotated refresh token keeps the time left on the one it replaces, so
+   * refreshing cannot extend a sign-in beyond the lifetime set here.
+   * @param {KoaContextWithOIDC | undefined} ctx - undefined when a token is
+   * read outside a request
+   * @returns {number}
+   */
+  RefreshToken(ctx) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- the library's own default guards `oidc` too, as its typings do not cover every caller
+    const rotated = ctx?.oidc?.entities.RotatedRefreshToken
+
+    return rotated ? rotated.remainingTTL : REFRESH_TOKEN_TTL
+  },
   Interaction: config.get('oidc.ttl.interaction'),
   Session: config.get('oidc.ttl.session'),
   Grant: config.get('oidc.ttl.grant')
@@ -50,7 +67,7 @@ export function buildProviderConfig(adapter) {
         redirect_uris: RUNNER_REDIRECT_URIS,
         post_logout_redirect_uris: RUNNER_POST_LOGOUT_REDIRECT_URIS,
         response_types: ['code'],
-        grant_types: ['authorization_code'],
+        grant_types: ['authorization_code', 'refresh_token'],
         // The client proves itself by signing a short-lived assertion with a
         // private key we never hold — only its public half, below. Nothing
         // this service stores can impersonate the client, and there is no
@@ -63,6 +80,19 @@ export function buildProviderConfig(adapter) {
     jwks: { keys: JWKS.keys },
     clientAuthMethods: ['private_key_jwt'],
     pkce: { required: () => true },
+    // The library only issues a refresh token when `offline_access` was
+    // requested, which also forces a consent prompt. Tokens are only used
+    // while the citizen is using the service, so that scope does not apply:
+    // any client allowed the grant gets one.
+    issueRefreshToken(_ctx, client) {
+      return client.grantTypeAllowed('refresh_token')
+    },
+    // Every refresh returns a new refresh token and consumes the old one. A
+    // consumed token used again makes the provider revoke the whole grant.
+    // `expiresWithSession` is left at its default, so without
+    // `offline_access` a refresh token stops working when the provider
+    // session ends (for example, sign-out in another tab).
+    rotateRefreshToken: true,
     // Discovery is a promise to every relying party, so it states what this
     // deployment does and nothing more: one client, the authorization code
     // flow, one scope beyond the claims below, and RS256 for the tokens
@@ -141,5 +171,5 @@ export function buildProviderConfig(adapter) {
 }
 
 /**
- * @import { AdapterConstructor, Configuration, JWK } from 'oidc-provider'
+ * @import { AdapterConstructor, Configuration, JWK, KoaContextWithOIDC } from 'oidc-provider'
  */
