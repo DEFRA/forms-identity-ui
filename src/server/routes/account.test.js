@@ -30,7 +30,7 @@ jest.mock('~/src/server/lib/service-token.js', () => ({
  * @satisfies {ServerInjectOptions['auth']}
  */
 const auth = {
-  strategy: 'citizen-ui-session',
+  strategy: 'citizen-session',
   artifacts: {},
   credentials: /** @type {never} */ (account)
 }

@@ -4,7 +4,7 @@ import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 
-export const CITIZEN_SESSION = 'citizen-ui-session'
+export const CITIZEN_SESSION = 'citizen-session'
 
 /**
  * Turns a signed-in session into request credentials. It only reads, so it

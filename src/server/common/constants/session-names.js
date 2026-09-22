@@ -1,6 +1,9 @@
 export const sessionNames = {
   codeResendSuccessNotification: /** @type {const} */ (
     'codeResendSuccessNotification'
+  ),
+  accountSuccessNotification: /** @type {const} */ (
+    'accountSuccessNotification'
   )
 }
 

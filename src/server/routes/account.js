@@ -70,11 +70,16 @@ export default /** @type {ServerRoute[]} */ (
           ? { href: yar.get(SESSION_KEY_BACK_LINK) }
           : undefined
 
+        const notificationSuccessKey = request.yar
+          .flash(sessionNames.accountSuccessNotification)
+          .at(0)
+
         return h.view('account/account', {
           account,
           backLink,
           changeEmailLink: '/account/change-email',
-          changePhoneLink: '/account/change-phone'
+          changePhoneLink: '/account/change-phone',
+          notificationSuccessKey
         })
       }
     }),
@@ -364,6 +369,13 @@ export default /** @type {ServerRoute[]} */ (
           )
           // Consume any remainging OTPs (such as the phone OTP)
           await identityApi.cleanupOtps(uid, await getServiceToken())
+
+          // Notification
+          request.yar.flash(
+            sessionNames.accountSuccessNotification,
+            'account.successChangedEmailNotificationText'
+          )
+
           return h.redirect('/account')
         }
         if (result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED) {
