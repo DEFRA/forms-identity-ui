@@ -12,8 +12,10 @@
  * store behind the oidc-provider adapter, and the OTP/account endpoints
  * behind the sign-in service.
  */
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
+
+import { SignJWT, importJWK } from 'jose'
 
 // The journey retrieves a caller token for every request the adapter and
 // sign-in service make, so STS is stubbed here too — this test checks what
@@ -43,6 +45,7 @@ globalThis.structuredClone = /** @type {typeof structuredClone} */ (
 const ISSUER = 'http://localhost:3011'
 const REDIRECT_URI = 'http://localhost:3009/callback'
 const KNOWN_CODE = '123456'
+const RESOURCE = 'urn:defra:forms:forms-submission-api'
 const EMAIL = 'someone@example.com'
 const PHONE = '07911 123456'
 
@@ -467,4 +470,119 @@ describe('sign-in round trip', () => {
       expect(authorization).toBe('Bearer stub-service-token')
     }
   })
+
+  /**
+   * Signs the assertion the runner authenticates with.
+   */
+  async function clientAssertion() {
+    const [jwk] = JSON.parse(String(process.env.OIDC_RUNNER_PRIVATE_JWKS)).keys
+
+    return new SignJWT({})
+      .setProtectedHeader({ alg: 'RS256', kid: jwk.kid })
+      .setIssuer('runner')
+      .setSubject('runner')
+      .setAudience(ISSUER)
+      .setJti(randomUUID())
+      .setIssuedAt()
+      .setExpirationTime('2m')
+      .sign(await importJWK(jwk, 'RS256'))
+  }
+
+  /**
+   * @param {string} token
+   * @param {number} index - 0 for the header, 1 for the payload
+   */
+  function decodeSegment(token, index) {
+    return JSON.parse(
+      Buffer.from(token.split('.')[index], 'base64url').toString()
+    )
+  }
+
+  it.each([
+    ['at the authorization and token endpoints', true],
+    ['at the authorization endpoint only', false]
+  ])(
+    'issues a JWT access token for the API the client named %s',
+    async (_where, resourceAtToken) => {
+      // a fresh browser: the earlier journey left a session that would resume
+      jar.clear()
+
+      const verifier = randomBytes(32).toString('base64url')
+      const challenge = createHash('sha256')
+        .update(verifier)
+        .digest('base64url')
+      const email = `token-journey-${resourceAtToken}@example.com`
+
+      const authorize = `/auth?${new URLSearchParams({
+        client_id: 'runner',
+        response_type: 'code',
+        scope: 'openid email',
+        redirect_uri: REDIRECT_URI,
+        state: 'state-2',
+        nonce: 'nonce-2',
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        resource: RESOURCE
+      }).toString()}`
+
+      const start = await browse(authorize)
+      const interaction = String(start.headers.location)
+
+      // each page is loaded before it is submitted, to get its crumb
+      await browse(interaction)
+      await browse(`${interaction}/email`, { ...crumb(), email })
+      await browse(`${interaction}/code`)
+      await browse(`${interaction}/code`, { ...crumb(), code: KNOWN_CODE })
+      await browse(`${interaction}/phone`)
+      const finished = await follow(
+        await browse(`${interaction}/phone`, { ...crumb(), phone: PHONE })
+      )
+
+      const callback = new URL(String(finished.headers.location))
+      const code = /** @type {string} */ (callback.searchParams.get('code'))
+      expect(code).toBeTruthy()
+
+      const redeemed = await server.inject({
+        method: 'POST',
+        url: '/token',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        payload: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: REDIRECT_URI,
+          code_verifier: verifier,
+          client_id: 'runner',
+          client_assertion_type:
+            'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+          client_assertion: await clientAssertion(),
+          ...(resourceAtToken && { resource: RESOURCE })
+        }).toString()
+      })
+
+      expect(redeemed.statusCode).toBe(200)
+
+      const body = JSON.parse(redeemed.payload)
+      const accessToken = String(body.access_token)
+
+      // an opaque token is one segment, so this tells the two apart
+      expect(accessToken.split('.')).toHaveLength(3)
+
+      const signedIn = [...accounts.values()].find(
+        (account) => account.email === email
+      )
+      expect(signedIn).toBeDefined()
+
+      expect(decodeSegment(accessToken, 0)).toMatchObject({ alg: 'RS256' })
+      expect(decodeSegment(accessToken, 1)).toMatchObject({
+        iss: ISSUER,
+        aud: RESOURCE,
+        client_id: 'runner',
+        sub: signedIn?.id
+      })
+
+      // A resource-bound token cannot reach userinfo, so the claims move to
+      // the ID token and the client reads the email there
+      expect(decodeSegment(String(body.id_token), 1)).toMatchObject({ email })
+    }
+  )
 })

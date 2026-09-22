@@ -22,6 +22,8 @@ const { MongoClient } = apiRequire('mongodb')
 export const ISSUER = process.env.OIDC_ISSUER ?? 'http://localhost:3011'
 export const RP = process.env.EXAMPLE_RP_URL ?? 'http://localhost:3901'
 export const KNOWN_CODE = '123456'
+export const RESOURCE =
+  process.env.EXAMPLE_RP_RESOURCE ?? 'urn:defra:forms:forms-submission-api'
 
 const MONGO_URI =
   'mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true'

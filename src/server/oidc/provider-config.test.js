@@ -36,7 +36,7 @@ describe('buildProviderConfig', () => {
         response_types: ['code'],
         grant_types: ['authorization_code'],
         token_endpoint_auth_method: 'private_key_jwt',
-        id_token_signed_response_alg: 'ES256',
+        id_token_signed_response_alg: 'RS256',
         jwks: JSON.parse(String(process.env.OIDC_RUNNER_JWKS))
       }
     ])
@@ -58,6 +58,57 @@ describe('buildProviderConfig', () => {
     expect(cfg.claims).toEqual({
       openid: ['sub'],
       email: ['email']
+    })
+  })
+
+  it('signs tokens and verifies client assertions with RS256', () => {
+    const cfg = buildProviderConfig(fakeAdapter)
+
+    expect(cfg.enabledJWA).toEqual({
+      idTokenSigningAlgValues: ['RS256'],
+      clientAuthSigningAlgValues: ['RS256']
+    })
+  })
+
+  describe('resource indicators', () => {
+    it.each([
+      'urn:defra:forms:forms-submission-api',
+      'urn:defra:forms:another-api'
+    ])(
+      'issues a JWT access token for %s, the audience being the name asked for',
+      (resourceIndicator) => {
+        const cfg = buildProviderConfig(fakeAdapter)
+        const { resourceIndicators } = cfg.features ?? {}
+
+        expect(resourceIndicators?.enabled).toBe(true)
+
+        const info = resourceIndicators?.getResourceServerInfo?.(
+          fakeCtx,
+          resourceIndicator,
+          /** @type {never} */ (null)
+        )
+
+        expect(info).toEqual({
+          scope: '',
+          audience: resourceIndicator,
+          accessTokenFormat: 'jwt',
+          accessTokenTTL: 300,
+          jwt: { sign: { alg: 'RS256' } }
+        })
+      }
+    )
+
+    it('refuses a resource it does not serve, so no token is minted for another audience', () => {
+      const cfg = buildProviderConfig(fakeAdapter)
+      const { resourceIndicators } = cfg.features ?? {}
+
+      expect(() =>
+        resourceIndicators?.getResourceServerInfo?.(
+          fakeCtx,
+          'urn:defra:forms:somewhere-else',
+          /** @type {never} */ (null)
+        )
+      ).toThrow('invalid_target')
     })
   })
 
