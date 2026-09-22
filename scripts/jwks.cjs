@@ -1,6 +1,6 @@
 const crypto = require('node:crypto')
 
-const { SIGNING_ALG } = require('../src/server/oidc/signing-alg.js')
+const { SIGNING_ALG } = require('../src/server/constants.js')
 
 /**
  * Key generation for the OIDC provider and its clients. CommonJS so the CLI
