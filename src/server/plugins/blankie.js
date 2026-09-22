@@ -1,6 +1,7 @@
 import Blankie from 'blankie'
 
 import { config } from '~/src/config/index.js'
+import { splitCsv } from '~/src/server/common/helpers/csv.js'
 
 /**
  * Content Security Policy for the service. Forms may only be submitted back
@@ -24,10 +25,9 @@ const basePolicy = {
 
 const runnerRedirectOrigins = [
   ...new Set(
-    config
-      .get('oidc.runnerRedirectUris')
-      .split(',')
-      .map((uri) => new URL(uri).origin)
+    splitCsv(config.get('oidc.runnerRedirectUris')).map(
+      (uri) => new URL(uri).origin
+    )
   )
 ]
 

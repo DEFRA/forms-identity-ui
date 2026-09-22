@@ -1,6 +1,7 @@
 import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
+import { splitCsv } from '~/src/server/common/helpers/csv.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
@@ -12,18 +13,18 @@ import { view } from '~/src/server/plugins/nunjucks/render.js'
 const JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.jwks'))
 )
-const COOKIE_KEYS = config.get('oidc.cookieKeys').split(',')
+const COOKIE_KEYS = splitCsv(config.get('oidc.cookieKeys'))
 const COOKIE_SECURE = config.get('oidc.cookieSecure')
 const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.runnerJwks'))
 )
-const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris').split(',')
+const RUNNER_REDIRECT_URIS = splitCsv(config.get('oidc.runnerRedirectUris'))
 
 /**
  * The APIs this provider issues access tokens for.
  */
 const RESOURCE_SERVER_NAMES = config.get('oidc.resourceServers')
-const RESOURCE_SERVERS = new Set(RESOURCE_SERVER_NAMES.split(','))
+const RESOURCE_SERVERS = new Set(splitCsv(RESOURCE_SERVER_NAMES))
 
 const TTL_SECONDS = {
   AuthorizationCode: config.get('oidc.ttl.authorizationCode'),
