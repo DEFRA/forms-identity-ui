@@ -417,7 +417,9 @@ describe('sign-in round trip', () => {
 
     const interaction = String(start.headers.location)
     const uid = interaction.split('/')[2]
-    expect((await browse(interaction)).statusCode).toBe(200)
+    const response = await browse(interaction)
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe(`${interaction}/email`)
 
     const emailed = await browse(`${interaction}/email`, {
       ...crumb(),
