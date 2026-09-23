@@ -22,17 +22,17 @@ const DEFAULT_PORT = 3901
 const PORT = Number(process.env.EXAMPLE_RP_PORT ?? DEFAULT_PORT)
 const BASE = `http://localhost:${PORT}`
 const REDIRECT_URI = `${BASE}/callback`
-const PRIVATE_JWKS = process.env.EXAMPLE_RP_PRIVATE_JWKS
+const PRIVATE_JWK_JSON = process.env.EXAMPLE_RP_PRIVATE_JWK
 const RESOURCE =
   process.env.EXAMPLE_RP_RESOURCE ?? 'urn:defra:forms:forms-submission-api'
 
-if (!PRIVATE_JWKS) {
+if (!PRIVATE_JWK_JSON) {
   throw new Error(
-    'EXAMPLE_RP_PRIVATE_JWKS must be set (this repo’s .env) — generate the pair with scripts/generate-client-keypair.mjs'
+    'EXAMPLE_RP_PRIVATE_JWK must be set (this repo’s .env) — generate the pair with scripts/generate-client-keypair.mjs'
   )
 }
 
-const [PRIVATE_JWK] = JSON.parse(PRIVATE_JWKS).keys
+const PRIVATE_JWK = JSON.parse(PRIVATE_JWK_JSON)
 
 /**
  * The client's signing key. Standing in for forms-runner, this process is
