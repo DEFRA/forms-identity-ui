@@ -1,3 +1,4 @@
+import Boom from '@hapi/boom'
 import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
@@ -21,6 +22,15 @@ const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris')
 const RUNNER_POST_LOGOUT_REDIRECT_URIS = config.get(
   'oidc.runnerPostLogoutRedirectUris'
 )
+
+const COOKIE_SHORT = /** @type {CookiesSetOptions} */ ({
+  secure: COOKIE_SECURE,
+  sameSite: 'lax'
+})
+const COOKIE_LONG = /** @type {CookiesSetOptions} */ ({
+  secure: COOKIE_SECURE,
+  sameSite: 'lax'
+})
 
 /**
  * The APIs this provider issues access tokens for.
@@ -104,9 +114,71 @@ export function buildProviderConfig(adapter) {
       clientAuthSigningAlgValues: [SIGNING_ALG]
     },
     features: {
+      rpInitiatedLogout: {
+        enabled: true,
+        // Ends the session at once when the ID token hint belongs to the
+        // signed-in user, so that sign-out from the runner needs no click. Any
+        // other request gets the confirmation page, as RP-Initiated Logout 1.0
+        // requires.
+        /**
+         * @param {KoaContextWithOIDC} ctx
+         * @param {string} _form
+         */
+        async logoutSource(ctx, _form) {
+          const { session, params, provider, entities } = ctx.oidc
+
+          if (
+            !session ||
+            entities.IdTokenHint?.payload.sub !== session.accountId
+          ) {
+            throw Boom.badRequest()
+            // you can throw an error here, this wouldn't realistically happen but technically the oidc spec does instruct us to ask the user for confirmation
+          }
+
+          await session.destroy()
+          ctx.cookies.set(provider.cookieName('session'), null, COOKIE_LONG)
+
+          const postLogoutRedirectUri = /** @type {string | undefined} */ (
+            params?.post_logout_redirect_uri
+          )
+          const state = /** @type {string | undefined} */ (params?.state)
+
+          // The provider has already checked this URI against the client's
+          // registered list, and cleared it if no client was identified
+          const target = new URL(
+            postLogoutRedirectUri ?? ctx.oidc.urlFor('end_session_success')
+          )
+          if (postLogoutRedirectUri && state) {
+            target.searchParams.set('state', state)
+          }
+
+          provider.emit('end_session.success', ctx)
+          ctx.status = 303
+          ctx.redirect(target.href)
+        }
+      },
       devInteractions: { enabled: false },
       // On by default, and its endpoint is deliberately not mounted
       pushedAuthorizationRequests: { enabled: false },
+      // rpInitiatedLogout: {
+      //   // The library always stops for a manual "sign out?" click when a
+      //   // session exists, even with a valid id_token_hint - there is only
+      //   // ever the one trusted first-party client here, so that pause buys
+      //   // nothing and just adds a page. The confirm step still requires a
+      //   // POST (it's the CSRF guard against a cross-site GET forcing a
+      //   // logout), so it can't be skipped outright - auto-submitting the
+      //   // same form (logout: 'yes' destroys the session, not just this
+      //   // client's grant) is the library's own pattern for this, down to
+      //   // the noscript fallback (see its form_post response mode).
+      //   logoutSource(ctx, form) {
+      //     ctx.type = 'html'
+      //     const withLogout = form.replace(
+      //       '</form>',
+      //       '<input type="hidden" name="logout" value="yes"/><noscript><button type="submit">Sign out</button></noscript></form>'
+      //     )
+      //     ctx.body = `<!DOCTYPE html><html><head><title>Signing out</title></head><body>${withLogout}<script>document.forms['op.logoutForm'].submit()</script></body></html>`
+      //   }
+      // },
       resourceIndicators: {
         enabled: true,
         useGrantedResource: () => true,
@@ -153,8 +225,8 @@ export function buildProviderConfig(adapter) {
     },
     cookies: {
       keys: COOKIE_KEYS,
-      long: { secure: COOKIE_SECURE, sameSite: 'lax' },
-      short: { secure: COOKIE_SECURE, sameSite: 'lax' }
+      long: COOKIE_LONG,
+      short: COOKIE_SHORT
     },
     renderError(ctx, _out, error) {
       // Provider errors (persistence down, malformed protocol requests…)
@@ -171,5 +243,5 @@ export function buildProviderConfig(adapter) {
 }
 
 /**
- * @import { AdapterConstructor, Configuration, JWK, KoaContextWithOIDC } from 'oidc-provider'
+ * @import { AdapterConstructor, CookiesSetOptions, Configuration, JWK, KoaContextWithOIDC, Session } from 'oidc-provider'
  */
