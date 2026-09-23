@@ -37,9 +37,7 @@ const COOKIE_LONG = /** @type {CookiesSetOptions} */ ({
  */
 const RESOURCE_SERVERS = new Set(config.get('oidc.resourceServers'))
 
-const REFRESH_TOKEN_TTL = /** @type number */ config.get(
-  'oidc.ttl.refreshToken'
-)
+const REFRESH_TOKEN_TTL = config.get('oidc.ttl.refreshToken')
 
 const TTL_SECONDS = {
   AuthorizationCode: config.get('oidc.ttl.authorizationCode'),
