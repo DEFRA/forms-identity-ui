@@ -132,7 +132,6 @@ export default /** @type {ServerRoute[]} */ (
         await identityApi.requestOtpViaSms(
           {
             uid,
-            phoneNumber: account.phone,
             accountId: account.id,
             purpose: PURPOSE.ACCOUNT_VERIFY_PHONE
           },
@@ -189,10 +188,10 @@ export default /** @type {ServerRoute[]} */ (
         const { uid } = request.params
         const { code } = request.payload
         const account = /** @type {Account} */ (request.auth.credentials)
-        const result = await accountService.submitCode(
+        const result = await accountService.submitPhoneCode(
           uid,
           code,
-          PURPOSE.ACCOUNT_VERIFY_PHONE
+          account.id
         )
 
         if (result.outcome === VALID) {
@@ -354,19 +353,14 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(`/account/${uid}/change-email`)
         }
 
-        const result = await accountService.submitEmailCode(uid, code)
+        const result = await accountService.submitEmailCode(
+          uid,
+          code,
+          account.id
+        )
         if (result.outcome === VALID) {
-          const emailOtp = await identityApi.getOtp(
-            uid,
-            await getServiceToken(),
-            PURPOSE.ACCOUNT_VERIFY_EMAIL
-          )
           // Update the email address in the account. This will also consume the email OTP
-          await accountService.changeEmailAddress(
-            uid,
-            account.id,
-            /** @type {string} */ (emailOtp?.target)
-          )
+          await accountService.changeEmailAddress(uid, account.id)
           // Consume any remainging OTPs (such as the phone OTP)
           await identityApi.cleanupOtps(uid, await getServiceToken())
 

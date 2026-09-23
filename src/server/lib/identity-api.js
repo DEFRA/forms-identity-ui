@@ -49,18 +49,15 @@ export async function requestOtpViaEmail(
 }
 
 /**
- * Mints and emails a security code for the interaction
- * @param {{ uid: string, phoneNumber: string, accountId: string, purpose: PurposeType }} input
+ * Mints and emails a security code for the interaction.
+ * The phone number is not passed here, but read from the account record in the DB.
+ * @param {{ uid: string, accountId: string, purpose: PurposeType }} input
  * @param {string} token
  */
-export async function requestOtpViaSms(
-  { uid, phoneNumber, accountId, purpose },
-  token
-) {
+export async function requestOtpViaSms({ uid, accountId, purpose }, token) {
   await postJson(new URL('/otp/request', baseUrl), {
     payload: {
       uid: hashId(uid),
-      target: phoneNumber,
       accountId,
       transport: TRANSPORT.SMS,
       purpose
@@ -71,16 +68,16 @@ export async function requestOtpViaSms(
 
 /**
  * Verifies a security code
- * @param {{ uid: string, code: string, purpose?: PurposeType }} input
+ * @param {{ uid: string, code: string, purpose?: PurposeType, id?: string }} input
  * @param {string} token
  * @returns {Promise<VerifyResult>}
  */
 export async function verifyOtp(
-  { uid, code, purpose = PURPOSE.SIGNIN_VERIFY_EMAIL },
+  { uid, code, id, purpose = PURPOSE.SIGNIN_VERIFY_EMAIL },
   token
 ) {
   const { body } = await postJson(new URL('/otp/verify', baseUrl), {
-    payload: { uid: hashId(uid), code, purpose },
+    payload: { uid: hashId(uid), code, purpose, id },
     headers: bearerHeaders(token)
   })
   return /** @type {VerifyResult} */ (body)
@@ -173,15 +170,14 @@ export async function getOtp(uid, token, purpose) {
 
 /**
  * Completes JIT change email address
- * @param {{ uid: string, accountId: string, email: string }} input
+ * @param {{ uid: string, accountId: string }} input
  * @param {string} token
  * @returns {Promise<CompleteResult>}
  */
-export async function updateEmail({ uid, accountId, email }, token) {
+export async function updateEmail({ uid, accountId }, token) {
   const { body } = await patchJson(
     new URL(`/accounts/${hashId(uid)}/${accountId}/email`, baseUrl),
     {
-      payload: { email },
       headers: bearerHeaders(token)
     }
   )

@@ -12,20 +12,22 @@ import {
  * Check an OTP code received on a phone.
  * @param {string} uid
  * @param {string | undefined} code
+ * @param {string} accountId
  * @returns {Promise<CodeOutcome>}
  */
-export async function submitPhoneCode(uid, code) {
-  return submitCode(uid, code, PURPOSE.ACCOUNT_VERIFY_PHONE)
+export async function submitPhoneCode(uid, code, accountId) {
+  return submitCode(uid, code, PURPOSE.ACCOUNT_VERIFY_PHONE, accountId)
 }
 
 /**
  * Check an OTP code received on a phone.
  * @param {string} uid
  * @param {string | undefined} code
+ * @param {string} accountId
  * @returns {Promise<CodeOutcome>}
  */
-export async function submitEmailCode(uid, code) {
-  return submitCode(uid, code, PURPOSE.ACCOUNT_VERIFY_EMAIL)
+export async function submitEmailCode(uid, code, accountId) {
+  return submitCode(uid, code, PURPOSE.ACCOUNT_VERIFY_EMAIL, accountId)
 }
 
 /**
@@ -35,9 +37,10 @@ export async function submitEmailCode(uid, code) {
  * @param {string} uid
  * @param {string | undefined} code
  * @param {PurposeType} purpose
+ * @param {string} [accountId]
  * @returns {Promise<CodeOutcome>}
  */
-export async function submitCode(uid, code, purpose) {
+export async function submitCode(uid, code, purpose, accountId) {
   const trimmed = (code ?? '').trim()
 
   if (!trimmed) {
@@ -45,7 +48,7 @@ export async function submitCode(uid, code, purpose) {
   }
 
   const result = await identityApi.verifyOtp(
-    { uid, code: trimmed, purpose },
+    { uid, code: trimmed, purpose, id: accountId },
     await getServiceToken()
   )
 
@@ -63,16 +66,12 @@ export async function submitCode(uid, code, purpose) {
 }
 
 /**
- *
+ * Changes the email address on the account based on the email that was verified from the OTP
  * @param {string} uid
  * @param {string} accountId
- * @param {string} email
  */
-export async function changeEmailAddress(uid, accountId, email) {
-  return identityApi.updateEmail(
-    { uid, accountId, email },
-    await getServiceToken()
-  )
+export async function changeEmailAddress(uid, accountId) {
+  return identityApi.updateEmail({ uid, accountId }, await getServiceToken())
 }
 
 /**

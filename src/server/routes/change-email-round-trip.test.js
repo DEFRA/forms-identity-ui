@@ -237,12 +237,15 @@ function accountsEndpoints(method, segments, body) {
     }
   }
 
-  // updateEmail: PATCH /accounts/{hashedUid}/{accountId}/email
+  // updateEmail: PATCH /accounts/{hashedUid}/{accountId}/email — the new
+  // address isn't in the request body, it's the verified email OTP's target
+  // (identity-api.js reads it server-side, same as the real API does)
   if (method === 'PATCH' && segments[2] === 'email') {
     const account = accounts.get(segments[1])
+    const record = otps.get(`${segments[0]}:${PURPOSE.ACCOUNT_VERIFY_EMAIL}`)
 
-    if (account) {
-      account.email = body.email
+    if (account && record) {
+      account.email = record.target
     }
     return NO_CONTENT
   }
