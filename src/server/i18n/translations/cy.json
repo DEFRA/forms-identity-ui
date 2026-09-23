@@ -9,6 +9,55 @@
     "step1": "Ewch yn ôl i'r wefan, yr ap neu'r ffurflen roeddech yn ei defnyddio.",
     "step2": "Dewiswch Mewngofnodi neu Mewngofnodi i geisio eto."
   },
+  "account": {
+    "pageTitle": "Diogelwch",
+    "cardTitle": "Manylion mewngofnodi",
+    "email": "Cyfeiriad e-bost",
+    "phone": "Rhif ffôn symudol",
+    "changeEmail": "Newid cyfeiriad e-bost",
+    "successNotificationTitleText": "Llwyddiant",
+    "successChangedEmailNotificationText": "Mae eich cyfeiriad e-bost wedi'i newid.",
+    "requestPhoneOtp": {
+      "title": "Cael cod diogelwch",
+      "inset": "Byddwn yn anfon cod diogelwch at eich rhif ffôn symudol sy'n gorffen â",
+      "para1": "Gallwch ofyn am 5 cod diogelwch. Os byddwch yn gofyn am fwy na 5, cewch eich cloi allan am 2 awr.",
+      "para2": "Gall gymryd ychydig funudau i gyrraedd.",
+      "getCode": "Cael cod diogelwch"
+    },
+    "sentPhoneOtp": {
+      "title": "Gwiriwch eich ffôn",
+      "resendNotificationTitleText": "Llwyddiant",
+      "resendNotificationText": "Rydym wedi anfon cod diogelwch newydd atoch.",
+      "para1": "Mae angen i ni wirio mai chi ydyw cyn y gallwch newid eich cyfeiriad e-bost.",
+      "inset": "Rydym wedi anfon cod diogelwch at eich rhif ffôn symudol sy'n gorffen â",
+      "para2": "Gall gymryd ychydig funudau i gyrraedd. Bydd y cod diogelwch yn dod i ben ar ôl 15 munud.",
+      "enterCode": "Rhowch y cod diogelwch 6 digid",
+      "continue": "Parhau",
+      "problemsDetails": {
+        "summaryText": "Problemau gyda'r cod diogelwch?",
+        "body": "Gallwn <a class=\"govuk-link\" href=\"./code-resend\">anfon y cod diogelwch eto</a> os nad yw'r cod diogelwch yn gweithio neu os na chawsoch ef."
+      }
+    },
+    "newEmail": {
+      "title": "Rhowch eich cyfeiriad e-bost newydd",
+      "continue": "Parhau",
+      "errorRequired": "Rhowch gyfeiriad e-bost",
+      "errorFormat": "Rhowch gyfeiriad e-bost yn y fformat cywir, fel enw@example.com"
+    },
+    "sentEmailOtp": {
+      "title": "Gwiriwch eich e-bost",
+      "resendNotificationTitleText": "Llwyddiant",
+      "resendNotificationText": "Rydym wedi anfon cod diogelwch newydd atoch.",
+      "inset": "Rydym wedi anfon e-bost at: ",
+      "para1": "Gall gymryd ychydig funudau i gyrraedd. Bydd y cod diogelwch yn dod i ben ar ôl 15 munud.",
+      "enterCode": "Rhowch y cod diogelwch 6 digid",
+      "continue": "Parhau",
+      "problemsDetails": {
+        "summaryText": "Problemau gyda'r cod diogelwch?",
+        "body": "Gallwn <a class=\"govuk-link\" href=\"./code-resend\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link\" href=\"./enter-email\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
+      }
+    }
+  },
   "layout": {
     "footer": {
       "contentLicenceHtml": "Mae'r holl gynnwys ar gael o dan y <a class=\"govuk-footer__link\" href=\"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/\" rel=\"license\">Drwydded Llywodraeth Agored v3.0</a>, ac eithrio lle nodir fel arall",
@@ -66,8 +115,7 @@
         "Mae gennych [[duration]] i gwblhau'r broses fewngofnodi.",
         "Ewch yn ôl i'r gwasanaeth roeddech yn ei ddefnyddio a mewngofnodwch eto."
       ]
-    },
-    "errorSummaryTitle": "Mae problem wedi codi"
+    }
   },
   "errors": {
     "notFound": {
@@ -81,6 +129,7 @@
       "canYou": "Gallwch:",
       "tryBack": "roi gynnig ar fotwm mynd yn ôl eich porwr",
       "contact": "<a class=\"govuk-link\" href=\"https://www.gov.uk/guidance/contact-defra\">gysylltu â Llinell Gymorth Defra</a> os oes gennych unrhyw gwestiynau"
-    }
+    },
+    "errorSummaryTitle": "Mae problem wedi codi"
   }
 }
