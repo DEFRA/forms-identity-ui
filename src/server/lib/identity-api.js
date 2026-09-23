@@ -3,7 +3,6 @@ import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { TRANSPORT } from '~/src/server/common/constants/transport.js'
 import {
   bearerHeaders,
-  delJson,
   getJson,
   isNotFoundError,
   patchJson,
@@ -182,21 +181,6 @@ export async function updateEmail({ uid, accountId }, token) {
     }
   )
   return /** @type {CompleteResult} */ (body)
-}
-
-/**
- * Remove any OTPs associated with an interaction uid
- * @param {string} uid
- * @param {string} token
- */
-export async function cleanupOtps(uid, token) {
-  try {
-    await delJson(new URL(`/otp/${hashId(uid)}`, baseUrl), {
-      headers: bearerHeaders(token)
-    })
-  } catch {
-    // Swallow any errors
-  }
 }
 
 /**

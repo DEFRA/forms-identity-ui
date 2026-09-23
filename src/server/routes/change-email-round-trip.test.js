@@ -183,8 +183,6 @@ function otpEndpoints(method, segments, body) {
   }
 
   if (method === 'DELETE') {
-    // cleanupOtps deletes by hash only (no purpose) — drop every purpose
-    // recorded under it, same as the real API cascading the cleanup
     for (const key of [...otps.keys()]) {
       if (key.startsWith(`${first}:`)) {
         otps.delete(key)
@@ -241,11 +239,21 @@ function accountsEndpoints(method, segments, body) {
   // address isn't in the request body, it's the verified email OTP's target
   // (identity-api.js reads it server-side, same as the real API does)
   if (method === 'PATCH' && segments[2] === 'email') {
+    const hashedUid = segments[0]
     const account = accounts.get(segments[1])
-    const record = otps.get(`${segments[0]}:${PURPOSE.ACCOUNT_VERIFY_EMAIL}`)
+    const record = otps.get(`${hashedUid}:${PURPOSE.ACCOUNT_VERIFY_EMAIL}`)
 
     if (account && record) {
       account.email = record.target
+    }
+
+    // account.js no longer calls cleanupOtps itself — this endpoint now
+    // cascades the cleanup of every OTP tied to the interaction (phone and
+    // email) once the change lands
+    for (const key of [...otps.keys()]) {
+      if (key.startsWith(`${hashedUid}:`)) {
+        otps.delete(key)
+      }
     }
     return NO_CONTENT
   }

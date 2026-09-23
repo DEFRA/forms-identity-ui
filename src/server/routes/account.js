@@ -361,8 +361,6 @@ export default /** @type {ServerRoute[]} */ (
         if (result.outcome === VALID) {
           // Update the email address in the account. This will also consume the email OTP
           await accountService.changeEmailAddress(uid, account.id)
-          // Consume any remainging OTPs (such as the phone OTP)
-          await identityApi.cleanupOtps(uid, await getServiceToken())
 
           // Notification
           request.yar.flash(
