@@ -158,25 +158,6 @@ export function buildProviderConfig(adapter) {
       devInteractions: { enabled: false },
       // On by default, and its endpoint is deliberately not mounted
       pushedAuthorizationRequests: { enabled: false },
-      // rpInitiatedLogout: {
-      //   // The library always stops for a manual "sign out?" click when a
-      //   // session exists, even with a valid id_token_hint - there is only
-      //   // ever the one trusted first-party client here, so that pause buys
-      //   // nothing and just adds a page. The confirm step still requires a
-      //   // POST (it's the CSRF guard against a cross-site GET forcing a
-      //   // logout), so it can't be skipped outright - auto-submitting the
-      //   // same form (logout: 'yes' destroys the session, not just this
-      //   // client's grant) is the library's own pattern for this, down to
-      //   // the noscript fallback (see its form_post response mode).
-      //   logoutSource(ctx, form) {
-      //     ctx.type = 'html'
-      //     const withLogout = form.replace(
-      //       '</form>',
-      //       '<input type="hidden" name="logout" value="yes"/><noscript><button type="submit">Sign out</button></noscript></form>'
-      //     )
-      //     ctx.body = `<!DOCTYPE html><html><head><title>Signing out</title></head><body>${withLogout}<script>document.forms['op.logoutForm'].submit()</script></body></html>`
-      //   }
-      // },
       resourceIndicators: {
         enabled: true,
         useGrantedResource: () => true,
