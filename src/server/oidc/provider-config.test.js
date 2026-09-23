@@ -185,6 +185,130 @@ describe('buildProviderConfig', () => {
     })
   })
 
+  describe('rpInitiatedLogout.logoutSource', () => {
+    /**
+     * @param {{ session?: object, sub?: string, params?: object }} options
+     */
+    function makeCtx({ session, sub, params = {} } = {}) {
+      const emit = jest.fn()
+      const cookiesSet = jest.fn()
+      const redirect = jest.fn()
+      const urlFor = jest.fn(() => 'https://issuer.example/session/end/success')
+
+      const ctx = /** @type {KoaContextWithOIDC} */ (
+        /** @type {unknown} */ ({
+          status: undefined,
+          cookies: { set: cookiesSet },
+          redirect,
+          oidc: {
+            session,
+            params,
+            entities:
+              sub === undefined ? {} : { IdTokenHint: { payload: { sub } } },
+            provider: {
+              cookieName: (/** @type {string} */ name) => `_${name}`,
+              emit
+            },
+            urlFor
+          }
+        })
+      )
+
+      return { ctx, emit, cookiesSet, redirect, urlFor }
+    }
+
+    function getLogoutSource() {
+      const source =
+        buildProviderConfig(fakeAdapter).features?.rpInitiatedLogout
+          ?.logoutSource
+
+      if (typeof source !== 'function') {
+        throw new Error('rpInitiatedLogout.logoutSource is not a function')
+      }
+
+      return source
+    }
+
+    it('refuses when there is no session to end', async () => {
+      const { ctx } = makeCtx({ sub: 'acc-1' })
+
+      await expect(getLogoutSource()(ctx, '')).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: 400 }
+      })
+    })
+
+    it('refuses when the id_token_hint belongs to someone else', async () => {
+      const destroy = jest.fn()
+      const { ctx } = makeCtx({
+        session: { accountId: 'acc-1', destroy },
+        sub: 'acc-2'
+      })
+
+      await expect(getLogoutSource()(ctx, '')).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: 400 }
+      })
+      expect(destroy).not.toHaveBeenCalled()
+    })
+
+    it('ends the session and redirects to the post_logout_redirect_uri, forwarding state', async () => {
+      const destroy = jest.fn()
+      const { ctx, emit, cookiesSet, redirect } = makeCtx({
+        session: { accountId: 'acc-1', destroy },
+        sub: 'acc-1',
+        params: {
+          post_logout_redirect_uri: 'https://runner.example/signed-out',
+          state: 'xyz'
+        }
+      })
+
+      await getLogoutSource()(ctx, '')
+
+      expect(destroy).toHaveBeenCalled()
+      expect(cookiesSet).toHaveBeenCalledWith(
+        '_session',
+        null,
+        expect.any(Object)
+      )
+      expect(ctx.status).toBe(303)
+      expect(redirect).toHaveBeenCalledWith(
+        'https://runner.example/signed-out?state=xyz'
+      )
+      expect(emit).toHaveBeenCalledWith('end_session.success', ctx)
+    })
+
+    it('falls back to the provider success page without a post_logout_redirect_uri', async () => {
+      const destroy = jest.fn()
+      const { ctx, redirect, urlFor } = makeCtx({
+        session: { accountId: 'acc-1', destroy },
+        sub: 'acc-1'
+      })
+
+      await getLogoutSource()(ctx, '')
+
+      expect(urlFor).toHaveBeenCalledWith('end_session_success')
+      expect(redirect).toHaveBeenCalledWith(
+        'https://issuer.example/session/end/success'
+      )
+    })
+
+    it('does not forward state without a post_logout_redirect_uri', async () => {
+      const destroy = jest.fn()
+      const { ctx, redirect } = makeCtx({
+        session: { accountId: 'acc-1', destroy },
+        sub: 'acc-1',
+        params: { state: 'xyz' }
+      })
+
+      await getLogoutSource()(ctx, '')
+
+      expect(redirect).toHaveBeenCalledWith(
+        'https://issuer.example/session/end/success'
+      )
+    })
+  })
+
   it('findAccount resolves claims from the API and undefined on 404', async () => {
     const cfg = buildProviderConfig(fakeAdapter)
     jest.mocked(getServiceToken).mockResolvedValue('token-1')

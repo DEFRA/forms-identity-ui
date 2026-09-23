@@ -129,8 +129,8 @@ export function buildProviderConfig(adapter) {
             !session ||
             entities.IdTokenHint?.payload.sub !== session.accountId
           ) {
+            // This wouldn't realistically happen but technically the oidc spec does instruct us to ask the user for confirmation
             throw Boom.badRequest()
-            // you can throw an error here, this wouldn't realistically happen but technically the oidc spec does instruct us to ask the user for confirmation
           }
 
           await session.destroy()
