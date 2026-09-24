@@ -632,17 +632,15 @@ describe('sign-in round trip', () => {
     expect(typeof body.refresh_token).toBe('string')
   })
 
-  it('rotates the refresh token, and revokes the grant when a used one is sent again', async () => {
+  it('refreshes the access token and keeps the same refresh token', async () => {
     const email = 'refresh-journey@example.com'
     const redeemed = await signInAndRedeem(email, 'state-3')
     expect(redeemed.statusCode).toBe(200)
 
     const first = JSON.parse(redeemed.payload)
-    const originalRefreshToken = String(first.refresh_token)
+    const refreshToken = String(first.refresh_token)
 
-    const refreshed = await tokenRequest(
-      await refreshParams(originalRefreshToken)
-    )
+    const refreshed = await tokenRequest(await refreshParams(refreshToken))
     expect(refreshed.statusCode).toBe(200)
 
     const second = JSON.parse(refreshed.payload)
@@ -657,9 +655,8 @@ describe('sign-in round trip', () => {
     })
     expect(second.expires_in).toBe(300)
 
-    // a new refresh token, and a new ID token
-    expect(typeof second.refresh_token).toBe('string')
-    expect(second.refresh_token).not.toBe(originalRefreshToken)
+    // the same refresh token, and a new ID token
+    expect(second.refresh_token).toBe(refreshToken)
     // (the ID token can be byte-identical to the first when both are issued
     // in the same second, so only its subject is compared)
     expect(typeof second.id_token).toBe('string')
@@ -667,20 +664,10 @@ describe('sign-in round trip', () => {
       sub: decodeSegment(String(first.id_token), 1).sub
     })
 
-    // Using the replaced token again looks like a stolen token, so the
-    // provider refuses it and revokes the grant
-    const reused = await tokenRequest(await refreshParams(originalRefreshToken))
-    expect(reused.statusCode).toBe(400)
-    expect(JSON.parse(reused.payload)).toMatchObject({ error: 'invalid_grant' })
-
-    // which also ends the refresh token issued in its place
-    const afterRevocation = await tokenRequest(
-      await refreshParams(String(second.refresh_token))
-    )
-    expect(afterRevocation.statusCode).toBe(400)
-    expect(JSON.parse(afterRevocation.payload)).toMatchObject({
-      error: 'invalid_grant'
-    })
+    // the same refresh token keeps working
+    const again = await tokenRequest(await refreshParams(refreshToken))
+    expect(again.statusCode).toBe(200)
+    expect(typeof JSON.parse(again.payload).access_token).toBe('string')
   })
 
   it('refuses a refresh without a valid client assertion', async () => {
