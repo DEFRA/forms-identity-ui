@@ -6,6 +6,8 @@
  *
  * Prerequisites: see playwright.config.mjs.
  */
+import { isDeepStrictEqual } from 'node:util'
+
 import { expect, test } from '@playwright/test'
 
 import {
@@ -18,12 +20,26 @@ import {
 } from './support.mjs'
 
 const EMAIL = `e2e-${Date.now()}@example.com`
-/** The RP's post-logout redirect URI, after a completed sign-out */
-const SIGNED_OUT_RETURN = new RegExp(`^${RP}/\\?state=[^&]+$`)
-/** The same URI, after the user selects Cancel */
-const CANCELLED_RETURN = new RegExp(`^${RP}/\\?state=[^&]+&cancelled=true$`)
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+/**
+ * Matches the RP's post-logout redirect URI. The URL must have the RP's
+ * `state` and the given query parameters, and no other query parameters.
+ * @param {Record<string, string>} [params]
+ * @returns {(url: URL) => boolean}
+ */
+function returnToRp(params = {}) {
+  return (url) => {
+    const { state, ...others } = Object.fromEntries(url.searchParams)
+
+    return (
+      `${url.origin}${url.pathname}` === `${RP}/` &&
+      Boolean(state) &&
+      isDeepStrictEqual(others, params)
+    )
+  }
+}
 
 /** @type {BrowserContext} */
 let context
@@ -205,7 +221,7 @@ test.describe.serial('citizen sign-in', () => {
     await page.goto(`${RP}/`)
     await page.getByRole('link', { name: 'Sign out' }).click()
 
-    await expect(page).toHaveURL(SIGNED_OUT_RETURN)
+    await expect(page).toHaveURL(returnToRp())
     await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
 
     // The provider session has ended, so sign-in starts at the email page.
@@ -237,7 +253,7 @@ test.describe.serial('citizen sign-in', () => {
       })
     ).toBeVisible()
     await page.getByRole('link', { name: 'Cancel' }).click()
-    await expect(page).toHaveURL(CANCELLED_RETURN)
+    await expect(page).toHaveURL(returnToRp({ cancelled: 'true' }))
     await expect(page.getByText('Signed in.')).toBeVisible()
 
     // The provider session continues, so sign-in needs no code.
@@ -247,7 +263,7 @@ test.describe.serial('citizen sign-in', () => {
     await page.getByRole('link', { name: 'Sign out' }).click()
     await page.getByRole('button', { name: 'Sign out' }).click()
 
-    await expect(page).toHaveURL(SIGNED_OUT_RETURN)
+    await expect(page).toHaveURL(returnToRp())
     await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
     await page.goto(`${RP}/login`)
     await expect(
