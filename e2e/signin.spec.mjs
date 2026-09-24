@@ -222,6 +222,12 @@ test.describe.serial('citizen sign-in', () => {
     await page.getByRole('link', { name: 'Sign out' }).click()
 
     await expect(page).toHaveURL(returnToRp())
+    await expect(
+      page.getByRole('heading', { name: 'You have signed out' })
+    ).toBeVisible()
+    await expect(
+      detail(page, 'Returned state', 'slug example-form')
+    ).toBeVisible()
     await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
 
     // The provider session has ended, so sign-in starts at the email page.
@@ -254,6 +260,12 @@ test.describe.serial('citizen sign-in', () => {
     ).toBeVisible()
     await page.getByRole('link', { name: 'Cancel' }).click()
     await expect(page).toHaveURL(returnToRp({ cancelled: 'true' }))
+    await expect(
+      page.getByRole('heading', { name: 'You cancelled sign-out' })
+    ).toBeVisible()
+    await expect(
+      detail(page, 'Returned state', 'slug example-form')
+    ).toBeVisible()
     await expect(page.getByText('Signed in.')).toBeVisible()
 
     // The provider session continues, so sign-in needs no code.

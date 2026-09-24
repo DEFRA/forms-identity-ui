@@ -12,7 +12,6 @@
 
       <p class="govuk-body">{{ t('signout.body') }}</p>
 
-      {#- The provider's own form. It contains the xsrf value that the confirm step checks. #}
       <div {%- if autoSubmit %} data-module="app-auto-submit"{% endif %}>
         {{ form | safe }}
 
