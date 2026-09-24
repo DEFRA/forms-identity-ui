@@ -64,8 +64,8 @@ const TTL_SECONDS = {
  * @returns {string | undefined}
  */
 function cancelUriFor(ctx) {
-  const { post_logout_redirect_uri: postLogoutRedirectUri, state } =
-    ctx.oidc.params ?? {}
+  const postLogoutRedirectUri = ctx.oidc.params?.post_logout_redirect_uri
+  const state = ctx.oidc.params?.state
 
   if (typeof postLogoutRedirectUri !== 'string') {
     return undefined

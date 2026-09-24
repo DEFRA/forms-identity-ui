@@ -162,7 +162,16 @@ describe('logout round trip', () => {
       200
     )
 
-    await submitSignOut(document)
+    // Without a state from the client, Cancel only carries the marker.
+    const withRedirect = await openSignOut({
+      client_id: 'runner',
+      post_logout_redirect_uri: POST_LOGOUT_REDIRECT_URI
+    })
+    expect(
+      withRedirect.container.getByRole('link', { name: 'Cancel' })
+    ).toHaveAttribute('href', `${POST_LOGOUT_REDIRECT_URI}?cancelled=true`)
+
+    await submitSignOut(withRedirect.document)
     expect(roundTrip.jar.has('_session')).toBe(false)
     expect((await callProtectedResource(tokens.access_token)).statusCode).toBe(
       401
