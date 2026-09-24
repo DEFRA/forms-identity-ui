@@ -83,7 +83,7 @@ const pending = new Map()
 
 /**
  * Who is signed in. Single-user, in-memory — it's an example.
- * @type {{ tokens?: client.TokenEndpointResponse, claims?: object, obtainedAt: number }}
+ * @type {{ tokens?: client.TokenEndpointResponse, claims?: object, obtainedAt: number, signOutState?: string }}
  */
 const session = { obtainedAt: 0 }
 
@@ -93,7 +93,22 @@ server.route([
   {
     method: 'GET',
     path: '/',
-    handler() {
+    handler(request) {
+      const { state, cancelled } = request.query
+
+      // The provider sends the user here after a sign-out. The Cancel link on
+      // the sign-out page also goes here. End the session only when the user
+      // completed the sign-out. A user who cancels then stays signed in here
+      // and on the provider.
+      if (state && state === session.signOutState) {
+        delete session.signOutState
+
+        if (cancelled !== 'true') {
+          delete session.tokens
+          delete session.claims
+        }
+      }
+
       if (session.claims && session.tokens) {
         return signedInPage(
           session.claims,
@@ -166,15 +181,17 @@ server.route([
       const config = await discover()
       const idToken = session.tokens?.id_token
 
-      delete session.tokens
-      delete session.claims
+      // Keep the state value. On the return, only a matching state can end
+      // the session.
+      session.signOutState = client.randomState()
 
       const logoutUrl = client.buildEndSessionUrl(config, {
         ...(idToken && { id_token_hint: idToken }),
         client_id: 'runner',
         // Registered in OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS — without it
         // the provider shows its own success page instead of returning here
-        post_logout_redirect_uri: `${BASE}/`
+        post_logout_redirect_uri: `${BASE}/`,
+        state: session.signOutState
       })
       return h.redirect(logoutUrl.href)
     }

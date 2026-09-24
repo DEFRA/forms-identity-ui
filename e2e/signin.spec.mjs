@@ -18,6 +18,10 @@ import {
 } from './support.mjs'
 
 const EMAIL = `e2e-${Date.now()}@example.com`
+/** The RP's post-logout redirect URI, after a completed sign-out */
+const SIGNED_OUT_RETURN = new RegExp(`^${RP}/\\?state=[^&]+$`)
+/** The same URI, after the user selects Cancel */
+const CANCELLED_RETURN = new RegExp(`^${RP}/\\?state=[^&]+&cancelled=true$`)
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
@@ -194,6 +198,63 @@ test.describe.serial('citizen sign-in', () => {
 
     expect(res.status()).toBe(401)
     expect(await res.json()).toMatchObject({ error: 'invalid_client' })
+  })
+
+  test('signs out with no click when JavaScript runs', async () => {
+    // This page is from the first sign-in and has a provider session.
+    await page.goto(`${RP}/`)
+    await page.getByRole('link', { name: 'Sign out' }).click()
+
+    await expect(page).toHaveURL(SIGNED_OUT_RETURN)
+    await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
+
+    // The provider session has ended, so sign-in starts at the email page.
+    await page.goto(`${RP}/login`)
+    await expect(
+      page.getByRole('heading', { name: 'Enter your email address' })
+    ).toBeVisible()
+  })
+
+  test('signs out with one click when JavaScript is off, after a cancel', async ({
+    browser
+  }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false })
+    const page = await context.newPage()
+
+    await signInUpToCode(page)
+    await page
+      .getByRole('textbox', { name: 'Enter the 6 digit security code' })
+      .fill(KNOWN_CODE)
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page.getByText('Signed in.')).toBeVisible()
+
+    // Cancel goes back to the RP with the marker. The RP keeps the session.
+    await page.getByRole('link', { name: 'Sign out' }).click()
+    await expect(
+      page.getByRole('heading', {
+        name: 'Are you sure you want to sign out?',
+        level: 1
+      })
+    ).toBeVisible()
+    await page.getByRole('link', { name: 'Cancel' }).click()
+    await expect(page).toHaveURL(CANCELLED_RETURN)
+    await expect(page.getByText('Signed in.')).toBeVisible()
+
+    // The provider session continues, so sign-in needs no code.
+    await page.goto(`${RP}/login`)
+    await expect(page.getByText('Signed in.')).toBeVisible()
+
+    await page.getByRole('link', { name: 'Sign out' }).click()
+    await page.getByRole('button', { name: 'Sign out' }).click()
+
+    await expect(page).toHaveURL(SIGNED_OUT_RETURN)
+    await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible()
+    await page.goto(`${RP}/login`)
+    await expect(
+      page.getByRole('heading', { name: 'Enter your email address' })
+    ).toBeVisible()
+
+    await context.close()
   })
 })
 
