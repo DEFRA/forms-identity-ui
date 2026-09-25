@@ -51,10 +51,10 @@ describe('buildProviderConfig', () => {
       AuthorizationCode: 60,
       IdToken: 300,
       AccessToken: 300,
-      RefreshToken: 86400,
+      RefreshToken: 604800,
       Interaction: 3600,
       Session: 86400,
-      Grant: 86400
+      Grant: 604800
     })
     expect(cfg.claims).toEqual({
       openid: ['sub'],

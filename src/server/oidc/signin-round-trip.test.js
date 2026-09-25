@@ -688,6 +688,28 @@ describe('sign-in round trip', () => {
     expect(typeof JSON.parse(again.payload).access_token).toBe('string')
   })
 
+  it('refreshes the access token after the provider session has ended', async () => {
+    const redeemed = await signInAndRedeem(
+      'refresh-after-session@example.com',
+      'state-5',
+      { resource: RESOURCE }
+    )
+    expect(redeemed.statusCode).toBe(200)
+
+    // The provider session ends before the refresh token does. The refresh
+    // token depends on the grant, not on the session, so it still works.
+    for (const key of artifacts.keys()) {
+      if (key.startsWith('session/')) {
+        artifacts.delete(key)
+      }
+    }
+
+    const refreshToken = String(JSON.parse(redeemed.payload).refresh_token)
+    const refreshed = await tokenRequest(await refreshParams(refreshToken))
+    expect(refreshed.statusCode).toBe(200)
+    expect(typeof JSON.parse(refreshed.payload).access_token).toBe('string')
+  })
+
   it('refuses a refresh without a valid client assertion', async () => {
     const redeemed = await signInAndRedeem(
       'refresh-client-auth@example.com',

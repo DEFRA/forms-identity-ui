@@ -73,13 +73,11 @@ export function buildProviderConfig(adapter) {
     issueRefreshToken(_ctx, client) {
       return client.grantTypeAllowed('refresh_token')
     },
+    expiresWithSession: () => false,
     // A refresh returns a new access token but keeps the same refresh token.
     // Rotation guards against a stolen refresh token, which is a risk for
     // public clients; this client authenticates with a private key, so a
     // refresh token is of no use to anyone without that key.
-    // `expiresWithSession` is left at its default, so without
-    // `offline_access` a refresh token stops working when the provider
-    // session ends (for example, sign-out in another tab).
     rotateRefreshToken: false,
     // Discovery is a promise to every relying party, so it states what this
     // deployment does and nothing more: one client, the authorization code

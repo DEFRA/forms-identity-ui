@@ -55,9 +55,7 @@ and replace the values.
 `OIDC_RESOURCE_SERVERS` lists the APIs that can get an access token. Each name
 becomes the `aud` of the token, and a client names one in the `resource`
 parameter of the authorization request. `OIDC_TTL_ACCESS_TOKEN` is short, and
-the client gets a new access token with its refresh token. Set
-`OIDC_TTL_REFRESH_TOKEN` no longer than forms-runner's `SESSION_TIMEOUT`, which
-is in milliseconds.
+the client gets a new access token with its refresh token.
 
 ## Development
 
