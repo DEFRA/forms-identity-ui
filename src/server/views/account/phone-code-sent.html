@@ -3,22 +3,21 @@
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% from "govuk/components/input/macro.njk" import govukInput %}
-{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
-{% set pageTitle = t('signin.code.title') %}
+{% set pageTitle = t('account.changeEmail') + " : " + t('account.sentPhoneOtp.title') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
 {% block content %}
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
+    <div class="govuk-grid-column-full">
 
       {% if showResendNotification %}
         {{ govukNotificationBanner({
           type: "success",
-          titleText: t('signin.code.resendNotificationTitleText'),
-          text: t('signin.code.resendNotificationText')
+          titleText: t('account.sentPhoneOtp.resendNotificationTitleText'),
+          text: t('account.sentPhoneOtp.resendNotificationText')
         }) }}
       {% endif %}
 
@@ -29,17 +28,22 @@
         }) }}
       {% endif %}
 
-      <h1 class="govuk-heading-l">{{ t('signin.code.title') }}</h1>
+      <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
+      <h1 class="govuk-heading-l">{{ t('account.sentPhoneOtp.title') }}</h1>
 
-      {{ govukInsetText({ text: t('signin.code.sentTo', { email: email }) }) }}
+      <p class="govuk-body">{{ t('account.sentPhoneOtp.para1') }}</p>
 
-      <p class="govuk-body">{{ t('signin.code.body') }}</p>
+      <div class="govuk-inset-text">
+        {{ t('account.sentPhoneOtp.inset') }} <strong>{{ phoneEndDigits }}</strong>
+      </div>
 
-      <form method="post" action="/interaction/{{ uid }}/code" novalidate>
+      <p class="govuk-body">{{ t('account.sentPhoneOtp.para2') }}</p>
+
+      <form method="post" action="/account/{{ uid }}/phone-code" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
         {{ govukInput({
-          label: { text: t('signin.code.label') },
+          label: { text: t('account.sentPhoneOtp.enterCode') },
           classes: "govuk-input--width-10 govuk-input--extra-letter-spacing",
           id: "code",
           name: "code",
@@ -50,12 +54,12 @@
           errorMessage: errorMessage
         }) }}
 
-        {{ govukButton({ text: t('signin.code.continue') }) }}
+        {{ govukButton({ text: t('account.sentPhoneOtp.continue') }) }}
       </form>
 
       {{ govukDetails({
-        summaryText: t('signin.code.problemsDetails.summaryText'),
-        html: t('signin.code.problemsDetails.body')
+        summaryText: t('account.sentPhoneOtp.problemsDetails.summaryText'),
+        html: t('account.sentPhoneOtp.problemsDetails.body')
       }) }}
     </div>
   </div>

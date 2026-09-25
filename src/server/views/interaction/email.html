@@ -13,7 +13,7 @@
 
       {% if errorKey %}
         {{ govukErrorSummary({
-          titleText: t('signin.errorSummaryTitle'),
+          titleText: t('errors.errorSummaryTitle'),
           errorList: [{ text: t(errorKey), href: "#email" }]
         }) }}
       {% endif %}

@@ -7,11 +7,12 @@ import { assertInteractionRoutesGated } from '~/src/server/routes/interaction.js
 import { renderResponse } from '~/test/helpers/component-helpers.js'
 
 jest.mock('~/src/server/lib/identity-api.js', () => ({
-  requestOtp: jest.fn(),
+  requestOtpViaEmail: jest.fn(),
+  requestOtpViaSms: jest.fn(),
   verifyOtp: jest.fn(),
   completeSignup: jest.fn(),
   getAccount: jest.fn(),
-  getOtpEmail: jest.fn()
+  getOtpTarget: jest.fn()
 }))
 
 // The signin service retrieves a caller token before each identity API call;
@@ -41,7 +42,7 @@ describe('interaction pages', () => {
 
   beforeEach(() => {
     jest.mocked(getServiceToken).mockResolvedValue('token-1')
-    jest.mocked(identityApi.getOtpEmail).mockResolvedValue('a@b.com')
+    jest.mocked(identityApi.getOtpTarget).mockResolvedValue('a@b.com')
     const provider = server.app.oidcProvider
     detailsSpy = jest.spyOn(provider, 'interactionDetails').mockResolvedValue(
       /** @type {never} */ ({
@@ -159,7 +160,7 @@ describe('interaction pages', () => {
   })
 
   it('POST email requests a code and redirects to the code page', async () => {
-    jest.mocked(identityApi.requestOtp).mockResolvedValue(undefined)
+    jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue(undefined)
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
 
     const res = await server.inject({
@@ -171,8 +172,12 @@ describe('interaction pages', () => {
 
     expect(res.statusCode).toBe(302)
     expect(res.headers.location).toBe('/interaction/uid-1/code')
-    expect(identityApi.requestOtp).toHaveBeenCalledWith(
-      { uid: 'uid-1', email: 'Citizen@Example.com' },
+    expect(identityApi.requestOtpViaEmail).toHaveBeenCalledWith(
+      {
+        uid: 'uid-1',
+        email: 'Citizen@Example.com',
+        purpose: 'SIGNIN_VERIFY_EMAIL'
+      },
       'token-1'
     )
   })
@@ -197,7 +202,7 @@ describe('interaction pages', () => {
         name: 'Enter an email address in the correct format, like name@example.com'
       })
     ).toHaveAttribute('href', '#email')
-    expect(identityApi.requestOtp).not.toHaveBeenCalled()
+    expect(identityApi.requestOtpViaEmail).not.toHaveBeenCalled()
   })
 
   it('POST email without a crumb is rejected', async () => {
@@ -264,7 +269,7 @@ describe('interaction pages', () => {
   )
 
   it('GET code shows the email from the stored record', async () => {
-    jest.mocked(identityApi.getOtpEmail).mockResolvedValue('shown@example.com')
+    jest.mocked(identityApi.getOtpTarget).mockResolvedValue('shown@example.com')
 
     const { container, response } = await renderResponse(server, {
       method: 'GET',
@@ -290,7 +295,7 @@ describe('interaction pages', () => {
   it('GET code sends the user back to the email step when no code was requested', async () => {
     // reaching the code page first (typed URL, restored tab) leaves nothing
     // to address the email to, and any code entered could only ever fail
-    jest.mocked(identityApi.getOtpEmail).mockResolvedValue(null)
+    jest.mocked(identityApi.getOtpTarget).mockResolvedValue(null)
 
     const res = await server.inject({
       method: 'GET',
@@ -312,7 +317,7 @@ describe('interaction pages', () => {
     })
 
     expect(res.statusCode).toBe(410)
-    expect(identityApi.getOtpEmail).not.toHaveBeenCalled()
+    expect(identityApi.getOtpTarget).not.toHaveBeenCalled()
   })
 
   it('POST code finishes the interaction when signed in', async () => {
@@ -506,7 +511,7 @@ describe('interaction pages', () => {
   it('POST code sends the user back to the email step when no code was requested', async () => {
     jest.mocked(identityApi.verifyOtp).mockResolvedValue({ status: 'invalid' })
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/code')
-    jest.mocked(identityApi.getOtpEmail).mockResolvedValue(null)
+    jest.mocked(identityApi.getOtpTarget).mockResolvedValue(null)
 
     const res = await server.inject({
       method: 'POST',
@@ -596,7 +601,7 @@ describe('interaction pages', () => {
   })
 
   it('GET code/expired redirects to email page when no email is found', async () => {
-    jest.mocked(identityApi.getOtpEmail).mockResolvedValue(null)
+    jest.mocked(identityApi.getOtpTarget).mockResolvedValue(null)
 
     const { response } = await renderResponse(server, {
       method: 'GET',
@@ -608,7 +613,7 @@ describe('interaction pages', () => {
   })
 
   it('GET code/expired shows code expired page', async () => {
-    jest.mocked(identityApi.getOtpEmail).mockResolvedValue('shown@example.com')
+    jest.mocked(identityApi.getOtpTarget).mockResolvedValue('shown@example.com')
 
     const { container, response } = await renderResponse(server, {
       method: 'GET',
@@ -638,7 +643,7 @@ describe('interaction pages', () => {
   })
 
   it('GET code/resend redirects to email page when no email is found', async () => {
-    jest.mocked(identityApi.getOtpEmail).mockResolvedValue(null)
+    jest.mocked(identityApi.getOtpTarget).mockResolvedValue(null)
 
     const { response } = await renderResponse(server, {
       method: 'GET',
@@ -650,7 +655,7 @@ describe('interaction pages', () => {
   })
 
   it('GET code/resend shows resend OTP page', async () => {
-    jest.mocked(identityApi.getOtpEmail).mockResolvedValue('shown@example.com')
+    jest.mocked(identityApi.getOtpTarget).mockResolvedValue('shown@example.com')
 
     const { container, response } = await renderResponse(server, {
       method: 'GET',

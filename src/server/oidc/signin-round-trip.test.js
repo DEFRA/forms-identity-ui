@@ -163,7 +163,7 @@ function oidcStore(method, segments, body) {
 function signinEndpoints(method, segments, body) {
   if (segments[0] === 'otp') {
     if (segments[1] === 'request') {
-      otps.set(body.uid, { email: body.email, verified: false })
+      otps.set(body.uid, { email: body.target, verified: false })
       return NO_CONTENT
     }
     if (segments[1] === 'verify') {
@@ -185,8 +185,19 @@ function signinEndpoints(method, segments, body) {
       }
     }
 
+    // `getOtp` requests `/otp/{hash}/{purpose}`; only the hash segment keys
+    // the record here, since this stub only ever handles one purpose
     const record = otps.get(segments[1])
-    return record ? { status: 200, body: { email: record.email } } : NOT_FOUND
+    return record
+      ? {
+          status: 200,
+          body: {
+            target: record.email,
+            verified: record.verified,
+            consumed: false
+          }
+        }
+      : NOT_FOUND
   }
 
   if (segments[0] === 'accounts') {

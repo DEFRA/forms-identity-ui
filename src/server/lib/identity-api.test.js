@@ -1,12 +1,13 @@
 import Boom from '@hapi/boom'
 
+import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { getJson, postJson } from '~/src/server/common/helpers/fetch.js'
 import { hashId } from '~/src/server/common/helpers/hash-id.js'
 import {
   completeSignup,
   getAccount,
-  getOtpEmail,
-  requestOtp,
+  getOtpTarget,
+  requestOtpViaEmail,
   verifyOtp
 } from '~/src/server/lib/identity-api.js'
 
@@ -34,10 +35,13 @@ function postPayload(index) {
 }
 
 describe('identity-api client', () => {
-  it('requestOtp posts uid and email', async () => {
+  it('requestOtpViaEmail posts uid and email', async () => {
     jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
 
-    await requestOtp({ uid: 'uid-1', email: 'a@b.com' }, 'token-1')
+    await requestOtpViaEmail(
+      { uid: 'uid-1', email: 'a@b.com', purpose: PURPOSE.SIGNIN_VERIFY_EMAIL },
+      'token-1'
+    )
 
     const [url, options] =
       /** @type {[URL, { payload: object, headers: object }]} */ (
@@ -47,7 +51,9 @@ describe('identity-api client', () => {
     expect(options.headers).toEqual(AUTH_HEADERS)
     expect(options.payload).toEqual({
       uid: hashId('uid-1'),
-      email: 'a@b.com'
+      target: 'a@b.com',
+      transport: 'EMAIL',
+      purpose: 'SIGNIN_VERIFY_EMAIL'
     })
   })
 
@@ -68,7 +74,8 @@ describe('identity-api client', () => {
     )
     expect(postPayload(0)).toEqual({
       uid: hashId('uid-1'),
-      code: '123456'
+      code: '123456',
+      purpose: 'SIGNIN_VERIFY_EMAIL'
     })
   })
 
@@ -95,10 +102,13 @@ describe('identity-api client', () => {
       .mocked(getJson)
       .mockResolvedValue(/** @type {never} */ ({ body: { email: 'a@b.com' } }))
 
-    await requestOtp({ uid: 'uid-1', email: 'a@b.com' }, 'token-1')
+    await requestOtpViaEmail(
+      { uid: 'uid-1', email: 'a@b.com', purpose: 'SIGNIN_VERIFY_EMAIL' },
+      'token-1'
+    )
     await verifyOtp({ uid: 'uid-1', code: '123456' }, 'token-1')
     await completeSignup({ uid: 'uid-1', phone: '07911 123456' }, 'token-1')
-    await getOtpEmail('uid-1', 'token-1')
+    await getOtpTarget('uid-1', 'token-1')
 
     // one plaintext uid among them would make the API's {uid, purpose}
     // lookup miss, which surfaces as a 404 rather than an error
@@ -119,10 +129,13 @@ describe('identity-api client', () => {
         /** @type {never} */ ({ body: { email: 'a@b.com', id: 'acc-1' } })
       )
 
-    await requestOtp({ uid: 'uid-1', email: 'a@b.com' }, 'token-1')
+    await requestOtpViaEmail(
+      { uid: 'uid-1', email: 'a@b.com', purpose: 'SIGNIN_VERIFY_EMAIL' },
+      'token-1'
+    )
     await verifyOtp({ uid: 'uid-1', code: '123456' }, 'token-1')
     await completeSignup({ uid: 'uid-1', phone: '07911 123456' }, 'token-1')
-    await getOtpEmail('uid-1', 'token-1')
+    await getOtpTarget('uid-1', 'token-1')
     await getAccount('acc-1', 'token-1')
 
     const calls = [
@@ -156,18 +169,18 @@ describe('identity-api client', () => {
     await expect(getAccount('acc-1', 'token-1')).rejects.toThrow('boom')
   })
 
-  it('getOtpEmail returns the email, and null on 404', async () => {
+  it('getOtpTarget returns the email, and null on 404', async () => {
     jest
       .mocked(getJson)
-      .mockResolvedValue(/** @type {never} */ ({ body: { email: 'a@b.com' } }))
-    await expect(getOtpEmail('uid-1', 'token-1')).resolves.toBe('a@b.com')
+      .mockResolvedValue(/** @type {never} */ ({ body: { target: 'a@b.com' } }))
+    await expect(getOtpTarget('uid-1', 'token-1')).resolves.toBe('a@b.com')
     expect(jest.mocked(getJson).mock.calls[0][0].href).toBe(
-      `${API}/otp/${hashId('uid-1')}`
+      `${API}/otp/${hashId('uid-1')}/SIGNIN_VERIFY_EMAIL`
     )
     expect(jest.mocked(getJson).mock.calls[0][0].href).not.toContain('uid-1')
 
     const notFound = Boom.notFound()
     jest.mocked(getJson).mockRejectedValue(notFound)
-    await expect(getOtpEmail('uid-none', 'token-1')).resolves.toBeNull()
+    await expect(getOtpTarget('uid-none', 'token-1')).resolves.toBeNull()
   })
 })
