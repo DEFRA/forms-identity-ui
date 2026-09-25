@@ -82,5 +82,11 @@
       "tryBack": "try your browser back button",
       "contact": "<a class=\"govuk-link\" href=\"https://www.gov.uk/guidance/contact-defra\">contact the Defra Helpline</a> if you have any questions"
     }
+  },
+  "signout": {
+    "title": "Are you sure you want to sign out?",
+    "body": "If you sign out, you’ll need to sign in again using your email address and security code.",
+    "button": "Sign out",
+    "cancel": "Cancel"
   }
 }

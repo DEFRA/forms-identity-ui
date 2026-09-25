@@ -15,7 +15,13 @@ import * as client from 'openid-client'
 
 import 'dotenv/config'
 
-import { errorPage, page, signedInPage, tokenSummary } from './views.mjs'
+import {
+  errorPage,
+  page,
+  signOutResult,
+  signedInPage,
+  tokenSummary
+} from './views.mjs'
 
 const ISSUER = process.env.EXAMPLE_RP_ISSUER ?? 'http://localhost:3011'
 const DEFAULT_PORT = 3901
@@ -93,15 +99,30 @@ server.route([
   {
     method: 'GET',
     path: '/',
-    handler() {
+    handler(request) {
+      const { state, cancelled } =
+        /** @type {{ state?: string, cancelled?: string }} */ (request.query)
+
+      // The provider sends the user here with `state` after a sign-out. The
+      // Cancel link on the sign-out page also sends `state`, with
+      // `cancelled=true`. End the session only after a completed sign-out.
+      const result =
+        state === undefined ? '' : signOutResult(state, cancelled === 'true')
+
+      if (state !== undefined && cancelled !== 'true') {
+        delete session.tokens
+        delete session.claims
+      }
+
       if (session.claims && session.tokens) {
         return signedInPage(
           session.claims,
           tokenSummary(session.tokens, session.obtainedAt),
-          decodeJwt(session.tokens.access_token)
+          decodeJwt(session.tokens.access_token),
+          result
         )
       }
-      return page('<p><a href="/login">Sign in</a></p>')
+      return page(`${result}<p><a href="/login">Sign in</a></p>`)
     }
   },
   {
@@ -166,15 +187,16 @@ server.route([
       const config = await discover()
       const idToken = session.tokens?.id_token
 
-      delete session.tokens
-      delete session.claims
-
       const logoutUrl = client.buildEndSessionUrl(config, {
         ...(idToken && { id_token_hint: idToken }),
         client_id: 'runner',
         // Registered in OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS — without it
         // the provider shows its own success page instead of returning here
-        post_logout_redirect_uri: `${BASE}/`
+        post_logout_redirect_uri: `${BASE}/`,
+        // The example RP's own data for this sign-out: a dummy form slug. The
+        // provider sends it back unchanged. It also lets `/`, which is the
+        // home page too, know that the user came back from the provider.
+        state: JSON.stringify({ slug: 'example-form' })
       })
       return h.redirect(logoutUrl.href)
     }

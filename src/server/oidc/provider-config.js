@@ -40,6 +40,34 @@ const TTL_SECONDS = {
 }
 
 /**
+ * The URI for the Cancel link on the sign-out page. It is the client's
+ * post-logout redirect URI, with the client's `state` and `cancelled=true`.
+ * The provider has already checked this URI against the client's registered
+ * URIs. This makes sure that the link only goes back to the client that sent
+ * the user. The client uses `cancelled=true` to know that the user did not
+ * sign out.
+ * @param {KoaContextWithOIDC} ctx
+ * @returns {string | undefined}
+ */
+function cancelUriFor(ctx) {
+  const postLogoutRedirectUri = ctx.oidc.params?.post_logout_redirect_uri
+  const state = ctx.oidc.params?.state
+
+  if (typeof postLogoutRedirectUri !== 'string') {
+    return undefined
+  }
+
+  const cancelUri = new URL(postLogoutRedirectUri)
+
+  if (typeof state === 'string') {
+    cancelUri.searchParams.set('state', state)
+  }
+  cancelUri.searchParams.set('cancelled', 'true')
+
+  return cancelUri.href
+}
+
+/**
  * Builds the oidc-provider configuration
  * @param {AdapterConstructor} adapter
  * @returns {Configuration}
@@ -90,6 +118,31 @@ export function buildProviderConfig(adapter) {
       clientAuthSigningAlgValues: [SIGNING_ALG]
     },
     features: {
+      rpInitiatedLogout: {
+        enabled: true,
+        // The page shows the provider's own sign-out form. The provider's
+        // confirm step then does the full sign-out. It checks the xsrf value,
+        // revokes the grants, clears the cookie and redirects to the client.
+        // When the ID token hint identifies the signed-in user, the page
+        // presses its Sign out button on load. Without JavaScript, the user
+        // presses the button.
+        logoutSource(ctx, form) {
+          const accountId = ctx.oidc.session?.accountId
+
+          ctx.type = 'html'
+          ctx.body = view('signout.html', {
+            context: {
+              ...context(null),
+              form,
+              cancelUri: cancelUriFor(ctx),
+              autoSubmit:
+                accountId !== undefined &&
+                ctx.oidc.entities.IdTokenHint?.payload.sub === accountId
+            }
+          })
+          return Promise.resolve()
+        }
+      },
       devInteractions: { enabled: false },
       // On by default, and its endpoint is deliberately not mounted
       pushedAuthorizationRequests: { enabled: false },

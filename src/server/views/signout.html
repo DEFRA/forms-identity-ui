@@ -1,0 +1,33 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% set pageTitle = t('signout.title') %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+
+      <h1 class="govuk-heading-l">{{ pageTitle }}</h1>
+
+      <p class="govuk-body">{{ t('signout.body') }}</p>
+
+      <div {%- if autoSubmit %} data-module="app-auto-submit"{% endif %}>
+        {{ form | safe }}
+
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: t('signout.button'),
+            name: "logout",
+            value: "yes",
+            attributes: { form: "op.logoutForm" }
+          }) }}
+          {% if cancelUri %}
+            <a class="govuk-link" href="{{ cancelUri }}">{{ t('signout.cancel') }}</a>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+{% endblock %}
