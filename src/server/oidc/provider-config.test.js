@@ -51,7 +51,7 @@ describe('buildProviderConfig', () => {
       AuthorizationCode: 60,
       IdToken: 300,
       AccessToken: 300,
-      RefreshToken: expect.any(Function),
+      RefreshToken: 86400,
       Interaction: 3600,
       Session: 86400,
       Grant: 86400
@@ -96,42 +96,11 @@ describe('buildProviderConfig', () => {
       ).toBe(false)
     })
 
-    it('rotates the refresh token on every refresh', () => {
+    it('keeps the same refresh token on every refresh', () => {
       const cfg = buildProviderConfig(fakeAdapter)
 
-      expect(cfg.rotateRefreshToken).toBe(true)
+      expect(cfg.rotateRefreshToken).toBe(false)
     })
-
-    it('gives a new refresh token the configured lifetime', () => {
-      const ttl = refreshTokenTtl()
-
-      expect(ttl(/** @type {never} */ ({ oidc: { entities: {} } }))).toBe(86400)
-      // a token read outside a request has no context
-      expect(ttl(/** @type {never} */ (undefined))).toBe(86400)
-    })
-
-    it('gives a rotated refresh token only the time left on the one it replaces', () => {
-      const ttl = refreshTokenTtl()
-      const ctx = /** @type {never} */ ({
-        oidc: { entities: { RotatedRefreshToken: { remainingTTL: 1234 } } }
-      })
-
-      expect(ttl(ctx)).toBe(1234)
-    })
-
-    /**
-     * The refresh token lifetime function from the configuration
-     */
-    function refreshTokenTtl() {
-      const ttl = buildProviderConfig(fakeAdapter).ttl?.RefreshToken
-
-      if (typeof ttl !== 'function') {
-        throw new Error('ttl.RefreshToken is not a function')
-      }
-
-      return (/** @type {KoaContextWithOIDC} */ ctx) =>
-        ttl(ctx, /** @type {never} */ (null), /** @type {never} */ (null))
-    }
   })
 
   it('signs tokens and verifies client assertions with RS256', () => {
@@ -211,5 +180,5 @@ describe('buildProviderConfig', () => {
 })
 
 /**
- * @import { AdapterConstructor, Client, KoaContextWithOIDC } from 'oidc-provider'
+ * @import { AdapterConstructor, Client } from 'oidc-provider'
  */
