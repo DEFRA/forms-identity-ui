@@ -5,9 +5,19 @@
  * These tests make sure that the page and the provider work together. They
  * show the page as a browser does and send the form as a browser does. Then
  * they check that the provider session ended.
+ *
+ * The runner asks for `offline_access`, and sign-out keeps that grant. When
+ * the provider sends the citizen back, the runner revokes its refresh token
+ * at the revocation endpoint (RFC 7009). The tests do the same, and then
+ * check that no token of the sign-in still works.
  */
 import { renderResponse } from '~/test/helpers/component-helpers.js'
-import { REDIRECT_URI, useRoundTrip } from '~/test/helpers/round-trip.js'
+import {
+  CLIENT_ASSERTION_TYPE,
+  REDIRECT_URI,
+  clientAssertion,
+  useRoundTrip
+} from '~/test/helpers/round-trip.js'
 
 const mockStsSend = jest.fn()
 
@@ -34,7 +44,7 @@ describe('logout round trip', () => {
     const redeemed = await roundTrip.signInAndRedeem(email)
     expect(redeemed.statusCode).toBe(200)
 
-    return /** @type {{ access_token: string, id_token: string }} */ (
+    return /** @type {{ access_token: string, id_token: string, refresh_token: string }} */ (
       JSON.parse(redeemed.payload)
     )
   }
@@ -62,9 +72,16 @@ describe('logout round trip', () => {
    * @param {Document} document
    */
   function submitSignOut(document) {
-    const form = /** @type {HTMLFormElement} */ (
-      document.getElementById('op.logoutForm')
+    return submitForm(
+      /** @type {HTMLFormElement} */ (document.getElementById('op.logoutForm'))
     )
+  }
+
+  /**
+   * Sends a form with the fields that a browser sends
+   * @param {HTMLFormElement} form
+   */
+  function submitForm(form) {
     const fields = Object.fromEntries(
       [...form.elements].map((element) => {
         const input = /** @type {HTMLInputElement} */ (element)
@@ -85,6 +102,47 @@ describe('logout round trip', () => {
       method: 'GET',
       url: '/me',
       headers: { authorization: `Bearer ${accessToken}` }
+    })
+  }
+
+  /**
+   * Uses the refresh token as the runner does
+   * @param {string} refreshToken
+   */
+  async function refresh(refreshToken) {
+    return roundTrip.tokenRequest({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_assertion_type: CLIENT_ASSERTION_TYPE,
+      client_assertion: await clientAssertion()
+    })
+  }
+
+  /**
+   * Revokes the refresh token as the runner does when the citizen comes back
+   * from a completed sign-out
+   * @param {string} refreshToken
+   */
+  async function revoke(refreshToken) {
+    const revoked = await roundTrip.revocationRequest(refreshToken, {
+      token_type_hint: 'refresh_token'
+    })
+    expect(revoked.statusCode).toBe(200)
+  }
+
+  /**
+   * Checks that no token of the sign-in still works
+   * @param {{ access_token: string, refresh_token: string }} tokens
+   */
+  async function expectSignInEnded(tokens) {
+    expect((await callProtectedResource(tokens.access_token)).statusCode).toBe(
+      401
+    )
+
+    const refreshed = await refresh(tokens.refresh_token)
+    expect(refreshed.statusCode).toBe(400)
+    expect(JSON.parse(refreshed.payload)).toMatchObject({
+      error: 'invalid_grant'
     })
   }
 
@@ -134,9 +192,13 @@ describe('logout round trip', () => {
 
     // The full provider session ended, not only the runner's part.
     expect(roundTrip.jar.has('_session')).toBe(false)
-    expect((await callProtectedResource(tokens.access_token)).statusCode).toBe(
-      401
-    )
+
+    // The provider keeps the `offline_access` grant, so the runner's tokens
+    // work until the runner revokes them
+    expect((await refresh(tokens.refresh_token)).statusCode).toBe(200)
+
+    await revoke(tokens.refresh_token)
+    await expectSignInEnded(tokens)
   })
 
   it('asks the citizen to confirm when the request carries no ID token', async () => {
@@ -173,8 +235,73 @@ describe('logout round trip', () => {
 
     await submitSignOut(withRedirect.document)
     expect(roundTrip.jar.has('_session')).toBe(false)
+
+    await revoke(tokens.refresh_token)
+    await expectSignInEnded(tokens)
+  })
+
+  it('ends the sign-in when the provider session expired before sign-out', async () => {
+    const tokens = await signIn('expired-session@example.com')
+
+    // The provider session lasts a day, and the refresh token lasts longer.
+    // Sign-out after the session has expired finds no grant to end, so the
+    // runner's revocation is the step that ends the sign-in.
+    for (const key of roundTrip.artifacts.keys()) {
+      if (key.startsWith('session/')) {
+        roundTrip.artifacts.delete(key)
+      }
+    }
+
+    const { container, document } = await openSignOut({
+      client_id: 'runner',
+      id_token_hint: tokens.id_token,
+      post_logout_redirect_uri: POST_LOGOUT_REDIRECT_URI,
+      state: 'logout-state'
+    })
+
+    // With no session, there is nobody to ask, so the provider skips the
+    // sign-out page and its own page posts straight to the confirm step
+    expect(
+      container.queryByRole('heading', {
+        name: 'Are you sure you want to sign out?'
+      })
+    ).not.toBeInTheDocument()
+
+    const signedOut = await submitForm(
+      /** @type {HTMLFormElement} */ (document.querySelector('form'))
+    )
+    expect(signedOut.statusCode).toBe(303)
+    expect(signedOut.headers.location).toBe(
+      `${POST_LOGOUT_REDIRECT_URI}?state=logout-state`
+    )
+
+    expect((await refresh(tokens.refresh_token)).statusCode).toBe(200)
+
+    await revoke(tokens.refresh_token)
+    await expectSignInEnded(tokens)
+  })
+
+  it('keeps the sign-in when a revocation carries no client assertion', async () => {
+    const tokens = await signIn('unauthenticated-revoke@example.com')
+
+    const refused = await roundTrip.server.inject({
+      method: 'POST',
+      url: '/token/revocation',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        client_id: 'runner',
+        token: tokens.refresh_token,
+        token_type_hint: 'refresh_token'
+      }).toString()
+    })
+
+    expect(refused.statusCode).toBe(401)
+    expect(JSON.parse(refused.payload)).toMatchObject({
+      error: 'invalid_client'
+    })
+    expect((await refresh(tokens.refresh_token)).statusCode).toBe(200)
     expect((await callProtectedResource(tokens.access_token)).statusCode).toBe(
-      401
+      200
     )
   })
 })

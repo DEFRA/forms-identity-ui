@@ -68,6 +68,18 @@ function cancelUriFor(ctx) {
 }
 
 /**
+ * Whether a client may revoke a token. A client revokes only its own tokens,
+ * so that no client can end another client's sign-in.
+ * @param {KoaContextWithOIDC} _ctx
+ * @param {Client} client - the authenticated client
+ * @param {{ clientId?: string }} token - the token to revoke
+ * @returns {Promise<boolean>}
+ */
+export function revocationAllowed(_ctx, client, token) {
+  return Promise.resolve(token.clientId === client.clientId)
+}
+
+/**
  * Builds the oidc-provider configuration
  * @param {AdapterConstructor} adapter
  * @returns {Configuration}
@@ -94,14 +106,6 @@ export function buildProviderConfig(adapter) {
     jwks: { keys: JWKS.keys },
     clientAuthMethods: ['private_key_jwt'],
     pkce: { required: () => true },
-    // The library only issues a refresh token when `offline_access` was
-    // requested, which also forces a consent prompt. Tokens are only used
-    // while the citizen is using the service, so that scope does not apply:
-    // any client allowed the grant gets one.
-    issueRefreshToken(_ctx, client) {
-      return client.grantTypeAllowed('refresh_token')
-    },
-    expiresWithSession: () => false,
     // A refresh returns a new access token but keeps the same refresh token.
     // Rotation guards against a stolen refresh token, which is a risk for
     // public clients; this client authenticates with a private key, so a
@@ -109,20 +113,35 @@ export function buildProviderConfig(adapter) {
     rotateRefreshToken: false,
     // Discovery is a promise to every relying party, so it states what this
     // deployment does and nothing more: one client, the authorization code
-    // flow, one scope beyond the claims below, and RS256 for the tokens
-    // signed here and for the assertions a client signs
+    // flow, `offline_access` beside the claims below, and RS256 for the
+    // tokens signed here and for the assertions a client signs
     responseTypes: ['code'],
-    scopes: ['openid'],
+    // A refresh token is issued only when the client asks for
+    // `offline_access` with `prompt=consent` (OpenID Connect Core, section
+    // 11). That grant outlives the provider session, and sign-out keeps it,
+    // so the client revokes its refresh token at the revocation endpoint when
+    // the user signs out. Without `offline_access`, every token ends with the
+    // provider session.
+    scopes: ['openid', 'offline_access'],
     enabledJWA: {
       idTokenSigningAlgValues: [SIGNING_ALG],
       clientAuthSigningAlgValues: [SIGNING_ALG]
+    },
+    // The revocation endpoint takes the same client authentication as the
+    // token endpoint. RFC 8414 reads a missing value as
+    // `client_secret_basic`, so discovery states it.
+    discovery: {
+      revocation_endpoint_auth_methods_supported: ['private_key_jwt'],
+      revocation_endpoint_auth_signing_alg_values_supported: [SIGNING_ALG]
     },
     features: {
       rpInitiatedLogout: {
         enabled: true,
         // The page shows the provider's own sign-out form. The provider's
         // confirm step then does the full sign-out. It checks the xsrf value,
-        // revokes the grants, clears the cookie and redirects to the client.
+        // ends the session, clears the cookie and redirects to the client.
+        // It keeps `offline_access` grants, which the client ends at the
+        // revocation endpoint.
         // When the ID token hint identifies the signed-in user, the page
         // presses its Sign out button on load. Without JavaScript, the user
         // presses the button.
@@ -142,6 +161,12 @@ export function buildProviderConfig(adapter) {
           })
           return Promise.resolve()
         }
+      },
+      // RFC 7009. A client ends its own sign-in by revoking its refresh
+      // token, which also revokes the grant and every token under it.
+      revocation: {
+        enabled: true,
+        allowedPolicy: revocationAllowed
       },
       devInteractions: { enabled: false },
       // On by default, and its endpoint is deliberately not mounted
@@ -210,5 +235,5 @@ export function buildProviderConfig(adapter) {
 }
 
 /**
- * @import { AdapterConstructor, Configuration, JWK } from 'oidc-provider'
+ * @import { AdapterConstructor, Client, Configuration, JWK, KoaContextWithOIDC } from 'oidc-provider'
  */

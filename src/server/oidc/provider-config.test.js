@@ -1,6 +1,9 @@
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
+import {
+  buildProviderConfig,
+  revocationAllowed
+} from '~/src/server/oidc/provider-config.js'
 
 jest.mock('~/src/server/lib/identity-api.js', () => ({
   getAccount: jest.fn()
@@ -63,43 +66,37 @@ describe('buildProviderConfig', () => {
   })
 
   describe('refresh tokens', () => {
-    it('issues a refresh token to a client allowed the grant, without offline_access', async () => {
-      const cfg = buildProviderConfig(fakeAdapter)
-      const client = /** @type {Client} */ (
-        /** @type {unknown} */ ({
-          grantTypeAllowed: (/** @type {string} */ grantType) =>
-            cfg.clients?.[0].grant_types?.includes(grantType)
-        })
-      )
-
-      expect(
-        await cfg.issueRefreshToken?.(
-          fakeCtx,
-          client,
-          /** @type {never} */ (null)
-        )
-      ).toBe(true)
-    })
-
-    it('does not issue a refresh token to a client not allowed the grant', async () => {
-      const cfg = buildProviderConfig(fakeAdapter)
-      const client = /** @type {Client} */ (
-        /** @type {unknown} */ ({ grantTypeAllowed: () => false })
-      )
-
-      expect(
-        await cfg.issueRefreshToken?.(
-          fakeCtx,
-          client,
-          /** @type {never} */ (null)
-        )
-      ).toBe(false)
-    })
-
     it('keeps the same refresh token on every refresh', () => {
       const cfg = buildProviderConfig(fakeAdapter)
 
       expect(cfg.rotateRefreshToken).toBe(false)
+    })
+  })
+
+  describe('token revocation', () => {
+    const runner = /** @type {Client} */ (
+      /** @type {unknown} */ ({ clientId: 'runner' })
+    )
+
+    it('lets a client revoke its own token', async () => {
+      expect(
+        await revocationAllowed(fakeCtx, runner, { clientId: 'runner' })
+      ).toBe(true)
+    })
+
+    it("refuses a client that revokes another client's token", async () => {
+      expect(
+        await revocationAllowed(fakeCtx, runner, { clientId: 'another' })
+      ).toBe(false)
+    })
+
+    it('uses this policy at the revocation endpoint', () => {
+      const cfg = buildProviderConfig(fakeAdapter)
+
+      expect(cfg.features?.revocation).toEqual({
+        enabled: true,
+        allowedPolicy: revocationAllowed
+      })
     })
   })
 

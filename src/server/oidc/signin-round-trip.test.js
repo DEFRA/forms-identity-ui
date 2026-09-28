@@ -19,6 +19,7 @@ import {
   KNOWN_CODE,
   PHONE,
   REDIRECT_URI,
+  RUNNER_SCOPE,
   clientAssertion,
   useRoundTrip
 } from '~/test/helpers/round-trip.js'
@@ -43,6 +44,7 @@ const EMAIL = 'someone@example.com'
 describe('sign-in round trip', () => {
   const {
     accounts,
+    artifacts,
     browse,
     crumb,
     follow,
@@ -271,13 +273,16 @@ describe('sign-in round trip', () => {
   it('refreshes the access token after the provider session has ended', async () => {
     const redeemed = await signInAndRedeem(
       'refresh-after-session@example.com',
-      'state-5',
-      { resource: RESOURCE }
+      {
+        state: 'state-5',
+        resource: RESOURCE,
+        tokenParams: { resource: RESOURCE }
+      }
     )
     expect(redeemed.statusCode).toBe(200)
 
-    // The provider session ends before the refresh token does. The refresh
-    // token depends on the grant, not on the session, so it still works.
+    // The provider session ends before the refresh token does. The client
+    // asked for `offline_access`, so the refresh token still works.
     for (const key of artifacts.keys()) {
       if (key.startsWith('session/')) {
         artifacts.delete(key)
@@ -288,6 +293,71 @@ describe('sign-in round trip', () => {
     const refreshed = await tokenRequest(await refreshParams(refreshToken))
     expect(refreshed.statusCode).toBe(200)
     expect(typeof JSON.parse(refreshed.payload).access_token).toBe('string')
+  })
+
+  it('signs a citizen straight back in on the provider session, with the consent prompt that offline_access needs', async () => {
+    const first = await signInAndRedeem('single-sign-on@example.com', {
+      state: 'state-7',
+      resource: RESOURCE,
+      tokenParams: { resource: RESOURCE }
+    })
+    expect(first.statusCode).toBe(200)
+
+    // The same browser starts a new sign-in, as the runner does after its
+    // own session has ended
+    const verifier = randomBytes(32).toString('base64url')
+    const challenge = createHash('sha256').update(verifier).digest('base64url')
+    const paths = seenPaths.length
+    const start = await browse(
+      `/auth?${new URLSearchParams({
+        client_id: 'runner',
+        response_type: 'code',
+        scope: RUNNER_SCOPE,
+        prompt: 'consent',
+        redirect_uri: REDIRECT_URI,
+        state: 'state-8',
+        nonce: 'nonce-8',
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        resource: RESOURCE
+      }).toString()}`
+    )
+    const finished = await follow(start)
+
+    // The provider session answers the login, and consent is granted
+    // without a page, so the citizen is not asked for a code again
+    const callback = new URL(String(finished.headers.location))
+    expect(callback.origin + callback.pathname).toBe(REDIRECT_URI)
+    expect(callback.searchParams.get('state')).toBe('state-8')
+    expect(seenPaths.slice(paths).some((path) => path.includes(' /otp'))).toBe(
+      false
+    )
+
+    const redeemed = await tokenRequest({
+      grant_type: 'authorization_code',
+      code: String(callback.searchParams.get('code')),
+      redirect_uri: REDIRECT_URI,
+      code_verifier: verifier,
+      client_assertion_type: CLIENT_ASSERTION_TYPE,
+      client_assertion: await clientAssertion(),
+      resource: RESOURCE
+    })
+    expect(redeemed.statusCode).toBe(200)
+    expect(typeof JSON.parse(redeemed.payload).refresh_token).toBe('string')
+  })
+
+  it('issues no refresh token to a sign-in without offline_access', async () => {
+    const redeemed = await signInAndRedeem('no-offline-access@example.com', {
+      state: 'state-6',
+      scope: 'openid email',
+      resource: RESOURCE,
+      tokenParams: { resource: RESOURCE }
+    })
+    expect(redeemed.statusCode).toBe(200)
+
+    const body = JSON.parse(redeemed.payload)
+    expect(typeof body.access_token).toBe('string')
+    expect(body.refresh_token).toBeUndefined()
   })
 
   it('refuses a refresh without a valid client assertion', async () => {
