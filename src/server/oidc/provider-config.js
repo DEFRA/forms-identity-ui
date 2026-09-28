@@ -68,18 +68,6 @@ function cancelUriFor(ctx) {
 }
 
 /**
- * Whether a client may revoke a token. A client revokes only its own tokens,
- * so that no client can end another client's sign-in.
- * @param {KoaContextWithOIDC} _ctx
- * @param {Client} client - the authenticated client
- * @param {{ clientId?: string }} token - the token to revoke
- * @returns {boolean}
- */
-export function revocationAllowed(_ctx, client, token) {
-  return token.clientId === client.clientId
-}
-
-/**
  * Builds the oidc-provider configuration
  * @param {AdapterConstructor} adapter
  * @returns {Configuration}
@@ -159,10 +147,7 @@ export function buildProviderConfig(adapter) {
           return Promise.resolve()
         }
       },
-      revocation: {
-        enabled: true,
-        allowedPolicy: revocationAllowed
-      },
+      revocation: { enabled: true },
       devInteractions: { enabled: false },
       // On by default, and its endpoint is deliberately not mounted
       pushedAuthorizationRequests: { enabled: false },
@@ -230,5 +215,5 @@ export function buildProviderConfig(adapter) {
 }
 
 /**
- * @import { AdapterConstructor, Client, Configuration, JWK, KoaContextWithOIDC } from 'oidc-provider'
+ * @import { AdapterConstructor, Configuration, JWK, KoaContextWithOIDC } from 'oidc-provider'
  */

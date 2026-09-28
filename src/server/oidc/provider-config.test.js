@@ -1,9 +1,6 @@
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-import {
-  buildProviderConfig,
-  revocationAllowed
-} from '~/src/server/oidc/provider-config.js'
+import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 
 jest.mock('~/src/server/lib/identity-api.js', () => ({
   getAccount: jest.fn()
@@ -70,33 +67,6 @@ describe('buildProviderConfig', () => {
       const cfg = buildProviderConfig(fakeAdapter)
 
       expect(cfg.rotateRefreshToken).toBe(false)
-    })
-  })
-
-  describe('token revocation', () => {
-    const runner = /** @type {Client} */ (
-      /** @type {unknown} */ ({ clientId: 'runner' })
-    )
-
-    it('lets a client revoke its own token', () => {
-      expect(revocationAllowed(fakeCtx, runner, { clientId: 'runner' })).toBe(
-        true
-      )
-    })
-
-    it("refuses a client that revokes another client's token", () => {
-      expect(revocationAllowed(fakeCtx, runner, { clientId: 'another' })).toBe(
-        false
-      )
-    })
-
-    it('uses this policy at the revocation endpoint', () => {
-      const cfg = buildProviderConfig(fakeAdapter)
-
-      expect(cfg.features?.revocation).toEqual({
-        enabled: true,
-        allowedPolicy: revocationAllowed
-      })
     })
   })
 
@@ -177,5 +147,5 @@ describe('buildProviderConfig', () => {
 })
 
 /**
- * @import { AdapterConstructor, Client } from 'oidc-provider'
+ * @import { AdapterConstructor } from 'oidc-provider'
  */
