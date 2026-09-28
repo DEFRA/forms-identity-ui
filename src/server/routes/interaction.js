@@ -199,11 +199,11 @@ export default /** @type {ServerRoute[]} */ (
             details.params
           )
           // Record which scopes the account grants the client. The scope is
-          // the authorization request's own ('openid email offline_access'
-          // from runner), already validated by the provider; the fallback
-          // only satisfies the loose params typing. The saved grant id is the complete
-          // consent result — the login half was submitted in the earlier
-          // step and merges in via mergeWithLastSubmission.
+          // the authorization request's own, already validated by the
+          // provider; the fallback only satisfies the loose params typing.
+          // The saved grant id is the complete consent result — the login
+          // half was submitted in the earlier step and merges in via
+          // mergeWithLastSubmission.
           const grant = new provider.Grant({
             accountId: details.session?.accountId,
             clientId: params.client_id
