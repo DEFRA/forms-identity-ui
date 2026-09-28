@@ -96,8 +96,7 @@ const session = { obtainedAt: 0 }
 /**
  * Revokes the refresh token at the provider's revocation endpoint (RFC 7009).
  * The sign-in asked for `offline_access`, and the provider keeps that grant
- * at sign-out, so revocation is what ends it. A provider that does not list
- * the endpoint in discovery leaves the token to expire.
+ * at sign-out, so revocation is what ends it.
  */
 async function revokeRefreshToken() {
   const refreshToken = session.tokens?.refresh_token
@@ -106,19 +105,15 @@ async function revokeRefreshToken() {
     return
   }
 
-  try {
-    const config = await discover()
+  const config = await discover()
 
-    if (!config.serverMetadata().revocation_endpoint) {
-      return
-    }
-
-    await client.tokenRevocation(config, refreshToken, {
-      token_type_hint: 'refresh_token'
-    })
-  } catch (err) {
-    console.error('Could not revoke the refresh token', err)
+  if (!config.serverMetadata().revocation_endpoint) {
+    throw new Error('The provider lists no revocation_endpoint in discovery')
   }
+
+  await client.tokenRevocation(config, refreshToken, {
+    token_type_hint: 'refresh_token'
+  })
 }
 
 const server = Hapi.server({ port: PORT, host: 'localhost' })
