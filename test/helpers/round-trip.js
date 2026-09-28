@@ -20,11 +20,7 @@ export const KNOWN_CODE = '123456'
 export const PHONE = '07911 123456'
 export const CLIENT_ASSERTION_TYPE =
   'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
-/**
- * The scope that the runner asks for. `offline_access` gets a refresh token
- * that outlives the provider session.
- */
-export const RUNNER_SCOPE = 'openid email offline_access'
+export const CLIENT_SCOPE = 'openid email offline_access'
 
 // Jest runs a suite in its own realm while Node's own globals belong to the
 // host realm, so a structuredClone result carries the host's Object as its
@@ -453,9 +449,7 @@ export function useRoundTrip(mockStsSend) {
 
   /**
    * Signs a new citizen in through the full journey, in a new browser. Then
-   * redeems the code at the token endpoint. The authorization request is the
-   * runner's: `offline_access` with `prompt=consent`, which the provider
-   * needs before it accepts that scope.
+   * redeems the code at the token endpoint.
    * @param {string} email
    * @param {object} [options]
    * @param {string} [options.state]
@@ -468,7 +462,7 @@ export function useRoundTrip(mockStsSend) {
    */
   async function signInAndRedeem(
     email,
-    { state = 'state', scope = RUNNER_SCOPE, resource, tokenParams = {} } = {}
+    { state = 'state', scope = CLIENT_SCOPE, resource, tokenParams = {} } = {}
   ) {
     // a fresh browser: an earlier journey left a session that would resume
     jar.clear()
@@ -480,7 +474,7 @@ export function useRoundTrip(mockStsSend) {
       client_id: 'runner',
       response_type: 'code',
       scope,
-      prompt: 'consent',
+      prompt: 'login consent',
       redirect_uri: REDIRECT_URI,
       state,
       nonce: `nonce-${state}`,

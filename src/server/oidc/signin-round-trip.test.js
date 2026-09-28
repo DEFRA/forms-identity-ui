@@ -15,11 +15,11 @@ import { SignJWT, generateKeyPair } from 'jose'
 
 import {
   CLIENT_ASSERTION_TYPE,
+  CLIENT_SCOPE,
   ISSUER,
   KNOWN_CODE,
   PHONE,
   REDIRECT_URI,
-  RUNNER_SCOPE,
   clientAssertion,
   useRoundTrip
 } from '~/test/helpers/round-trip.js'
@@ -312,7 +312,7 @@ describe('sign-in round trip', () => {
       `/auth?${new URLSearchParams({
         client_id: 'runner',
         response_type: 'code',
-        scope: RUNNER_SCOPE,
+        scope: CLIENT_SCOPE,
         prompt: 'consent',
         redirect_uri: REDIRECT_URI,
         state: 'state-8',
