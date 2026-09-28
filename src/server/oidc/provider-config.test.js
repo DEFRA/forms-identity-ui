@@ -78,16 +78,16 @@ describe('buildProviderConfig', () => {
       /** @type {unknown} */ ({ clientId: 'runner' })
     )
 
-    it('lets a client revoke its own token', async () => {
-      expect(
-        await revocationAllowed(fakeCtx, runner, { clientId: 'runner' })
-      ).toBe(true)
+    it('lets a client revoke its own token', () => {
+      expect(revocationAllowed(fakeCtx, runner, { clientId: 'runner' })).toBe(
+        true
+      )
     })
 
-    it("refuses a client that revokes another client's token", async () => {
-      expect(
-        await revocationAllowed(fakeCtx, runner, { clientId: 'another' })
-      ).toBe(false)
+    it("refuses a client that revokes another client's token", () => {
+      expect(revocationAllowed(fakeCtx, runner, { clientId: 'another' })).toBe(
+        false
+      )
     })
 
     it('uses this policy at the revocation endpoint', () => {

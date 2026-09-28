@@ -2,7 +2,7 @@ import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
-import { SIGNING_ALG } from '~/src/server/constants.js'
+import { CLIENT_AUTH_METHOD, SIGNING_ALG } from '~/src/server/constants.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
@@ -73,10 +73,10 @@ function cancelUriFor(ctx) {
  * @param {KoaContextWithOIDC} _ctx
  * @param {Client} client - the authenticated client
  * @param {{ clientId?: string }} token - the token to revoke
- * @returns {Promise<boolean>}
+ * @returns {boolean}
  */
 export function revocationAllowed(_ctx, client, token) {
-  return Promise.resolve(token.clientId === client.clientId)
+  return token.clientId === client.clientId
 }
 
 /**
@@ -98,13 +98,13 @@ export function buildProviderConfig(adapter) {
         // private key we never hold — only its public half, below. Nothing
         // this service stores can impersonate the client, and there is no
         // shared secret to distribute or rotate in step.
-        token_endpoint_auth_method: 'private_key_jwt',
+        token_endpoint_auth_method: CLIENT_AUTH_METHOD,
         id_token_signed_response_alg: SIGNING_ALG,
         jwks: RUNNER_JWKS
       }
     ],
     jwks: { keys: JWKS.keys },
-    clientAuthMethods: ['private_key_jwt'],
+    clientAuthMethods: [CLIENT_AUTH_METHOD],
     pkce: { required: () => true },
     // A refresh returns a new access token but keeps the same refresh token.
     // Rotation guards against a stolen refresh token, which is a risk for
@@ -127,11 +127,8 @@ export function buildProviderConfig(adapter) {
       idTokenSigningAlgValues: [SIGNING_ALG],
       clientAuthSigningAlgValues: [SIGNING_ALG]
     },
-    // The revocation endpoint takes the same client authentication as the
-    // token endpoint. RFC 8414 reads a missing value as
-    // `client_secret_basic`, so discovery states it.
     discovery: {
-      revocation_endpoint_auth_methods_supported: ['private_key_jwt'],
+      revocation_endpoint_auth_methods_supported: [CLIENT_AUTH_METHOD],
       revocation_endpoint_auth_signing_alg_values_supported: [SIGNING_ALG]
     },
     features: {
@@ -162,8 +159,6 @@ export function buildProviderConfig(adapter) {
           return Promise.resolve()
         }
       },
-      // RFC 7009. A client ends its own sign-in by revoking its refresh
-      // token, which also revokes the grant and every token under it.
       revocation: {
         enabled: true,
         allowedPolicy: revocationAllowed
