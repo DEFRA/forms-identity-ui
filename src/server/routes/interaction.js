@@ -145,6 +145,38 @@ async function finishLogin(request, h, accountId) {
 }
 
 /**
+ * Records which scopes the account grants the client.
+ * @param {Provider} provider
+ * @param {InteractionDetails} details
+ * @returns {Promise<string>}
+ */
+async function saveConsentGrant(provider, details) {
+  // The scope is the authorization request's own, already validated by the
+  // provider
+  const { client_id: clientId, scope } = details.params
+
+  if (typeof clientId !== 'string' || typeof scope !== 'string') {
+    throw Boom.internal('Consent interaction has no client_id or scope')
+  }
+
+  const grant = details.grantId
+    ? await provider.Grant.find(details.grantId)
+    : new provider.Grant({
+        accountId: details.session?.accountId,
+        clientId
+      })
+
+  if (!grant) {
+    throw Boom.internal(
+      `Grant ${details.grantId} ended during the consent interaction`
+    )
+  }
+
+  grant.addOIDCScope(scope)
+  return grant.save()
+}
+
+/**
  *
  * @param {Request<{ Pres: InteractionPres, Query: { language?: string }; }>} request
  * @param {ResponseToolkit<{ Pres: InteractionPres, Query: { language?: string }; }>} h
@@ -195,21 +227,10 @@ export default /** @type {ServerRoute[]} */ (
         // (devInteractions is disabled), which is why the grant is built
         // here rather than by the library.
         if (details.prompt.name === 'consent') {
-          const params = /** @type {{ client_id?: string, scope?: string }} */ (
-            details.params
-          )
-          // Record which scopes the account grants the client. The scope is
-          // the authorization request's own, already validated by the
-          // provider; the fallback only satisfies the loose params typing.
           // The saved grant id is the complete consent result — the login
           // half was submitted in the earlier step and merges in via
           // mergeWithLastSubmission.
-          const grant = new provider.Grant({
-            accountId: details.session?.accountId,
-            clientId: params.client_id
-          })
-          grant.addOIDCScope(params.scope ?? '')
-          const grantId = await grant.save()
+          const grantId = await saveConsentGrant(provider, details)
           await provider.interactionFinished(
             request.raw.req,
             request.raw.res,

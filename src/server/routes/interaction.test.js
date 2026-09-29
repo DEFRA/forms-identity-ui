@@ -681,41 +681,128 @@ describe('interaction pages', () => {
     ).toBeInTheDocument()
   })
 
-  it('auto-grants consent prompts', async () => {
-    detailsSpy.mockResolvedValue(
-      /** @type {never} */ ({
-        uid: 'uid-1',
-        prompt: { name: 'consent' },
-        params: { client_id: 'runner', scope: 'openid email' },
-        session: { accountId: 'acc-1' }
-      })
-    )
-    const provider = server.app.oidcProvider
-    const saveSpy = jest.fn().mockResolvedValue('grant-1')
-    const addScopeSpy = jest.fn()
-    class FakeGrant {
-      addOIDCScope = addScopeSpy
-      save = saveSpy
+  describe('consent prompts', () => {
+    /** @type {jest.Mock} */
+    let findSpy
+    /** @type {jest.Mock} */
+    let addScopeSpy
+    /** @type {unknown[]} */
+    let constructed
+
+    /**
+     * @param {string} [grantId]
+     */
+    function mockConsent(grantId) {
+      detailsSpy.mockResolvedValue(
+        /** @type {never} */ ({
+          uid: 'uid-1',
+          prompt: { name: 'consent' },
+          params: { client_id: 'runner', scope: 'openid email' },
+          session: { accountId: 'acc-1' },
+          grantId
+        })
+      )
     }
-    // Grant is a getter on the provider — swap it via defineProperty
-    Object.defineProperty(provider, 'Grant', {
-      value: FakeGrant,
-      configurable: true
+
+    beforeEach(() => {
+      findSpy = jest.fn()
+      addScopeSpy = jest.fn()
+      constructed = []
+      const add = addScopeSpy
+      const list = constructed
+      class FakeGrant {
+        static find = findSpy
+        addOIDCScope = add
+        save = jest.fn().mockResolvedValue('grant-new')
+        /** @param {unknown} properties */
+        constructor(properties) {
+          list.push(properties)
+        }
+      }
+      // Grant is a getter on the provider — swap it via defineProperty
+      Object.defineProperty(server.app.oidcProvider, 'Grant', {
+        value: FakeGrant,
+        configurable: true
+      })
     })
 
-    await server.inject({ method: 'GET', url: '/interaction/uid-1' })
+    afterEach(() => {
+      // restore the prototype getter
+      // @ts-expect-error -- delete own property to fall back to the class getter
+      delete server.app.oidcProvider.Grant
+    })
 
-    // restore the prototype getter
-    // @ts-expect-error -- delete own property to fall back to the class getter
-    delete provider.Grant
+    it('auto-grants consent with a new grant', async () => {
+      mockConsent()
 
-    expect(addScopeSpy).toHaveBeenCalledWith('openid email')
-    expect(finishedSpy).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      { consent: { grantId: 'grant-1' } },
-      { mergeWithLastSubmission: true }
-    )
+      await server.inject({ method: 'GET', url: '/interaction/uid-1' })
+
+      expect(findSpy).not.toHaveBeenCalled()
+      expect(constructed).toEqual([{ accountId: 'acc-1', clientId: 'runner' }])
+      expect(addScopeSpy).toHaveBeenCalledWith('openid email')
+      expect(finishedSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { consent: { grantId: 'grant-new' } },
+        { mergeWithLastSubmission: true }
+      )
+    })
+
+    it('extends the existing grant', async () => {
+      mockConsent('grant-0')
+      const existingAddScope = jest.fn()
+      findSpy.mockResolvedValue({
+        addOIDCScope: existingAddScope,
+        save: jest.fn().mockResolvedValue('grant-0')
+      })
+
+      await server.inject({ method: 'GET', url: '/interaction/uid-1' })
+
+      expect(findSpy).toHaveBeenCalledWith('grant-0')
+      expect(constructed).toHaveLength(0)
+      expect(existingAddScope).toHaveBeenCalledWith('openid email')
+      expect(finishedSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { consent: { grantId: 'grant-0' } },
+        { mergeWithLastSubmission: true }
+      )
+    })
+
+    it('fails when the existing grant ended during the interaction', async () => {
+      mockConsent('grant-0')
+      findSpy.mockResolvedValue(undefined)
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1'
+      })
+
+      expect(response.statusCode).toBe(500)
+      expect(findSpy).toHaveBeenCalledWith('grant-0')
+      expect(constructed).toHaveLength(0)
+      expect(finishedSpy).not.toHaveBeenCalled()
+    })
+
+    it('fails when the interaction has no scope', async () => {
+      detailsSpy.mockResolvedValue(
+        /** @type {never} */ ({
+          uid: 'uid-1',
+          prompt: { name: 'consent' },
+          params: { client_id: 'runner' },
+          session: { accountId: 'acc-1' }
+        })
+      )
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1'
+      })
+
+      expect(response.statusCode).toBe(500)
+      expect(constructed).toHaveLength(0)
+      expect(finishedSpy).not.toHaveBeenCalled()
+    })
   })
 })
 
