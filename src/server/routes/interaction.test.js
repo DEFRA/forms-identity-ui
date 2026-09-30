@@ -682,12 +682,18 @@ describe('interaction pages', () => {
   })
 
   describe('consent prompts', () => {
-    /** @type {jest.Mock} */
-    let findSpy
-    /** @type {jest.Mock} */
-    let addScopeSpy
-    /** @type {unknown[]} */
-    let constructed
+    class FakeGrant {
+      static find = jest.fn()
+      /** @type {FakeGrant[]} */
+      static instances = []
+      addOIDCScope = jest.fn()
+      save = jest.fn().mockResolvedValue('grant-new')
+      /** @param {unknown} properties */
+      constructor(properties) {
+        this.properties = properties
+        FakeGrant.instances.push(this)
+      }
+    }
 
     /**
      * @param {string} [grantId]
@@ -705,20 +711,7 @@ describe('interaction pages', () => {
     }
 
     beforeEach(() => {
-      findSpy = jest.fn()
-      addScopeSpy = jest.fn()
-      constructed = []
-      const add = addScopeSpy
-      const list = constructed
-      class FakeGrant {
-        static find = findSpy
-        addOIDCScope = add
-        save = jest.fn().mockResolvedValue('grant-new')
-        /** @param {unknown} properties */
-        constructor(properties) {
-          list.push(properties)
-        }
-      }
+      FakeGrant.instances = []
       // Grant is a getter on the provider — swap it via defineProperty
       Object.defineProperty(server.app.oidcProvider, 'Grant', {
         value: FakeGrant,
@@ -737,9 +730,14 @@ describe('interaction pages', () => {
 
       await server.inject({ method: 'GET', url: '/interaction/uid-1' })
 
-      expect(findSpy).not.toHaveBeenCalled()
-      expect(constructed).toEqual([{ accountId: 'acc-1', clientId: 'runner' }])
-      expect(addScopeSpy).toHaveBeenCalledWith('openid email')
+      expect(FakeGrant.find).not.toHaveBeenCalled()
+      expect(FakeGrant.instances).toHaveLength(1)
+      const [grant] = FakeGrant.instances
+      expect(grant.properties).toEqual({
+        accountId: 'acc-1',
+        clientId: 'runner'
+      })
+      expect(grant.addOIDCScope).toHaveBeenCalledWith('openid email')
       expect(finishedSpy).toHaveBeenCalledWith(
         expect.anything(),
         expect.anything(),
@@ -751,15 +749,15 @@ describe('interaction pages', () => {
     it('extends the existing grant', async () => {
       mockConsent('grant-0')
       const existingAddScope = jest.fn()
-      findSpy.mockResolvedValue({
+      FakeGrant.find.mockResolvedValue({
         addOIDCScope: existingAddScope,
         save: jest.fn().mockResolvedValue('grant-0')
       })
 
       await server.inject({ method: 'GET', url: '/interaction/uid-1' })
 
-      expect(findSpy).toHaveBeenCalledWith('grant-0')
-      expect(constructed).toHaveLength(0)
+      expect(FakeGrant.find).toHaveBeenCalledWith('grant-0')
+      expect(FakeGrant.instances).toHaveLength(0)
       expect(existingAddScope).toHaveBeenCalledWith('openid email')
       expect(finishedSpy).toHaveBeenCalledWith(
         expect.anything(),
@@ -771,7 +769,7 @@ describe('interaction pages', () => {
 
     it('fails when the existing grant ended during the interaction', async () => {
       mockConsent('grant-0')
-      findSpy.mockResolvedValue(undefined)
+      FakeGrant.find.mockResolvedValue(undefined)
 
       const response = await server.inject({
         method: 'GET',
@@ -779,8 +777,8 @@ describe('interaction pages', () => {
       })
 
       expect(response.statusCode).toBe(500)
-      expect(findSpy).toHaveBeenCalledWith('grant-0')
-      expect(constructed).toHaveLength(0)
+      expect(FakeGrant.find).toHaveBeenCalledWith('grant-0')
+      expect(FakeGrant.instances).toHaveLength(0)
       expect(finishedSpy).not.toHaveBeenCalled()
     })
 
@@ -800,7 +798,7 @@ describe('interaction pages', () => {
       })
 
       expect(response.statusCode).toBe(500)
-      expect(constructed).toHaveLength(0)
+      expect(FakeGrant.instances).toHaveLength(0)
       expect(finishedSpy).not.toHaveBeenCalled()
     })
   })
