@@ -154,23 +154,22 @@ async function saveConsentGrant(provider, details) {
   // The scope is the authorization request's own, already validated by the
   // provider
   const { client_id: clientId, scope } = details.params
+  const accountId = details.session?.accountId
 
-  if (typeof clientId !== 'string' || typeof scope !== 'string') {
-    throw Boom.internal('Consent interaction has no client_id or scope')
-  }
-
-  const grant = details.grantId
-    ? await provider.Grant.find(details.grantId)
-    : new provider.Grant({
-        accountId: details.session?.accountId,
-        clientId
-      })
-
-  if (!grant) {
+  if (typeof clientId !== 'string' || typeof scope !== 'string' || !accountId) {
     throw Boom.internal(
-      `Grant ${details.grantId} ended during the consent interaction`
+      'Consent interaction has no client_id, scope or account'
     )
   }
+
+  // The grant can reach the end of its lifetime between the authorization
+  // request and this page. The account then gets a new grant, so that the
+  // sign-in continues.
+  const existingGrant = details.grantId
+    ? await provider.Grant.find(details.grantId)
+    : undefined
+
+  const grant = existingGrant ?? new provider.Grant({ accountId, clientId })
 
   grant.addOIDCScope(scope)
   return grant.save()

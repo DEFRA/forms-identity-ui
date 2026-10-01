@@ -767,9 +767,36 @@ describe('interaction pages', () => {
       )
     })
 
-    it('fails when the existing grant ended during the interaction', async () => {
+    it('auto-grants consent with a new grant when the existing grant ended during the interaction', async () => {
       mockConsent('grant-0')
       FakeGrant.find.mockResolvedValue(undefined)
+
+      await server.inject({ method: 'GET', url: '/interaction/uid-1' })
+
+      expect(FakeGrant.find).toHaveBeenCalledWith('grant-0')
+      expect(FakeGrant.instances).toHaveLength(1)
+      const [grant] = FakeGrant.instances
+      expect(grant.properties).toEqual({
+        accountId: 'acc-1',
+        clientId: 'runner'
+      })
+      expect(grant.addOIDCScope).toHaveBeenCalledWith('openid email')
+      expect(finishedSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { consent: { grantId: 'grant-new' } },
+        { mergeWithLastSubmission: true }
+      )
+    })
+
+    it('fails when the interaction has no account', async () => {
+      detailsSpy.mockResolvedValue(
+        /** @type {never} */ ({
+          uid: 'uid-1',
+          prompt: { name: 'consent' },
+          params: { client_id: 'runner', scope: 'openid email' }
+        })
+      )
 
       const response = await server.inject({
         method: 'GET',
@@ -777,7 +804,6 @@ describe('interaction pages', () => {
       })
 
       expect(response.statusCode).toBe(500)
-      expect(FakeGrant.find).toHaveBeenCalledWith('grant-0')
       expect(FakeGrant.instances).toHaveLength(0)
       expect(finishedSpy).not.toHaveBeenCalled()
     })
