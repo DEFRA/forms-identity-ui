@@ -57,6 +57,12 @@ becomes the `aud` of the token, and a client names one in the `resource`
 parameter of the authorization request. `OIDC_TTL_ACCESS_TOKEN` is short, and
 the client gets a new access token with its refresh token.
 
+A client gets a refresh token when it asks for the `offline_access` scope with
+`prompt=consent`. The refresh token lasts for `OIDC_TTL_REFRESH_TOKEN`, after
+the provider session has ended. Sign-out keeps the grant, so the client
+revokes its refresh token at the revocation endpoint (`/token/revocation`)
+when the user comes back from a completed sign-out.
+
 ## Development
 
 ```sh

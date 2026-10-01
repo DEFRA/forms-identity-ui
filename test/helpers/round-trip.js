@@ -20,6 +20,7 @@ export const KNOWN_CODE = '123456'
 export const PHONE = '07911 123456'
 export const CLIENT_ASSERTION_TYPE =
   'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+export const CLIENT_SCOPE = 'openid email offline_access'
 
 // Jest runs a suite in its own realm while Node's own globals belong to the
 // host realm, so a structuredClone result carries the host's Object as its
@@ -426,11 +427,33 @@ export function useRoundTrip(mockStsSend) {
   }
 
   /**
+   * Revokes a token at the revocation endpoint as the runner
+   * @param {string} token
+   * @param {Record<string, string>} [params] - added to the request, such as
+   * `token_type_hint`
+   */
+  async function revocationRequest(token, params = {}) {
+    return server.inject({
+      method: 'POST',
+      url: '/token/revocation',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        client_id: 'runner',
+        token,
+        client_assertion_type: CLIENT_ASSERTION_TYPE,
+        client_assertion: await clientAssertion(),
+        ...params
+      }).toString()
+    })
+  }
+
+  /**
    * Signs a new citizen in through the full journey, in a new browser. Then
    * redeems the code at the token endpoint.
    * @param {string} email
    * @param {object} [options]
    * @param {string} [options.state]
+   * @param {string} [options.scope]
    * @param {string} [options.resource] - sent to the authorization endpoint.
    * If only the token endpoint gets it, the provider returns an opaque token
    * and no error.
@@ -439,7 +462,7 @@ export function useRoundTrip(mockStsSend) {
    */
   async function signInAndRedeem(
     email,
-    { state = 'state', resource, tokenParams = {} } = {}
+    { state = 'state', scope = CLIENT_SCOPE, resource, tokenParams = {} } = {}
   ) {
     // a fresh browser: an earlier journey left a session that would resume
     jar.clear()
@@ -450,7 +473,8 @@ export function useRoundTrip(mockStsSend) {
     const authorize = `/auth?${new URLSearchParams({
       client_id: 'runner',
       response_type: 'code',
-      scope: 'openid email',
+      scope,
+      prompt: 'login consent',
       redirect_uri: REDIRECT_URI,
       state,
       nonce: `nonce-${state}`,
@@ -499,6 +523,7 @@ export function useRoundTrip(mockStsSend) {
     crumb,
     follow,
     tokenRequest,
+    revocationRequest,
     signInAndRedeem
   }
 }

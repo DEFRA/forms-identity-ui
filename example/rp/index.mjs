@@ -1,9 +1,9 @@
 /**
  * Example relying party for trying the sign-in journey in a browser without
  * forms-runner. The OIDC mechanics (discovery, PKCE, code exchange, logout
- * URLs) come from openid-client — the certified RP library — so this file is
- * only routing and session bookkeeping. Never deployed: lives outside src/,
- * so the babel build and Docker image never include it.
+ * URLs, token revocation) come from openid-client — the certified RP library
+ * — so this file is only routing and session bookkeeping. Never deployed:
+ * lives outside src/, so the babel build and Docker image never include it.
  *
  * Started automatically by this repo's `npm run dev` (alongside the
  * service) on :3901; forms-identity-api must also be running (:3010, with
@@ -93,13 +93,36 @@ const pending = new Map()
  */
 const session = { obtainedAt: 0 }
 
+/**
+ * Revokes the refresh token at the provider's revocation endpoint (RFC 7009).
+ * The sign-in asked for `offline_access`, and the provider keeps that grant
+ * at sign-out, so revocation is what ends it.
+ */
+async function revokeRefreshToken() {
+  const refreshToken = session.tokens?.refresh_token
+
+  if (!refreshToken) {
+    return
+  }
+
+  const config = await discover()
+
+  if (!config.serverMetadata().revocation_endpoint) {
+    throw new Error('The provider lists no revocation_endpoint in discovery')
+  }
+
+  await client.tokenRevocation(config, refreshToken, {
+    token_type_hint: 'refresh_token'
+  })
+}
+
 const server = Hapi.server({ port: PORT, host: 'localhost' })
 
 server.route([
   {
     method: 'GET',
     path: '/',
-    handler(request) {
+    async handler(request) {
       const { state, cancelled } =
         /** @type {{ state?: string, cancelled?: string }} */ (request.query)
 
@@ -110,6 +133,7 @@ server.route([
         state === undefined ? '' : signOutResult(state, cancelled === 'true')
 
       if (state !== undefined && cancelled !== 'true') {
+        await revokeRefreshToken()
         delete session.tokens
         delete session.claims
       }
@@ -136,7 +160,11 @@ server.route([
 
       const authUrl = client.buildAuthorizationUrl(config, {
         redirect_uri: REDIRECT_URI,
-        scope: 'openid email',
+        // `offline_access` asks for a refresh token that outlives the
+        // provider session. The provider accepts it only with a consent
+        // prompt, which it answers without a page.
+        scope: 'openid email offline_access',
+        prompt: 'consent',
         // Named here only: the provider issues the token for the granted API
         // without it being sent again at the token endpoint
         resource: RESOURCE,

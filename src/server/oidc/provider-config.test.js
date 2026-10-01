@@ -63,39 +63,6 @@ describe('buildProviderConfig', () => {
   })
 
   describe('refresh tokens', () => {
-    it('issues a refresh token to a client allowed the grant, without offline_access', async () => {
-      const cfg = buildProviderConfig(fakeAdapter)
-      const client = /** @type {Client} */ (
-        /** @type {unknown} */ ({
-          grantTypeAllowed: (/** @type {string} */ grantType) =>
-            cfg.clients?.[0].grant_types?.includes(grantType)
-        })
-      )
-
-      expect(
-        await cfg.issueRefreshToken?.(
-          fakeCtx,
-          client,
-          /** @type {never} */ (null)
-        )
-      ).toBe(true)
-    })
-
-    it('does not issue a refresh token to a client not allowed the grant', async () => {
-      const cfg = buildProviderConfig(fakeAdapter)
-      const client = /** @type {Client} */ (
-        /** @type {unknown} */ ({ grantTypeAllowed: () => false })
-      )
-
-      expect(
-        await cfg.issueRefreshToken?.(
-          fakeCtx,
-          client,
-          /** @type {never} */ (null)
-        )
-      ).toBe(false)
-    })
-
     it('keeps the same refresh token on every refresh', () => {
       const cfg = buildProviderConfig(fakeAdapter)
 
@@ -180,5 +147,5 @@ describe('buildProviderConfig', () => {
 })
 
 /**
- * @import { AdapterConstructor, Client } from 'oidc-provider'
+ * @import { AdapterConstructor } from 'oidc-provider'
  */

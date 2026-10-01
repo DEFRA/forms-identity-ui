@@ -2,7 +2,7 @@ import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
-import { SIGNING_ALG } from '~/src/server/constants.js'
+import { CLIENT_AUTH_METHOD, SIGNING_ALG } from '~/src/server/constants.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
@@ -86,22 +86,14 @@ export function buildProviderConfig(adapter) {
         // private key we never hold — only its public half, below. Nothing
         // this service stores can impersonate the client, and there is no
         // shared secret to distribute or rotate in step.
-        token_endpoint_auth_method: 'private_key_jwt',
+        token_endpoint_auth_method: CLIENT_AUTH_METHOD,
         id_token_signed_response_alg: SIGNING_ALG,
         jwks: RUNNER_JWKS
       }
     ],
     jwks: { keys: JWKS.keys },
-    clientAuthMethods: ['private_key_jwt'],
+    clientAuthMethods: [CLIENT_AUTH_METHOD],
     pkce: { required: () => true },
-    // The library only issues a refresh token when `offline_access` was
-    // requested, which also forces a consent prompt. Tokens are only used
-    // while the citizen is using the service, so that scope does not apply:
-    // any client allowed the grant gets one.
-    issueRefreshToken(_ctx, client) {
-      return client.grantTypeAllowed('refresh_token')
-    },
-    expiresWithSession: () => false,
     // A refresh returns a new access token but keeps the same refresh token.
     // Rotation guards against a stolen refresh token, which is a risk for
     // public clients; this client authenticates with a private key, so a
@@ -109,20 +101,32 @@ export function buildProviderConfig(adapter) {
     rotateRefreshToken: false,
     // Discovery is a promise to every relying party, so it states what this
     // deployment does and nothing more: one client, the authorization code
-    // flow, one scope beyond the claims below, and RS256 for the tokens
-    // signed here and for the assertions a client signs
+    // flow, `offline_access` beside the claims below, and RS256 for the
+    // tokens signed here and for the assertions a client signs
     responseTypes: ['code'],
-    scopes: ['openid'],
+    // A refresh token is issued only when the client asks for
+    // `offline_access` with `prompt=consent` (OpenID Connect Core, section
+    // 11). That grant outlives the provider session, and sign-out keeps it,
+    // so the client revokes its refresh token at the revocation endpoint when
+    // the user signs out. Without `offline_access`, every token ends with the
+    // provider session.
+    scopes: ['openid', 'offline_access'],
     enabledJWA: {
       idTokenSigningAlgValues: [SIGNING_ALG],
       clientAuthSigningAlgValues: [SIGNING_ALG]
+    },
+    discovery: {
+      revocation_endpoint_auth_methods_supported: [CLIENT_AUTH_METHOD],
+      revocation_endpoint_auth_signing_alg_values_supported: [SIGNING_ALG]
     },
     features: {
       rpInitiatedLogout: {
         enabled: true,
         // The page shows the provider's own sign-out form. The provider's
         // confirm step then does the full sign-out. It checks the xsrf value,
-        // revokes the grants, clears the cookie and redirects to the client.
+        // ends the session, clears the cookie and redirects to the client.
+        // It keeps `offline_access` grants, which the client ends at the
+        // revocation endpoint.
         // When the ID token hint identifies the signed-in user, the page
         // presses its Sign out button on load. Without JavaScript, the user
         // presses the button.
@@ -143,6 +147,7 @@ export function buildProviderConfig(adapter) {
           return Promise.resolve()
         }
       },
+      revocation: { enabled: true },
       devInteractions: { enabled: false },
       // On by default, and its endpoint is deliberately not mounted
       pushedAuthorizationRequests: { enabled: false },
@@ -210,5 +215,5 @@ export function buildProviderConfig(adapter) {
 }
 
 /**
- * @import { AdapterConstructor, Configuration, JWK } from 'oidc-provider'
+ * @import { AdapterConstructor, Configuration, JWK, KoaContextWithOIDC } from 'oidc-provider'
  */
