@@ -1,7 +1,7 @@
 /**
  * Example relying party for trying the sign-in journey in a browser without
- * forms-runner. The OIDC mechanics (discovery, PKCE, code exchange,
- * userinfo, logout URLs) come from openid-client — the certified RP library
+ * forms-runner. The OIDC mechanics (discovery, PKCE, code exchange, logout
+ * URLs, token revocation) come from openid-client — the certified RP library
  * — so this file is only routing and session bookkeeping. Never deployed:
  * lives outside src/, so the babel build and Docker image never include it.
  *
@@ -10,26 +10,35 @@
  * its mongo). Then open http://localhost:3901 and follow the links.
  */
 import Hapi from '@hapi/hapi'
+import { decodeJwt } from 'jose'
 import * as client from 'openid-client'
 
 import 'dotenv/config'
 
-import { errorPage, page, signedInPage, tokenSummary } from './views.mjs'
+import {
+  errorPage,
+  page,
+  signOutResult,
+  signedInPage,
+  tokenSummary
+} from './views.mjs'
 
 const ISSUER = process.env.EXAMPLE_RP_ISSUER ?? 'http://localhost:3011'
 const DEFAULT_PORT = 3901
 const PORT = Number(process.env.EXAMPLE_RP_PORT ?? DEFAULT_PORT)
 const BASE = `http://localhost:${PORT}`
 const REDIRECT_URI = `${BASE}/callback`
-const PRIVATE_JWKS = process.env.EXAMPLE_RP_PRIVATE_JWKS
+const PRIVATE_JWK_JSON = process.env.EXAMPLE_RP_PRIVATE_JWK
+const RESOURCE =
+  process.env.EXAMPLE_RP_RESOURCE ?? 'urn:defra:forms:forms-submission-api'
 
-if (!PRIVATE_JWKS) {
+if (!PRIVATE_JWK_JSON) {
   throw new Error(
-    'EXAMPLE_RP_PRIVATE_JWKS must be set (this repo’s .env) — generate the pair with scripts/generate-client-keypair.mjs'
+    'EXAMPLE_RP_PRIVATE_JWK must be set (this repo’s .env) — generate the pair with scripts/generate-client-keypair.mjs'
   )
 }
 
-const [PRIVATE_JWK] = JSON.parse(PRIVATE_JWKS).keys
+const PRIVATE_JWK = JSON.parse(PRIVATE_JWK_JSON)
 
 /**
  * The client's signing key. Standing in for forms-runner, this process is
@@ -41,7 +50,7 @@ async function clientKey() {
     key: await crypto.subtle.importKey(
       'jwk',
       PRIVATE_JWK,
-      { name: 'ECDSA', namedCurve: 'P-256' },
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
       false,
       ['sign']
     ),
@@ -80,9 +89,32 @@ const pending = new Map()
 
 /**
  * Who is signed in. Single-user, in-memory — it's an example.
- * @type {{ tokens?: client.TokenEndpointResponse, claims?: object, userinfo?: object, obtainedAt: number }}
+ * @type {{ tokens?: client.TokenEndpointResponse, claims?: object, obtainedAt: number }}
  */
 const session = { obtainedAt: 0 }
+
+/**
+ * Revokes the refresh token at the provider's revocation endpoint (RFC 7009).
+ * The sign-in asked for `offline_access`, and the provider keeps that grant
+ * at sign-out, so revocation is what ends it.
+ */
+async function revokeRefreshToken() {
+  const refreshToken = session.tokens?.refresh_token
+
+  if (!refreshToken) {
+    return
+  }
+
+  const config = await discover()
+
+  if (!config.serverMetadata().revocation_endpoint) {
+    throw new Error('The provider lists no revocation_endpoint in discovery')
+  }
+
+  await client.tokenRevocation(config, refreshToken, {
+    token_type_hint: 'refresh_token'
+  })
+}
 
 const server = Hapi.server({ port: PORT, host: 'localhost' })
 
@@ -90,15 +122,31 @@ server.route([
   {
     method: 'GET',
     path: '/',
-    handler() {
+    async handler(request) {
+      const { state, cancelled } =
+        /** @type {{ state?: string, cancelled?: string }} */ (request.query)
+
+      // The provider sends the user here with `state` after a sign-out. The
+      // Cancel link on the sign-out page also sends `state`, with
+      // `cancelled=true`. End the session only after a completed sign-out.
+      const result =
+        state === undefined ? '' : signOutResult(state, cancelled === 'true')
+
+      if (state !== undefined && cancelled !== 'true') {
+        await revokeRefreshToken()
+        delete session.tokens
+        delete session.claims
+      }
+
       if (session.claims && session.tokens) {
         return signedInPage(
           session.claims,
           tokenSummary(session.tokens, session.obtainedAt),
-          session.userinfo ?? {}
+          decodeJwt(session.tokens.access_token),
+          result
         )
       }
-      return page('<p><a href="/login">Sign in</a></p>')
+      return page(`${result}<p><a href="/login">Sign in</a></p>`)
     }
   },
   {
@@ -112,7 +160,14 @@ server.route([
 
       const authUrl = client.buildAuthorizationUrl(config, {
         redirect_uri: REDIRECT_URI,
-        scope: 'openid email',
+        // `offline_access` asks for a refresh token that outlives the
+        // provider session. The provider accepts it only with a consent
+        // prompt, which it answers without a page.
+        scope: 'openid email offline_access',
+        prompt: 'consent',
+        // Named here only: the provider issues the token for the granted API
+        // without it being sent again at the token endpoint
+        resource: RESOURCE,
         state,
         code_challenge: await client.calculatePKCECodeChallenge(verifier),
         code_challenge_method: 'S256'
@@ -146,11 +201,6 @@ server.route([
         session.tokens = tokens
         session.obtainedAt = Date.now()
         session.claims = claims
-        session.userinfo = await client.fetchUserInfo(
-          config,
-          tokens.access_token,
-          /** @type {string} */ (claims?.sub)
-        )
       } catch (err) {
         return errorPage(String(err))
       }
@@ -165,13 +215,16 @@ server.route([
       const config = await discover()
       const idToken = session.tokens?.id_token
 
-      delete session.tokens
-      delete session.claims
-      delete session.userinfo
-
       const logoutUrl = client.buildEndSessionUrl(config, {
         ...(idToken && { id_token_hint: idToken }),
-        client_id: 'runner'
+        client_id: 'runner',
+        // Registered in OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS — without it
+        // the provider shows its own success page instead of returning here
+        post_logout_redirect_uri: `${BASE}/`,
+        // The example RP's own data for this sign-out: a dummy form slug. The
+        // provider sends it back unchanged. It also lets `/`, which is the
+        // home page too, know that the user came back from the provider.
+        state: JSON.stringify({ slug: 'example-form' })
       })
       return h.redirect(logoutUrl.href)
     }

@@ -2,6 +2,7 @@ import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
+import { CLIENT_AUTH_METHOD, SIGNING_ALG } from '~/src/server/constants.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
@@ -11,27 +12,59 @@ import { view } from '~/src/server/plugins/nunjucks/render.js'
 const JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.jwks'))
 )
-const COOKIE_KEYS = config.get('oidc.cookieKeys').split(',')
+const COOKIE_KEYS = config.get('oidc.cookieKeys')
 const COOKIE_SECURE = config.get('oidc.cookieSecure')
 const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.runnerJwks'))
 )
-const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris').split(',')
-const SIGNING_ALG = 'RS256'
+const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris')
+const RUNNER_POST_LOGOUT_REDIRECT_URIS = config.get(
+  'oidc.runnerPostLogoutRedirectUris'
+)
 
 /**
  * The APIs this provider issues access tokens for.
  */
-const RESOURCE_SERVER_NAMES = config.get('oidc.resourceServers')
-const RESOURCE_SERVERS = new Set(RESOURCE_SERVER_NAMES.split(','))
+const RESOURCE_SERVERS = new Set(config.get('oidc.resourceServers'))
 
 const TTL_SECONDS = {
   AuthorizationCode: config.get('oidc.ttl.authorizationCode'),
   IdToken: config.get('oidc.ttl.idToken'),
   AccessToken: config.get('oidc.ttl.accessToken'),
+  // Fixed from sign-in: refreshing does not replace the refresh token, so
+  // its expiry never moves
+  RefreshToken: config.get('oidc.ttl.refreshToken'),
   Interaction: config.get('oidc.ttl.interaction'),
   Session: config.get('oidc.ttl.session'),
   Grant: config.get('oidc.ttl.grant')
+}
+
+/**
+ * The URI for the Cancel link on the sign-out page. It is the client's
+ * post-logout redirect URI, with the client's `state` and `cancelled=true`.
+ * The provider has already checked this URI against the client's registered
+ * URIs. This makes sure that the link only goes back to the client that sent
+ * the user. The client uses `cancelled=true` to know that the user did not
+ * sign out.
+ * @param {KoaContextWithOIDC} ctx
+ * @returns {string | undefined}
+ */
+function cancelUriFor(ctx) {
+  const postLogoutRedirectUri = ctx.oidc.params?.post_logout_redirect_uri
+  const state = ctx.oidc.params?.state
+
+  if (typeof postLogoutRedirectUri !== 'string') {
+    return undefined
+  }
+
+  const cancelUri = new URL(postLogoutRedirectUri)
+
+  if (typeof state === 'string') {
+    cancelUri.searchParams.set('state', state)
+  }
+  cancelUri.searchParams.set('cancelled', 'true')
+
+  return cancelUri.href
 }
 
 /**
@@ -46,36 +79,81 @@ export function buildProviderConfig(adapter) {
       {
         client_id: 'runner',
         redirect_uris: RUNNER_REDIRECT_URIS,
+        post_logout_redirect_uris: RUNNER_POST_LOGOUT_REDIRECT_URIS,
         response_types: ['code'],
-        grant_types: ['authorization_code'],
+        grant_types: ['authorization_code', 'refresh_token'],
         // The client proves itself by signing a short-lived assertion with a
         // private key we never hold — only its public half, below. Nothing
         // this service stores can impersonate the client, and there is no
         // shared secret to distribute or rotate in step.
-        token_endpoint_auth_method: 'private_key_jwt',
+        token_endpoint_auth_method: CLIENT_AUTH_METHOD,
         id_token_signed_response_alg: SIGNING_ALG,
         jwks: RUNNER_JWKS
       }
     ],
     jwks: { keys: JWKS.keys },
-    clientAuthMethods: ['private_key_jwt'],
+    clientAuthMethods: [CLIENT_AUTH_METHOD],
     pkce: { required: () => true },
+    // A refresh returns a new access token but keeps the same refresh token.
+    // Rotation guards against a stolen refresh token, which is a risk for
+    // public clients; this client authenticates with a private key, so a
+    // refresh token is of no use to anyone without that key.
+    rotateRefreshToken: false,
     // Discovery is a promise to every relying party, so it states what this
     // deployment does and nothing more: one client, the authorization code
-    // flow, one scope beyond the claims below, and RS256 for the tokens
-    // signed here and for the assertions a client signs
+    // flow, `offline_access` beside the claims below, and RS256 for the
+    // tokens signed here and for the assertions a client signs
     responseTypes: ['code'],
-    scopes: ['openid'],
+    // A refresh token is issued only when the client asks for
+    // `offline_access` with `prompt=consent` (OpenID Connect Core, section
+    // 11). That grant outlives the provider session, and sign-out keeps it,
+    // so the client revokes its refresh token at the revocation endpoint when
+    // the user signs out. Without `offline_access`, every token ends with the
+    // provider session.
+    scopes: ['openid', 'offline_access'],
     enabledJWA: {
       idTokenSigningAlgValues: [SIGNING_ALG],
       clientAuthSigningAlgValues: [SIGNING_ALG]
     },
+    discovery: {
+      revocation_endpoint_auth_methods_supported: [CLIENT_AUTH_METHOD],
+      revocation_endpoint_auth_signing_alg_values_supported: [SIGNING_ALG]
+    },
     features: {
+      rpInitiatedLogout: {
+        enabled: true,
+        // The page shows the provider's own sign-out form. The provider's
+        // confirm step then does the full sign-out. It checks the xsrf value,
+        // ends the session, clears the cookie and redirects to the client.
+        // It keeps `offline_access` grants, which the client ends at the
+        // revocation endpoint.
+        // When the ID token hint identifies the signed-in user, the page
+        // presses its Sign out button on load. Without JavaScript, the user
+        // presses the button.
+        logoutSource(ctx, form) {
+          const accountId = ctx.oidc.session?.accountId
+
+          ctx.type = 'html'
+          ctx.body = view('signout.html', {
+            context: {
+              ...context(null),
+              form,
+              cancelUri: cancelUriFor(ctx),
+              autoSubmit:
+                accountId !== undefined &&
+                ctx.oidc.entities.IdTokenHint?.payload.sub === accountId
+            }
+          })
+          return Promise.resolve()
+        }
+      },
+      revocation: { enabled: true },
       devInteractions: { enabled: false },
       // On by default, and its endpoint is deliberately not mounted
       pushedAuthorizationRequests: { enabled: false },
       resourceIndicators: {
         enabled: true,
+        useGrantedResource: () => true,
         getResourceServerInfo(_ctx, resourceIndicator) {
           if (!RESOURCE_SERVERS.has(resourceIndicator)) {
             throw new errors.InvalidTarget()
@@ -137,5 +215,5 @@ export function buildProviderConfig(adapter) {
 }
 
 /**
- * @import { AdapterConstructor, Configuration, JWK } from 'oidc-provider'
+ * @import { AdapterConstructor, Configuration, JWK, KoaContextWithOIDC } from 'oidc-provider'
  */

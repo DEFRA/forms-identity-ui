@@ -92,10 +92,20 @@ describe('interaction pages', () => {
     return { res, crumb, cookie }
   }
 
+  it('GET redirects to the email page', async () => {
+    const { response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/interaction/uid-1'
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/interaction/uid-1/email')
+  })
+
   it('GET renders the email page for a login prompt', async () => {
     const { container, response } = await renderResponse(server, {
       method: 'GET',
-      url: '/interaction/uid-1'
+      url: '/interaction/uid-1/email'
     })
 
     expect(response.statusCode).toBe(200)
@@ -169,7 +179,7 @@ describe('interaction pages', () => {
   })
 
   it('POST email re-renders with a GDS error for an invalid email', async () => {
-    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1')
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
 
     const { container, response } = await renderResponse(server, {
       method: 'POST',
@@ -202,7 +212,7 @@ describe('interaction pages', () => {
   })
 
   it.each([
-    ['email', '/interaction/uid-1/email', '/interaction/uid-1'],
+    ['email', '/interaction/uid-1/email', '/interaction/uid-1/email'],
     ['code', '/interaction/uid-1/code', '/interaction/uid-1/code'],
     ['phone', '/interaction/uid-1/phone', '/interaction/uid-1/phone']
   ])(
@@ -672,41 +682,152 @@ describe('interaction pages', () => {
     ).toBeInTheDocument()
   })
 
-  it('auto-grants consent prompts', async () => {
-    detailsSpy.mockResolvedValue(
-      /** @type {never} */ ({
-        uid: 'uid-1',
-        prompt: { name: 'consent' },
-        params: { client_id: 'runner', scope: 'openid email' },
-        session: { accountId: 'acc-1' }
-      })
-    )
-    const provider = server.app.oidcProvider
-    const saveSpy = jest.fn().mockResolvedValue('grant-1')
-    const addScopeSpy = jest.fn()
+  describe('consent prompts', () => {
     class FakeGrant {
-      addOIDCScope = addScopeSpy
-      save = saveSpy
+      static find = jest.fn()
+      /** @type {FakeGrant[]} */
+      static instances = []
+      addOIDCScope = jest.fn()
+      save = jest.fn().mockResolvedValue('grant-new')
+      /** @param {unknown} properties */
+      constructor(properties) {
+        this.properties = properties
+        FakeGrant.instances.push(this)
+      }
     }
-    // Grant is a getter on the provider — swap it via defineProperty
-    Object.defineProperty(provider, 'Grant', {
-      value: FakeGrant,
-      configurable: true
+
+    /**
+     * @param {string} [grantId]
+     */
+    function mockConsent(grantId) {
+      detailsSpy.mockResolvedValue(
+        /** @type {never} */ ({
+          uid: 'uid-1',
+          prompt: { name: 'consent' },
+          params: { client_id: 'runner', scope: 'openid email' },
+          session: { accountId: 'acc-1' },
+          grantId
+        })
+      )
+    }
+
+    beforeEach(() => {
+      FakeGrant.instances = []
+      // Grant is a getter on the provider — swap it via defineProperty
+      Object.defineProperty(server.app.oidcProvider, 'Grant', {
+        value: FakeGrant,
+        configurable: true
+      })
     })
 
-    await server.inject({ method: 'GET', url: '/interaction/uid-1' })
+    afterEach(() => {
+      // restore the prototype getter
+      // @ts-expect-error -- delete own property to fall back to the class getter
+      delete server.app.oidcProvider.Grant
+    })
 
-    // restore the prototype getter
-    // @ts-expect-error -- delete own property to fall back to the class getter
-    delete provider.Grant
+    it('auto-grants consent with a new grant', async () => {
+      mockConsent()
 
-    expect(addScopeSpy).toHaveBeenCalledWith('openid email')
-    expect(finishedSpy).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      { consent: { grantId: 'grant-1' } },
-      { mergeWithLastSubmission: true }
-    )
+      await server.inject({ method: 'GET', url: '/interaction/uid-1' })
+
+      expect(FakeGrant.find).not.toHaveBeenCalled()
+      expect(FakeGrant.instances).toHaveLength(1)
+      const [grant] = FakeGrant.instances
+      expect(grant.properties).toEqual({
+        accountId: 'acc-1',
+        clientId: 'runner'
+      })
+      expect(grant.addOIDCScope).toHaveBeenCalledWith('openid email')
+      expect(finishedSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { consent: { grantId: 'grant-new' } },
+        { mergeWithLastSubmission: true }
+      )
+    })
+
+    it('extends the existing grant', async () => {
+      mockConsent('grant-0')
+      const existingAddScope = jest.fn()
+      FakeGrant.find.mockResolvedValue({
+        addOIDCScope: existingAddScope,
+        save: jest.fn().mockResolvedValue('grant-0')
+      })
+
+      await server.inject({ method: 'GET', url: '/interaction/uid-1' })
+
+      expect(FakeGrant.find).toHaveBeenCalledWith('grant-0')
+      expect(FakeGrant.instances).toHaveLength(0)
+      expect(existingAddScope).toHaveBeenCalledWith('openid email')
+      expect(finishedSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { consent: { grantId: 'grant-0' } },
+        { mergeWithLastSubmission: true }
+      )
+    })
+
+    it('auto-grants consent with a new grant when the existing grant ended during the interaction', async () => {
+      mockConsent('grant-0')
+      FakeGrant.find.mockResolvedValue(undefined)
+
+      await server.inject({ method: 'GET', url: '/interaction/uid-1' })
+
+      expect(FakeGrant.find).toHaveBeenCalledWith('grant-0')
+      expect(FakeGrant.instances).toHaveLength(1)
+      const [grant] = FakeGrant.instances
+      expect(grant.properties).toEqual({
+        accountId: 'acc-1',
+        clientId: 'runner'
+      })
+      expect(grant.addOIDCScope).toHaveBeenCalledWith('openid email')
+      expect(finishedSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { consent: { grantId: 'grant-new' } },
+        { mergeWithLastSubmission: true }
+      )
+    })
+
+    it('fails when the interaction has no account', async () => {
+      detailsSpy.mockResolvedValue(
+        /** @type {never} */ ({
+          uid: 'uid-1',
+          prompt: { name: 'consent' },
+          params: { client_id: 'runner', scope: 'openid email' }
+        })
+      )
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1'
+      })
+
+      expect(response.statusCode).toBe(500)
+      expect(FakeGrant.instances).toHaveLength(0)
+      expect(finishedSpy).not.toHaveBeenCalled()
+    })
+
+    it('fails when the interaction has no scope', async () => {
+      detailsSpy.mockResolvedValue(
+        /** @type {never} */ ({
+          uid: 'uid-1',
+          prompt: { name: 'consent' },
+          params: { client_id: 'runner' },
+          session: { accountId: 'acc-1' }
+        })
+      )
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1'
+      })
+
+      expect(response.statusCode).toBe(500)
+      expect(FakeGrant.instances).toHaveLength(0)
+      expect(finishedSpy).not.toHaveBeenCalled()
+    })
   })
 })
 

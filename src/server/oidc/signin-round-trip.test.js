@@ -1,21 +1,28 @@
 /**
- * Whole sign-in journey against a stub forms-identity-api on loopback.
+ * Whole sign-in journey against a stub forms-identity-api on loopback (see
+ * test/helpers/round-trip.js).
  *
  * Two things are proved here that unit tests cannot. First, that the digest
  * is applied consistently: a mismatch between what one call site writes and
- * what another reads gives a 404, so the journey simply stops rather than
+ * what another reads reads as absent, so the journey simply stops rather than
  * raising anything. Second, the acceptance criterion for this change — no
  * request path the stub saw carries a value the browser holds as a cookie or
  * the relying party receives in its callback.
- *
- * The stub replaces both halves of the API the UI talks to: the artifact
- * store behind the oidc-provider adapter, and the OTP/account endpoints
- * behind the sign-in service.
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { createServer as createHttpServer } from 'node:http'
 
-import { SignJWT, importJWK } from 'jose'
+import { SignJWT, generateKeyPair } from 'jose'
+
+import {
+  CLIENT_ASSERTION_TYPE,
+  CLIENT_SCOPE,
+  ISSUER,
+  KNOWN_CODE,
+  PHONE,
+  REDIRECT_URI,
+  clientAssertion,
+  useRoundTrip
+} from '~/test/helpers/round-trip.js'
 
 // The journey retrieves a caller token for every request the adapter and
 // sign-in service make, so STS is stubbed here too — this test checks what
@@ -31,356 +38,30 @@ jest.mock('@aws-sdk/client-sts', () => ({
   GetWebIdentityTokenCommand: jest.fn((input) => ({ input }))
 }))
 
-// Jest runs a suite in its own realm while Node's own globals belong to the
-// host realm, so a structuredClone result carries the host's Object as its
-// constructor. oidc-provider recognises plain objects by that identity and
-// clones client metadata on startup, so a JSON round trip is substituted to
-// keep the clone inside this realm. Nothing the provider clones is outside
-// what JSON can carry.
-globalThis.structuredClone = /** @type {typeof structuredClone} */ (
-  /** @param {unknown} value */
-  (value) => JSON.parse(JSON.stringify(value))
-)
-
-const ISSUER = 'http://localhost:3011'
-const REDIRECT_URI = 'http://localhost:3009/callback'
-const KNOWN_CODE = '123456'
 const RESOURCE = 'urn:defra:forms:forms-submission-api'
 const EMAIL = 'someone@example.com'
-const PHONE = '07911 123456'
-
-/**
- * Every request line the stub answered, in order
- * @type {string[]}
- */
-const seenPaths = []
-/**
- * The Authorization header the stub saw on each request, in the same order
- * as seenPaths — this is what shows the caller token passes through the
- * real server, adapter and Wreck without being dropped along the way
- * @type {(string | undefined)[]}
- */
-const seenAuthorizations = []
-/**
- * Artifact payloads by `${model}/${id}`, standing in for the API's store
- * @type {Map<string, Record<string, unknown>>}
- */
-const artifacts = new Map()
-/**
- * OTP records by the uid the UI sends, standing in for the otps collection
- * @type {Map<string, { email: string, verified: boolean }>}
- */
-const otps = new Map()
-/**
- * Accounts by id
- * @type {Map<string, { id: string, email: string }>}
- */
-const accounts = new Map()
-
-/**
- * @param {import('node:http').IncomingMessage} req
- * @returns {Promise<Record<string, unknown>>}
- */
-function readBody(req) {
-  return new Promise((resolve) => {
-    /** @type {Buffer[]} */
-    const chunks = []
-
-    req.on('data', (chunk) => {
-      chunks.push(/** @type {Buffer} */ (chunk))
-    })
-    req.on('end', () => {
-      const raw = Buffer.concat(chunks).toString()
-      resolve(raw ? JSON.parse(raw) : {})
-    })
-  })
-}
-
-const NOT_FOUND = { status: 404, body: { message: 'not found' } }
-const NO_CONTENT = { status: 204, body: undefined }
-
-/**
- * The artifact store behind the oidc-provider adapter
- * @param {string} method
- * @param {string[]} segments - path segments after `/oidc`
- * @param {{ payload?: Record<string, unknown> }} body
- * @returns {{ status: number, body?: unknown }}
- */
-function oidcStore(method, segments, body) {
-  const [model, id, action] = segments
-
-  if (model === 'grants') {
-    for (const [key, artifact] of artifacts) {
-      if (artifact.grantId === id) {
-        artifacts.delete(key)
-      }
-    }
-    return NO_CONTENT
-  }
-
-  if (id === 'uid') {
-    const found = [...artifacts].find(
-      ([key, artifact]) =>
-        key.startsWith(`${model}/`) && artifact.uid === segments[2]
-    )
-    return found ? { status: 200, body: found[1] } : NOT_FOUND
-  }
-
-  const key = `${model}/${id}`
-
-  if (method === 'PUT') {
-    artifacts.set(key, /** @type {Record<string, unknown>} */ (body.payload))
-    return NO_CONTENT
-  }
-  if (method === 'POST' && action === 'consume') {
-    const artifact = artifacts.get(key)
-
-    if (artifact) {
-      artifact.consumed = Math.floor(Date.now() / 1000)
-    }
-    return NO_CONTENT
-  }
-  if (method === 'DELETE') {
-    artifacts.delete(key)
-    return NO_CONTENT
-  }
-  return artifacts.has(key)
-    ? { status: 200, body: artifacts.get(key) }
-    : NOT_FOUND
-}
-
-/**
- * The OTP and account endpoints behind the sign-in service
- * @param {string} method
- * @param {string[]} segments - the whole path, split
- * @param {Record<string, string>} body
- * @returns {{ status: number, body?: unknown }}
- */
-function signinEndpoints(method, segments, body) {
-  if (segments[0] === 'otp') {
-    if (segments[1] === 'request') {
-      otps.set(body.uid, { email: body.email, verified: false })
-      return NO_CONTENT
-    }
-    if (segments[1] === 'verify') {
-      const record = otps.get(body.uid)
-
-      if (!record || body.code !== KNOWN_CODE) {
-        return { status: 200, body: { status: 'invalid' } }
-      }
-      record.verified = true
-
-      const existing = [...accounts.values()].find(
-        (account) => account.email === record.email
-      )
-      return {
-        status: 200,
-        body: existing
-          ? { status: 'signed-in', accountId: existing.id }
-          : { status: 'phone-required' }
-      }
-    }
-
-    const record = otps.get(segments[1])
-    return record ? { status: 200, body: { email: record.email } } : NOT_FOUND
-  }
-
-  if (segments[0] === 'accounts') {
-    if (method === 'POST') {
-      const record = otps.get(body.uid)
-
-      if (!record?.verified) {
-        return { status: 200, body: { status: 'invalid' } }
-      }
-      const account = {
-        id: randomBytes(16).toString('hex'),
-        email: record.email
-      }
-      accounts.set(account.id, account)
-      return {
-        status: 200,
-        body: { status: 'signed-in', accountId: account.id }
-      }
-    }
-
-    const account = accounts.get(segments[1])
-    return account ? { status: 200, body: account } : NOT_FOUND
-  }
-
-  return NOT_FOUND
-}
-
-/**
- * The stub API. Routing is by path shape rather than a router, so the shapes
- * the UI actually sends are visible in one place.
- * @param {import('node:http').IncomingMessage} req
- * @param {import('node:http').ServerResponse} res
- */
-async function handle(req, res) {
-  const path = /** @type {string} */ (req.url)
-  const method = /** @type {string} */ (req.method)
-  seenPaths.push(`${method} ${path}`)
-  seenAuthorizations.push(req.headers.authorization)
-
-  const body =
-    method === 'GET' || method === 'DELETE' ? {} : await readBody(req)
-  const segments = path.split('/').filter(Boolean)
-
-  const result =
-    segments[0] === 'oidc'
-      ? oidcStore(method, segments.slice(1), body)
-      : signinEndpoints(
-          method,
-          segments,
-          /** @type {Record<string, string>} */ (body)
-        )
-
-  res.writeHead(result.status, { 'content-type': 'application/json' })
-  res.end(result.body === undefined ? '' : JSON.stringify(result.body))
-}
 
 describe('sign-in round trip', () => {
-  /** @type {import('node:http').Server} */
-  let stub
-  /** @type {import('@hapi/hapi').Server} */
-  let server
+  const {
+    accounts,
+    artifacts,
+    browse,
+    crumb,
+    follow,
+    jar,
+    revocationRequest,
+    seenAuthorizations,
+    seenPaths,
+    signInAndRedeem,
+    tokenRequest
+  } = useRoundTrip(mockStsSend)
   /** @type {(id: string) => string} */
   let hashId
-  /** Cookie jar: name -> { value, path } */
-  const jar = new Map()
 
   beforeAll(async () => {
-    stub = createHttpServer((req, res) => {
-      handle(req, res).catch(() => {
-        res.writeHead(500)
-        res.end()
-      })
-    })
-    await new Promise((resolve) => {
-      stub.listen({ port: 0, host: '127.0.0.1' }, () => resolve(undefined))
-    })
-
-    const { port } = /** @type {import('node:net').AddressInfo} */ (
-      stub.address()
-    )
-    // config reads the environment as it loads, so the server and the helper
-    // are imported only once the stub's address is known
-    process.env.IDENTITY_API_URL = `http://127.0.0.1:${port}`
+    // The helper sets the config to the stub first, so import this here.
     ;({ hashId } = await import('~/src/server/common/helpers/hash-id.js'))
-
-    const { createServer } = await import('~/src/server/index.js')
-    server = await createServer()
-    await server.initialize()
   })
-
-  afterAll(async () => {
-    await server.stop()
-    await new Promise((resolve) => stub.close(resolve))
-  })
-
-  // resetMocks wipes a jest.fn() implementation before every test, so the
-  // token STS hands back is reinstated here rather than relied on from the
-  // jest.mock() call above
-  beforeEach(() => {
-    mockStsSend.mockResolvedValue({ WebIdentityToken: 'stub-service-token' })
-  })
-
-  /**
-   * Stores the response's cookies and returns the response
-   * @param {import('@hapi/hapi').ServerInjectResponse} res
-   */
-  function keepCookies(res) {
-    const setCookie = res.headers['set-cookie'] ?? []
-
-    for (const header of [setCookie].flat()) {
-      const [pair, ...attributes] = header.split(';')
-      const separator = pair.indexOf('=')
-      const name = pair.slice(0, separator).trim()
-      const value = pair.slice(separator + 1).trim()
-      const path = attributes
-        .map((attribute) => attribute.trim())
-        .find((attribute) => attribute.toLowerCase().startsWith('path='))
-
-      if (value) {
-        jar.set(name, { value, path: path?.slice('path='.length) ?? '/' })
-      } else {
-        jar.delete(name)
-      }
-    }
-
-    return res
-  }
-
-  /**
-   * The Cookie header for a path, honouring the path each cookie was scoped
-   * to — the provider scopes the interaction cookies to one journey
-   * @param {string} url
-   */
-  function cookieHeader(url) {
-    const path = url.split('?')[0]
-
-    return [...jar]
-      .filter(([, cookie]) => path.startsWith(cookie.path))
-      .map(([name, cookie]) => `${name}=${cookie.value}`)
-      .join('; ')
-  }
-
-  /**
-   * @param {string} url
-   * @param {Record<string, string>} [payload]
-   */
-  async function browse(url, payload) {
-    const cookies = cookieHeader(url)
-
-    return keepCookies(
-      await server.inject({
-        method: payload ? 'POST' : 'GET',
-        url,
-        headers: {
-          ...(cookies && { cookie: cookies }),
-          ...(payload && {
-            'content-type': 'application/x-www-form-urlencoded'
-          })
-        },
-        ...(payload && {
-          payload: new URLSearchParams(payload).toString()
-        })
-      })
-    )
-  }
-
-  /** The crumb field every interaction form carries, from its own cookie */
-  function crumb() {
-    return { crumb: /** @type {string} */ (jar.get('crumb')?.value) }
-  }
-
-  /**
-   * Follows redirects that stay on this service until the response is a page
-   * or points at the relying party. The provider writes its resume redirect
-   * as an absolute issuer URL, so both forms have to be recognised.
-   * @param {import('@hapi/hapi').ServerInjectResponse} res
-   */
-  async function follow(res) {
-    let current = res
-
-    for (;;) {
-      const location = String(current.headers.location)
-
-      if (current.statusCode < 300 || current.statusCode >= 400) {
-        return current
-      }
-
-      const local = location.startsWith(ISSUER)
-        ? location.slice(ISSUER.length)
-        : location
-
-      if (!local.startsWith('/')) {
-        return current
-      }
-
-      current = await browse(local)
-    }
-  }
 
   it('signs a user in end to end and leaks nothing into a request path', async () => {
     const verifier = randomBytes(32).toString('base64url')
@@ -402,7 +83,9 @@ describe('sign-in round trip', () => {
 
     const interaction = String(start.headers.location)
     const uid = interaction.split('/')[2]
-    expect((await browse(interaction)).statusCode).toBe(200)
+    const response = await browse(interaction)
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe(`${interaction}/email`)
 
     const emailed = await browse(`${interaction}/email`, {
       ...crumb(),
@@ -452,7 +135,7 @@ describe('sign-in round trip', () => {
 
     // and the digest is what took its place — the journey only reaches here
     // if every key matched, because a digest on one side and a plaintext
-    // value on the other is a 404 rather than a failure
+    // value on the other reads as absent rather than as a failure
     const sessionCookie = /** @type {string} */ (jar.get('_session')?.value)
     expect(sessionCookie).toBeTruthy()
     expect(seenPaths.some((path) => path.includes(hashId(sessionCookie)))).toBe(
@@ -472,23 +155,6 @@ describe('sign-in round trip', () => {
   })
 
   /**
-   * Signs the assertion the runner authenticates with.
-   */
-  async function clientAssertion() {
-    const [jwk] = JSON.parse(String(process.env.OIDC_RUNNER_PRIVATE_JWKS)).keys
-
-    return new SignJWT({})
-      .setProtectedHeader({ alg: 'RS256', kid: jwk.kid })
-      .setIssuer('runner')
-      .setSubject('runner')
-      .setAudience(ISSUER)
-      .setJti(randomUUID())
-      .setIssuedAt()
-      .setExpirationTime('2m')
-      .sign(await importJWK(jwk, 'RS256'))
-  }
-
-  /**
    * @param {string} token
    * @param {number} index - 0 for the header, 1 for the payload
    */
@@ -498,85 +164,291 @@ describe('sign-in round trip', () => {
     )
   }
 
-  it('issues a JWT access token for the API the client named', async () => {
-    // a fresh browser: the earlier journey left a session that would resume
-    jar.clear()
-
-    const verifier = randomBytes(32).toString('base64url')
-    const challenge = createHash('sha256').update(verifier).digest('base64url')
-    const email = 'token-journey@example.com'
-
-    const authorize = `/auth?${new URLSearchParams({
-      client_id: 'runner',
-      response_type: 'code',
-      scope: 'openid email',
-      redirect_uri: REDIRECT_URI,
-      state: 'state-2',
-      nonce: 'nonce-2',
-      code_challenge: challenge,
-      code_challenge_method: 'S256',
-      // Naming the resource only at the token endpoint returns an opaque
-      // token and no error, so it is named here too
+  /**
+   * The body of a refresh request, with a new client assertion
+   * @param {string} refreshToken
+   */
+  async function refreshParams(refreshToken) {
+    return {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_assertion_type: CLIENT_ASSERTION_TYPE,
+      client_assertion: await clientAssertion(),
       resource: RESOURCE
-    }).toString()}`
+    }
+  }
 
-    const start = await browse(authorize)
-    const interaction = String(start.headers.location)
+  it.each([
+    [
+      'at the authorization and token endpoints',
+      'token-journey-both@example.com',
+      { resource: RESOURCE }
+    ],
+    [
+      'at the authorization endpoint only',
+      'token-journey-authorization@example.com',
+      {}
+    ]
+  ])(
+    'issues a JWT access token for the API the client named %s',
+    async (_where, email, tokenParams) => {
+      const redeemed = await signInAndRedeem(email, {
+        state: 'state-2',
+        resource: RESOURCE,
+        tokenParams
+      })
 
-    // each page is loaded before it is submitted, to get its crumb
-    await browse(interaction)
-    await browse(`${interaction}/email`, { ...crumb(), email })
-    await browse(`${interaction}/code`)
-    await browse(`${interaction}/code`, { ...crumb(), code: KNOWN_CODE })
-    await browse(`${interaction}/phone`)
-    const finished = await follow(
-      await browse(`${interaction}/phone`, { ...crumb(), phone: PHONE })
-    )
+      expect(redeemed.statusCode).toBe(200)
 
-    const callback = new URL(String(finished.headers.location))
-    const code = /** @type {string} */ (callback.searchParams.get('code'))
-    expect(code).toBeTruthy()
+      const body = JSON.parse(redeemed.payload)
+      const accessToken = String(body.access_token)
 
-    const redeemed = await server.inject({
-      method: 'POST',
-      url: '/token',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      payload: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: REDIRECT_URI,
-        code_verifier: verifier,
+      // an opaque token is one segment, so this tells the two apart
+      expect(accessToken.split('.')).toHaveLength(3)
+
+      const signedIn = [...accounts.values()].find(
+        (account) => account.email === email
+      )
+      expect(signedIn).toBeDefined()
+
+      expect(decodeSegment(accessToken, 0)).toMatchObject({ alg: 'RS256' })
+      expect(decodeSegment(accessToken, 1)).toMatchObject({
+        iss: ISSUER,
+        aud: RESOURCE,
         client_id: 'runner',
-        client_assertion_type:
-          'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
-        client_assertion: await clientAssertion(),
-        resource: RESOURCE
-      }).toString()
+        sub: signedIn?.id
+      })
+
+      // A resource-bound token cannot reach userinfo, so the claims move to
+      // the ID token and the client reads the email there
+      expect(decodeSegment(String(body.id_token), 1)).toMatchObject({ email })
+
+      // short-lived, with a refresh token to renew it
+      expect(body.expires_in).toBe(300)
+      expect(typeof body.refresh_token).toBe('string')
+    }
+  )
+
+  it('refreshes the access token and keeps the same refresh token', async () => {
+    const email = 'refresh-journey@example.com'
+    const redeemed = await signInAndRedeem(email, {
+      state: 'state-3',
+      resource: RESOURCE,
+      tokenParams: { resource: RESOURCE }
+    })
+    expect(redeemed.statusCode).toBe(200)
+
+    const first = JSON.parse(redeemed.payload)
+    const refreshToken = String(first.refresh_token)
+
+    const refreshed = await tokenRequest(await refreshParams(refreshToken))
+    expect(refreshed.statusCode).toBe(200)
+
+    const second = JSON.parse(refreshed.payload)
+    const accessToken = String(second.access_token)
+
+    // a new JWT for the same API and citizen
+    expect(accessToken).not.toBe(first.access_token)
+    expect(accessToken.split('.')).toHaveLength(3)
+    expect(decodeSegment(accessToken, 1)).toMatchObject({
+      aud: RESOURCE,
+      sub: decodeSegment(String(first.access_token), 1).sub
+    })
+    expect(second.expires_in).toBe(300)
+
+    // the same refresh token, and a new ID token
+    expect(second.refresh_token).toBe(refreshToken)
+    // (the ID token can be byte-identical to the first when both are issued
+    // in the same second, so only its subject is compared)
+    expect(typeof second.id_token).toBe('string')
+    expect(decodeSegment(String(second.id_token), 1)).toMatchObject({
+      sub: decodeSegment(String(first.id_token), 1).sub
     })
 
+    // the same refresh token keeps working
+    const again = await tokenRequest(await refreshParams(refreshToken))
+    expect(again.statusCode).toBe(200)
+    expect(typeof JSON.parse(again.payload).access_token).toBe('string')
+  })
+
+  it('refreshes the access token after the provider session has ended', async () => {
+    const redeemed = await signInAndRedeem(
+      'refresh-after-session@example.com',
+      {
+        state: 'state-5',
+        resource: RESOURCE,
+        tokenParams: { resource: RESOURCE }
+      }
+    )
+    expect(redeemed.statusCode).toBe(200)
+
+    // The provider session ends before the refresh token does. The client
+    // asked for `offline_access`, so the refresh token still works.
+    for (const key of artifacts.keys()) {
+      if (key.startsWith('session/')) {
+        artifacts.delete(key)
+      }
+    }
+
+    const refreshToken = String(JSON.parse(redeemed.payload).refresh_token)
+    const refreshed = await tokenRequest(await refreshParams(refreshToken))
+    expect(refreshed.statusCode).toBe(200)
+    expect(typeof JSON.parse(refreshed.payload).access_token).toBe('string')
+  })
+
+  /**
+   * Starts a new sign-in in the same browser, as the runner does after its
+   * own session has ended, and redeems the code
+   * @param {{ state: string, resource?: string }} options
+   */
+  async function signInAgain({ state, resource }) {
+    const verifier = randomBytes(32).toString('base64url')
+    const challenge = createHash('sha256').update(verifier).digest('base64url')
+    const start = await browse(
+      `/auth?${new URLSearchParams({
+        client_id: 'runner',
+        response_type: 'code',
+        scope: CLIENT_SCOPE,
+        prompt: 'consent',
+        redirect_uri: REDIRECT_URI,
+        state,
+        nonce: `nonce-${state}`,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        ...(resource && { resource })
+      }).toString()}`
+    )
+    const finished = await follow(start)
+    const callback = new URL(String(finished.headers.location))
+
+    const redeemed = await tokenRequest({
+      grant_type: 'authorization_code',
+      code: String(callback.searchParams.get('code')),
+      redirect_uri: REDIRECT_URI,
+      code_verifier: verifier,
+      client_assertion_type: CLIENT_ASSERTION_TYPE,
+      client_assertion: await clientAssertion(),
+      ...(resource && { resource })
+    })
+
+    return { callback, redeemed }
+  }
+
+  it('signs a citizen straight back in on the provider session, with the consent prompt that offline_access needs', async () => {
+    const first = await signInAndRedeem('single-sign-on@example.com', {
+      state: 'state-7',
+      resource: RESOURCE,
+      tokenParams: { resource: RESOURCE }
+    })
+    expect(first.statusCode).toBe(200)
+
+    const paths = seenPaths.length
+    const { callback, redeemed } = await signInAgain({
+      state: 'state-8',
+      resource: RESOURCE
+    })
+
+    // The provider session answers the login, and consent is granted
+    // without a page, so the citizen is not asked for a code again
+    expect(callback.origin + callback.pathname).toBe(REDIRECT_URI)
+    expect(callback.searchParams.get('state')).toBe('state-8')
+    expect(seenPaths.slice(paths).some((path) => path.includes(' /otp'))).toBe(
+      false
+    )
+
+    expect(redeemed.statusCode).toBe(200)
+    expect(typeof JSON.parse(redeemed.payload).refresh_token).toBe('string')
+  })
+
+  it('ends both sign-ins on the provider session with one revocation', async () => {
+    const first = await signInAndRedeem('one-grant@example.com', {
+      state: 'state-9'
+    })
+    const { redeemed: second } = await signInAgain({ state: 'state-10' })
+
+    const revoked = await revocationRequest(
+      JSON.parse(second.payload).refresh_token,
+      { token_type_hint: 'refresh_token' }
+    )
+    expect(revoked.statusCode).toBe(200)
+
+    const refreshed = await tokenRequest({
+      grant_type: 'refresh_token',
+      refresh_token: JSON.parse(first.payload).refresh_token,
+      client_assertion_type: CLIENT_ASSERTION_TYPE,
+      client_assertion: await clientAssertion()
+    })
+    expect(refreshed.statusCode).toBe(400)
+    expect(JSON.parse(refreshed.payload)).toMatchObject({
+      error: 'invalid_grant'
+    })
+  })
+
+  it('issues no refresh token to a sign-in without offline_access', async () => {
+    const redeemed = await signInAndRedeem('no-offline-access@example.com', {
+      state: 'state-6',
+      scope: 'openid email',
+      resource: RESOURCE,
+      tokenParams: { resource: RESOURCE }
+    })
     expect(redeemed.statusCode).toBe(200)
 
     const body = JSON.parse(redeemed.payload)
-    const accessToken = String(body.access_token)
+    expect(typeof body.access_token).toBe('string')
+    expect(body.refresh_token).toBeUndefined()
+  })
 
-    // an opaque token is one segment, so this tells the two apart
-    expect(accessToken.split('.')).toHaveLength(3)
+  it('refuses a refresh without a valid client assertion', async () => {
+    const redeemed = await signInAndRedeem('refresh-client-auth@example.com', {
+      state: 'state-4',
+      resource: RESOURCE,
+      tokenParams: { resource: RESOURCE }
+    })
+    expect(redeemed.statusCode).toBe(200)
 
-    const signedIn = [...accounts.values()].find(
-      (account) => account.email === email
-    )
-    expect(signedIn).toBeDefined()
+    const refreshToken = String(JSON.parse(redeemed.payload).refresh_token)
 
-    expect(decodeSegment(accessToken, 0)).toMatchObject({ alg: 'RS256' })
-    expect(decodeSegment(accessToken, 1)).toMatchObject({
-      iss: ISSUER,
-      aud: RESOURCE,
-      client_id: 'runner',
-      sub: signedIn?.id
+    // no assertion at all
+    const unauthenticated = await tokenRequest({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      resource: RESOURCE
+    })
+    expect(unauthenticated.statusCode).toBe(401)
+    expect(JSON.parse(unauthenticated.payload)).toMatchObject({
+      error: 'invalid_client'
     })
 
-    // A resource-bound token cannot reach userinfo, so the claims move to
-    // the ID token and the client reads the email there
-    expect(decodeSegment(String(body.id_token), 1)).toMatchObject({ email })
+    // an assertion signed with a key the provider does not hold for runner,
+    // even under the registered key id
+    const [registered] = JSON.parse(
+      String(process.env.OIDC_RUNNER_PRIVATE_JWKS)
+    ).keys
+    const { privateKey } = await generateKeyPair('RS256')
+    const forged = await new SignJWT({})
+      .setProtectedHeader({ alg: 'RS256', kid: registered.kid })
+      .setIssuer('runner')
+      .setSubject('runner')
+      .setAudience(ISSUER)
+      .setJti(randomUUID())
+      .setIssuedAt()
+      .setExpirationTime('2m')
+      .sign(privateKey)
+
+    const wrongKey = await tokenRequest({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_assertion_type: CLIENT_ASSERTION_TYPE,
+      client_assertion: forged,
+      resource: RESOURCE
+    })
+    expect(wrongKey.statusCode).toBe(401)
+    expect(JSON.parse(wrongKey.payload)).toMatchObject({
+      error: 'invalid_client'
+    })
+
+    // neither attempt used up the token: the real client can still refresh
+    const genuine = await tokenRequest(await refreshParams(refreshToken))
+    expect(genuine.statusCode).toBe(200)
   })
 })

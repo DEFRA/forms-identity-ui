@@ -24,10 +24,7 @@ const basePolicy = {
 
 const runnerRedirectOrigins = [
   ...new Set(
-    config
-      .get('oidc.runnerRedirectUris')
-      .split(',')
-      .map((uri) => new URL(uri).origin)
+    config.get('oidc.runnerRedirectUris').map((uri) => new URL(uri).origin)
   )
 ]
 

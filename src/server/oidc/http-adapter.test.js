@@ -11,9 +11,6 @@ import { serviceAuthHeaders } from '~/src/server/lib/service-token.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 
 jest.mock('~/src/server/common/helpers/fetch.js', () => ({
-  // the transport functions are faked; the Boom-404 predicate stays real
-  isNotFoundError: jest.requireActual('~/src/server/common/helpers/fetch.js')
-    .isNotFoundError,
   delJson: jest.fn(),
   getJson: jest.fn(),
   postJson: jest.fn(),
@@ -26,6 +23,26 @@ jest.mock('~/src/server/lib/service-token.js', () => ({
 
 const API = 'http://localhost:3010'
 const AUTH_HEADERS = { Authorization: 'Bearer token-1' }
+
+/**
+ * A getJson result shaped like the real helper's: a parsed body with its
+ * response alongside.
+ * @param {unknown} body
+ */
+function found(body) {
+  return /** @type {never} */ ({ response: { statusCode: 200 }, body })
+}
+
+/**
+ * The API's answer for an artifact it does not hold. Wreck reads a bodiless
+ * 204 as an empty Buffer, not null, so only the status distinguishes it.
+ */
+function absent() {
+  return /** @type {never} */ ({
+    response: { statusCode: 204 },
+    body: Buffer.alloc(0)
+  })
+}
 
 describe('http adapter', () => {
   const Adapter = makeHttpAdapter()
@@ -86,26 +103,44 @@ describe('http adapter', () => {
     expect(options.payload).toEqual({ payload: { foo: 'bar' } })
   })
 
-  it('find returns the payload, and undefined on 404', async () => {
-    jest
-      .mocked(getJson)
-      .mockResolvedValue(/** @type {never} */ ({ body: { a: 1 } }))
+  it('find returns the payload, and undefined on a 204', async () => {
+    jest.mocked(getJson).mockResolvedValue(found({ a: 1 }))
     await expect(adapter.find('id-2')).resolves.toEqual({ a: 1 })
 
-    const notFound = Boom.notFound()
-    jest.mocked(getJson).mockRejectedValue(notFound)
+    jest.mocked(getJson).mockResolvedValue(absent())
     await expect(adapter.find('missing')).resolves.toBeUndefined()
   })
 
-  it('find rethrows non-404 errors', async () => {
+  it('findByUid returns undefined on a 204', async () => {
+    jest.mocked(getJson).mockResolvedValue(absent())
+    await expect(adapter.findByUid('nope')).resolves.toBeUndefined()
+  })
+
+  it('never mistakes a 204 empty body for a stored payload', async () => {
+    // the empty Buffer a bodiless 204 reads back as is truthy, so a body
+    // test here would report every miss as a hit holding an empty payload
+    jest.mocked(getJson).mockResolvedValue(absent())
+    const payload = await adapter.find('missing')
+
+    expect(payload).toBeUndefined()
+    expect(payload).not.toEqual(Buffer.alloc(0))
+  })
+
+  it('throws on a 404, which the store never answers with', async () => {
+    // 204 is the store's only "absent"; a 404 means the route itself is
+    // wrong, so it must surface rather than read as a cache miss
+    jest.mocked(getJson).mockRejectedValue(Boom.notFound())
+    await expect(adapter.find('missing')).rejects.toThrow('Not Found')
+    await expect(adapter.findByUid('missing')).rejects.toThrow('Not Found')
+  })
+
+  it('find propagates transport errors', async () => {
     jest.mocked(getJson).mockRejectedValue(new Error('boom'))
     await expect(adapter.find('id-3')).rejects.toThrow('boom')
   })
 
   it('find addresses the artifact by its digest', async () => {
-    jest
-      .mocked(getJson)
-      .mockResolvedValue(/** @type {never} */ ({ body: { a: 1 } }))
+    jest.mocked(getJson).mockResolvedValue(found({ a: 1 }))
 
     await adapter.find('id-find')
 
@@ -115,9 +150,7 @@ describe('http adapter', () => {
   })
 
   it('consume, destroy and findByUserCode address the artifact by its digest', async () => {
-    jest
-      .mocked(getJson)
-      .mockResolvedValue(/** @type {never} */ ({ body: { a: 1 } }))
+    jest.mocked(getJson).mockResolvedValue(found({ a: 1 }))
     jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
     jest.mocked(delJson).mockResolvedValue(/** @type {never} */ ({}))
 
@@ -146,9 +179,7 @@ describe('http adapter', () => {
   })
 
   it('findByUid and revokeByGrantId send the plaintext value, encoded', async () => {
-    jest
-      .mocked(getJson)
-      .mockResolvedValue(/** @type {never} */ ({ body: { uid: 'u' } }))
+    jest.mocked(getJson).mockResolvedValue(found({ uid: 'u' }))
     jest.mocked(delJson).mockResolvedValue(/** @type {never} */ ({}))
 
     // both resolve against a value the adapter stores verbatim inside the
@@ -173,9 +204,7 @@ describe('http adapter', () => {
   })
 
   it('keeps a traversal attempt inside the /oidc route family', async () => {
-    jest
-      .mocked(getJson)
-      .mockResolvedValue(/** @type {never} */ ({ body: { uid: 'u' } }))
+    jest.mocked(getJson).mockResolvedValue(found({ uid: 'u' }))
     jest.mocked(delJson).mockResolvedValue(/** @type {never} */ ({}))
 
     const session = new Adapter('Session')

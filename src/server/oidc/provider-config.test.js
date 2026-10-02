@@ -29,8 +29,12 @@ describe('buildProviderConfig', () => {
           'http://localhost:3009/callback',
           'http://localhost:3000/callback'
         ],
+        post_logout_redirect_uris: [
+          'http://localhost:3009/auth/signed-out',
+          'http://localhost:3000/'
+        ],
         response_types: ['code'],
-        grant_types: ['authorization_code'],
+        grant_types: ['authorization_code', 'refresh_token'],
         token_endpoint_auth_method: 'private_key_jwt',
         id_token_signed_response_alg: 'RS256',
         jwks: JSON.parse(String(process.env.OIDC_RUNNER_JWKS))
@@ -47,13 +51,22 @@ describe('buildProviderConfig', () => {
       AuthorizationCode: 60,
       IdToken: 300,
       AccessToken: 300,
+      RefreshToken: 604800,
       Interaction: 3600,
       Session: 86400,
-      Grant: 86400
+      Grant: 604800
     })
     expect(cfg.claims).toEqual({
       openid: ['sub'],
       email: ['email']
+    })
+  })
+
+  describe('refresh tokens', () => {
+    it('keeps the same refresh token on every refresh', () => {
+      const cfg = buildProviderConfig(fakeAdapter)
+
+      expect(cfg.rotateRefreshToken).toBe(false)
     })
   })
 

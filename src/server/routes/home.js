@@ -1,7 +1,11 @@
+import { setLanguage } from '~/src/server/i18n/index.js'
+
 export default /** @type {ServerRoute} */ ({
   method: 'GET',
   path: '/',
-  handler(_, h) {
+  handler(request, h) {
+    setLanguage(request)
+
     return h.view('home')
   }
 })

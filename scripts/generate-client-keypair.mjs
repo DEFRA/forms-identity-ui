@@ -3,8 +3,8 @@
  * (private_key_jwt), printing both halves.
  *
  * The two halves go to different services and must never be swapped:
- *   private → the client (forms-runner, or the example RP's
- *             EXAMPLE_RP_PRIVATE_JWKS). Never leaves it.
+ *   private → the client, as one JWK: forms-runner's OIDC_CLIENT_PRIVATE_JWK,
+ *             or the example RP's EXAMPLE_RP_PRIVATE_JWK. Never leaves it.
  *   public  → this service, as OIDC_RUNNER_JWKS. Enough to verify the
  *             client's signature, useless for forging one.
  *
@@ -13,11 +13,12 @@
 import { generateClientKeypair } from './jwks.cjs'
 
 const { private: privateJwks, public: publicJwks } = generateClientKeypair()
+const [privateJwk] = privateJwks.keys
 
 process.stdout.write(
   [
-    '# The client keeps this (forms-runner / example RP):',
-    `EXAMPLE_RP_PRIVATE_JWKS=${JSON.stringify(privateJwks)}`,
+    '# The client keeps this (forms-runner, or EXAMPLE_RP_PRIVATE_JWK locally):',
+    `OIDC_CLIENT_PRIVATE_JWK=${JSON.stringify(privateJwk)}`,
     '',
     '# This service registers this (public half only):',
     `OIDC_RUNNER_JWKS=${JSON.stringify(publicJwks)}`,

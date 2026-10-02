@@ -1,5 +1,7 @@
 const crypto = require('node:crypto')
 
+const { SIGNING_ALG } = require('../src/server/constants.js')
+
 /**
  * Key generation for the OIDC provider and its clients. CommonJS so the CLI
  * scripts (ESM) and jest.setup.cjs share one implementation.
@@ -8,7 +10,6 @@ const crypto = require('node:crypto')
  * reader, and those read RSA keys.
  */
 
-const ALG = 'RS256'
 const MODULUS_LENGTH = 2048
 
 /**
@@ -25,13 +26,15 @@ function generateKeyPair(role) {
     modulusLength: MODULUS_LENGTH
   })
 
-  const kid = `${role}-${ALG.toLowerCase()}-${crypto.randomBytes(6).toString('hex')}`
+  const kid = `${role}-${SIGNING_ALG.toLowerCase()}-${crypto.randomBytes(6).toString('hex')}`
 
   /**
    * @param {crypto.KeyObject} key
    */
   const jwks = (key) => ({
-    keys: [{ ...key.export({ format: 'jwk' }), use: 'sig', alg: ALG, kid }]
+    keys: [
+      { ...key.export({ format: 'jwk' }), use: 'sig', alg: SIGNING_ALG, kid }
+    ]
   })
 
   return { private: jwks(privateKey), public: jwks(publicKey) }

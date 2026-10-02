@@ -6,6 +6,7 @@ import { errors } from 'oidc-provider'
 import { config } from '~/src/config/index.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { formatDuration } from '~/src/server/common/helpers/duration.js'
+import { setLanguage } from '~/src/server/i18n/index.js'
 import { signinFormCsp } from '~/src/server/plugins/blankie.js'
 import {
   INVALID_CODE_CONSUMED_OR_EXPIRED,
@@ -23,6 +24,10 @@ const INTERACTION_DURATION = formatDuration(config.get('oidc.ttl.interaction'))
 
 const uidParams = Joi.object({ uid: Joi.string().required() })
 const emailQuery = Joi.object({ resend: Joi.boolean().optional() })
+const languageSchema = Joi.string().valid('en-GB', 'cy').optional()
+const querySchema = Joi.object()
+  .keys({ language: languageSchema })
+  .unknown(true)
 
 /**
  * Each form posts exactly one field plus the crumb. A duplicated key makes
@@ -58,6 +63,7 @@ export async function requireInteraction(request, h) {
   const provider = request.server.app.oidcProvider
 
   try {
+    setLanguage(request)
     return await provider.interactionDetails(request.raw.req, request.raw.res)
   } catch (err) {
     if (err instanceof errors.SessionNotFound) {
@@ -76,6 +82,12 @@ export async function requireInteraction(request, h) {
 const GATE = {
   method: requireInteraction,
   assign: /** @type {const} */ ('details')
+}
+
+const commonOptions = {
+  validate: { params: uidParams, query: querySchema },
+  plugins: { blankie: signinFormCsp },
+  pre: [GATE]
 }
 
 /**
@@ -141,9 +153,40 @@ async function finishLogin(request, h, accountId) {
 }
 
 /**
+ * Records which scopes the account grants the client.
+ * @param {Provider} provider
+ * @param {InteractionDetails} details
+ * @returns {Promise<string>}
+ */
+async function saveConsentGrant(provider, details) {
+  // The scope is the authorization request's own, already validated by the
+  // provider
+  const { client_id: clientId, scope } = details.params
+  const accountId = details.session?.accountId
+
+  if (typeof clientId !== 'string' || typeof scope !== 'string' || !accountId) {
+    throw Boom.internal(
+      'Consent interaction has no client_id, scope or account'
+    )
+  }
+
+  // The grant can reach the end of its lifetime between the authorization
+  // request and this page. The account then gets a new grant, so that the
+  // sign-in continues.
+  const existingGrant = details.grantId
+    ? await provider.Grant.find(details.grantId)
+    : undefined
+
+  const grant = existingGrant ?? new provider.Grant({ accountId, clientId })
+
+  grant.addOIDCScope(scope)
+  return grant.save()
+}
+
+/**
  *
- * @param {Request<{ Pres: InteractionPres; }>} request
- * @param {ResponseToolkit<{ Pres: InteractionPres; }>} h
+ * @param {Request<{ Pres: InteractionPres, Query: { language?: string }; }>} request
+ * @param {ResponseToolkit<{ Pres: InteractionPres, Query: { language?: string }; }>} h
  * @param {string} viewName - the view name
  */
 async function commonOTPHandler(request, h, viewName) {
@@ -173,11 +216,14 @@ async function commonOTPHandler(request, h, viewName) {
  */
 export default /** @type {ServerRoute[]} */ (
   /** @type {unknown[]} */ ([
-    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/interaction/{uid}',
-      options: { validate: { params: uidParams }, pre: [GATE] },
+      options: {
+        validate: { params: uidParams, query: querySchema },
+        pre: [GATE]
+      },
       async handler(request, h) {
         const details = request.pre.details
         const provider = request.server.app.oidcProvider
@@ -188,21 +234,10 @@ export default /** @type {ServerRoute[]} */ (
         // (devInteractions is disabled), which is why the grant is built
         // here rather than by the library.
         if (details.prompt.name === 'consent') {
-          const params = /** @type {{ client_id?: string, scope?: string }} */ (
-            details.params
-          )
-          // Record which scopes the account grants the client. The scope is
-          // the authorization request's own ('openid email' from runner),
-          // already validated by the provider; the fallback only satisfies
-          // the loose params typing. The saved grant id is the complete
-          // consent result — the login half was submitted in the earlier
-          // step and merges in via mergeWithLastSubmission.
-          const grant = new provider.Grant({
-            accountId: details.session?.accountId,
-            clientId: params.client_id
-          })
-          grant.addOIDCScope(params.scope ?? '')
-          const grantId = await grant.save()
+          // The saved grant id is the complete consent result — the login
+          // half was submitted in the earlier step and merges in via
+          // mergeWithLastSubmission.
+          const grantId = await saveConsentGrant(provider, details)
           await provider.interactionFinished(
             request.raw.req,
             request.raw.res,
@@ -221,10 +256,24 @@ export default /** @type {ServerRoute[]} */ (
           )
         }
 
+        return h.redirect(`/interaction/${details.uid}/email`)
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
+    ({
+      method: 'GET',
+      path: '/interaction/{uid}/email',
+      options: {
+        validate: { params: uidParams, query: querySchema },
+        pre: [GATE]
+      },
+      handler(request, h) {
+        const details = request.pre.details
+
         return h.view('interaction/email', { uid: details.uid })
       }
     }),
-    /** @satisfies {ServerRoute<{ Payload: { email?: string }, Pres: InteractionPres, Query: { resend?: boolean} }>} */
+    /** @satisfies {ServerRoute<{ Payload: { email?: string }, Pres: InteractionPres, Query: { language?: string, resend?: boolean } }>} */
     ({
       method: 'POST',
       path: '/interaction/{uid}/email',
@@ -232,7 +281,7 @@ export default /** @type {ServerRoute[]} */ (
         validate: {
           params: uidParams,
           payload: formPayload('email'),
-          query: emailQuery
+          query: querySchema.concat(emailQuery)
         },
         pre: [GATE]
       },
@@ -258,15 +307,11 @@ export default /** @type {ServerRoute[]} */ (
         return h.redirect(`/interaction/${details.uid}/code`)
       }
     }),
-    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/interaction/{uid}/code',
-      options: {
-        validate: { params: uidParams },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE]
-      },
+      options: commonOptions,
       async handler(request, h) {
         const details = request.pre.details
         // display-only, from the API's stored record — the same source
@@ -290,12 +335,16 @@ export default /** @type {ServerRoute[]} */ (
         })
       }
     }),
-    /** @satisfies {ServerRoute<{ Payload: { code?: string }, Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Payload: { code?: string }, Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'POST',
       path: '/interaction/{uid}/code',
       options: {
-        validate: { params: uidParams, payload: formPayload('code') },
+        validate: {
+          params: uidParams,
+          payload: formPayload('code'),
+          query: querySchema
+        },
         plugins: { blankie: signinFormCsp },
         pre: [GATE]
       },
@@ -329,51 +378,43 @@ export default /** @type {ServerRoute[]} */ (
         })
       }
     }),
-    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/interaction/{uid}/code/expired',
-      options: {
-        validate: { params: uidParams },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE]
-      },
+      options: commonOptions,
       async handler(request, h) {
         return commonOTPHandler(request, h, 'code-expired')
       }
     }),
-    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/interaction/{uid}/code/resend',
-      options: {
-        validate: { params: uidParams },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE]
-      },
+      options: commonOptions,
       async handler(request, h) {
         return commonOTPHandler(request, h, 'code-resend')
       }
     }),
-    /** @satisfies {ServerRoute<{ Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/interaction/{uid}/phone',
-      options: {
-        validate: { params: uidParams },
-        plugins: { blankie: signinFormCsp },
-        pre: [GATE]
-      },
+      options: commonOptions,
       handler(request, h) {
         return h.view('interaction/phone', { uid: request.pre.details.uid })
       }
     }),
-    /** @satisfies {ServerRoute<{ Payload: { phone?: string }, Pres: InteractionPres }>} */
+    /** @satisfies {ServerRoute<{ Payload: { phone?: string }, Pres: InteractionPres, Query: { language?: string } }>} */
     ({
       method: 'POST',
       path: '/interaction/{uid}/phone',
       options: {
-        validate: { params: uidParams, payload: formPayload('phone') },
+        validate: {
+          params: uidParams,
+          payload: formPayload('phone'),
+          query: querySchema
+        },
         plugins: { blankie: signinFormCsp },
         pre: [GATE]
       },

@@ -2,7 +2,6 @@ import { config } from '~/src/config/index.js'
 import {
   delJson,
   getJson,
-  isNotFoundError,
   postJson,
   putJson
 } from '~/src/server/common/helpers/fetch.js'
@@ -20,20 +19,30 @@ function snakeCase(name) {
   return name.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase()
 }
 
+/** The API's answer when an artifact is not stored */
+const NO_CONTENT = 204
+
 /**
  * The Adapter contract requires find/findByUid to resolve `undefined` for an
  * unknown id — oidc-provider probes the store as part of the protocol (is
  * there a session cookie? has this code been issued?), so the lookup can
- * never be skipped and "absent" is an expected answer, not a failure. The
- * API expresses absent as a 404; only that exact case maps to undefined —
- * any other error (timeouts, 5xx, auth) still throws.
- * @param {unknown} err
+ * never be skipped and "absent" is an expected answer, not a failure.
+ *
+ * Absent is the 204, and only the status says so: a bodiless response carries
+ * no JSON content type, so it is read as an empty Buffer rather than null.
+ * Testing the body instead would make every miss look like a hit holding an
+ * empty payload.
+ * @param {object} response
+ * @param {unknown} body
  */
-function throwUnlessNotFound(err) {
-  if (isNotFoundError(err)) {
-    return
+function toPayload(response, body) {
+  const { statusCode } = /** @type {{ statusCode?: number }} */ (response)
+
+  if (statusCode === NO_CONTENT) {
+    return undefined
   }
-  throw err
+
+  return /** @type {AdapterPayload} */ (body)
 }
 
 /**
@@ -97,15 +106,10 @@ export function makeHttpAdapter() {
 
     /** @param {string} id */
     async find(id) {
-      try {
-        const { body } = await getJson(this.url(id), {
-          headers: await serviceAuthHeaders()
-        })
-        return /** @type {AdapterPayload} */ (body)
-      } catch (err) {
-        throwUnlessNotFound(err)
-        return undefined
-      }
+      const { response, body } = await getJson(this.url(id), {
+        headers: await serviceAuthHeaders()
+      })
+      return toPayload(response, body)
     }
 
     /**
@@ -115,19 +119,14 @@ export function makeHttpAdapter() {
      * @param {string} uid
      */
     async findByUid(uid) {
-      try {
-        const { body } = await getJson(
-          new URL(
-            `/oidc/${this.model}/uid/${encodeURIComponent(uid)}`,
-            IDENTITY_API_URL
-          ),
-          { headers: await serviceAuthHeaders() }
-        )
-        return /** @type {AdapterPayload} */ (body)
-      } catch (err) {
-        throwUnlessNotFound(err)
-        return undefined
-      }
+      const { response, body } = await getJson(
+        new URL(
+          `/oidc/${this.model}/uid/${encodeURIComponent(uid)}`,
+          IDENTITY_API_URL
+        ),
+        { headers: await serviceAuthHeaders() }
+      )
+      return toPayload(response, body)
     }
 
     /** @param {string} userCode */
