@@ -1,3 +1,4 @@
+import { getUserId } from '@defra/forms-common'
 import { errors } from 'oidc-provider'
 
 import { createServer } from '~/src/server/index.js'
@@ -336,6 +337,28 @@ describe('interaction pages', () => {
       { login: { accountId: 'acc-1' } },
       { mergeWithLastSubmission: false }
     )
+  })
+
+  it('POST code adds the account ID to the log context when signed in', async () => {
+    jest
+      .mocked(identityApi.verifyOtp)
+      .mockResolvedValue({ status: 'signed-in', accountId: 'acc-1' })
+    const { crumb, cookie } = await getWithCrumb(
+      '/interaction/uid-1/code?email=a%40b.com'
+    )
+
+    // The response log is written when this event is emitted
+    const onResponse = jest.fn(() => getUserId())
+    server.events.once('response', onResponse)
+
+    await server.inject({
+      method: 'POST',
+      url: '/interaction/uid-1/code',
+      headers: { cookie },
+      payload: { crumb, code: '123456' }
+    })
+
+    expect(onResponse).toHaveReturnedWith('acc-1')
   })
 
   it('POST code redirects to the phone page when phone-required', async () => {
@@ -744,6 +767,18 @@ describe('interaction pages', () => {
         { consent: { grantId: 'grant-new' } },
         { mergeWithLastSubmission: true }
       )
+    })
+
+    it('adds the account ID of the session to the log context', async () => {
+      mockConsent()
+
+      // The response log is written when this event is emitted
+      const onResponse = jest.fn(() => getUserId())
+      server.events.once('response', onResponse)
+
+      await server.inject({ method: 'GET', url: '/interaction/uid-1' })
+
+      expect(onResponse).toHaveReturnedWith('acc-1')
     })
 
     it('extends the existing grant', async () => {

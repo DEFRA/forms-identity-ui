@@ -1,3 +1,4 @@
+import { createLogContext, runWithLogContext } from '@defra/forms-common'
 import Wreck from '@hapi/wreck'
 
 import {
@@ -20,6 +21,39 @@ describe('fetch helpers', () => {
     const { body } = await getJson(new URL('http://localhost:3010/x'))
 
     expect(body).toEqual({ hello: 'world' })
+    expect(Wreck.request).toHaveBeenCalledWith(
+      'get',
+      'http://localhost:3010/x',
+      { json: true }
+    )
+  })
+
+  it('sends the correlation ID and user ID of the log context', async () => {
+    jest
+      .mocked(Wreck.request)
+      .mockResolvedValue(/** @type {never} */ ({ statusCode: 200 }))
+    jest.mocked(Wreck.read).mockResolvedValue(/** @type {never} */ ({}))
+
+    await runWithLogContext(
+      createLogContext({ correlationId: 'correlation-1', userId: 'acc-1' }),
+      () =>
+        getJson(new URL('http://localhost:3010/x'), {
+          headers: { Authorization: 'Bearer token-1' }
+        })
+    )
+
+    expect(Wreck.request).toHaveBeenCalledWith(
+      'get',
+      'http://localhost:3010/x',
+      {
+        json: true,
+        headers: {
+          Authorization: 'Bearer token-1',
+          'x-cdp-request-id': 'correlation-1',
+          'x-forms-user-id': 'acc-1'
+        }
+      }
+    )
   })
 
   it('throws Boom on non-2xx with the body message', async () => {
