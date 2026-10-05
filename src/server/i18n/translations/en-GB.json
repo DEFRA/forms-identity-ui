@@ -136,6 +136,10 @@
       "tryBack": "try your browser back button",
       "contact": "<a class=\"govuk-link\" href=\"https://www.gov.uk/guidance/contact-defra\">contact the Defra Helpline</a> if you have any questions"
     },
+    "signInAgain": {
+      "heading": "Sign in again",
+      "body": "Your session has ended. To keep your account secure, go back to the service you were using and sign in again."
+    },
     "errorSummaryTitle": "There is a problem"
   },
   "signout": {

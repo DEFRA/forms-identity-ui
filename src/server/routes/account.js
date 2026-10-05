@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto'
 import Joi from 'joi'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
-import { sessionNames } from '~/src/server/common/constants/session-names.js'
+import {
+  SESSION_KEY_BACK_LINK,
+  SESSION_KEY_CLIENT_ID,
+  sessionNames
+} from '~/src/server/common/constants/session-names.js'
 import { getBackLink } from '~/src/server/common/helpers/navigation.js'
 import { setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
@@ -11,17 +15,18 @@ import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
+import { findClientReturn } from '~/src/server/services/client-return.js'
 import {
   INVALID_CODE_CONSUMED_OR_EXPIRED,
   VALID
 } from '~/src/server/services/outcomes.js'
 
-const SESSION_KEY_BACK_LINK = 'session-back-link'
 const JOURNEY_START_PATH = 'account/change-email'
 
 const uidParams = Joi.object({ uid: Joi.string().required() })
 
 const queryParamsSchema = Joi.object({
+  client_id: Joi.string(),
   returnUrl: Joi.string(),
   language: Joi.string().valid('en-GB', 'cy')
 })
@@ -59,14 +64,28 @@ export default /** @type {ServerRoute[]} */ (
         validate: { query: queryParamsSchema },
         auth: { mode: 'required', strategy: CITIZEN_SESSION }
       },
-      handler(request, h) {
+      async handler(request, h) {
         const account = request.auth.credentials
 
         const { query, yar } = request
         setLanguage(request)
 
-        if (query.returnUrl) {
-          yar.set(SESSION_KEY_BACK_LINK, query.returnUrl)
+        const clientReturn = await findClientReturn(
+          request.server.app.oidcProvider,
+          { clientId: query.client_id, returnUrl: query.returnUrl }
+        )
+
+        // Only a client that names itself sets these. The Back link belongs
+        // to that client, so a return address on another origin is left out
+        // and the page shows no Back link.
+        if (clientReturn) {
+          yar.set(SESSION_KEY_CLIENT_ID, clientReturn.clientId)
+
+          if (clientReturn.returnUrl) {
+            yar.set(SESSION_KEY_BACK_LINK, clientReturn.returnUrl)
+          } else {
+            yar.clear(SESSION_KEY_BACK_LINK)
+          }
         }
 
         const backLink = yar.get(SESSION_KEY_BACK_LINK)

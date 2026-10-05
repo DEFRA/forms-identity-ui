@@ -33,6 +33,7 @@ describe('buildProviderConfig', () => {
           'http://localhost:3009/auth/signed-out',
           'http://localhost:3000/'
         ],
+        initiate_login_uri: 'http://localhost:3009/auth/initiate',
         response_types: ['code'],
         grant_types: ['authorization_code', 'refresh_token'],
         token_endpoint_auth_method: 'private_key_jwt',

@@ -476,6 +476,24 @@ describe('change-email round trip', () => {
     expect(res.statusCode).toBe(401)
   })
 
+  it('sends a user with no signed-in session to the client they came from, to sign in', async () => {
+    const returnUrl = new URL('/homepage/a-form', REDIRECT_URI).href
+    const account = `/account?${new URLSearchParams({ client_id: 'runner', returnUrl }).toString()}`
+
+    const res = await browse(account)
+
+    expect(res.statusCode).toBe(302)
+
+    const signIn = new URL(String(res.headers.location))
+    expect(`${signIn.origin}${signIn.pathname}`).toBe(
+      'http://localhost:3009/auth/initiate'
+    )
+    expect(signIn.searchParams.get('iss')).toBe(ISSUER)
+    expect(signIn.searchParams.get('target_link_uri')).toBe(
+      `${ISSUER}${account}`
+    )
+  })
+
   it('starts a fresh interaction showing the phone last 4 digits', async () => {
     const account = await signIn('start@example.com', PHONE)
 

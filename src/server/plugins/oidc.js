@@ -6,6 +6,7 @@ import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 
 const OIDC_ISSUER = config.get('oidc.issuer')
+const COOKIE_SECURE = config.get('oidc.cookieSecure')
 const { host: ISSUER_HOST, protocol: ISSUER_PROTOCOL } = new URL(OIDC_ISSUER)
 const ISSUER_PROTO = ISSUER_PROTOCOL.replace(':', '')
 
@@ -65,6 +66,40 @@ function pinOrigin(req) {
 }
 
 /**
+ * oidc-provider's message for an `initiate_login_uri` that is not an https
+ * URL. That check has no error code, so the message identifies it.
+ */
+const INITIATE_LOGIN_URI_NOT_HTTPS = 'initiate_login_uri must be a https uri'
+
+/**
+ * Lets a client register an http `initiate_login_uri`, for local development
+ * where the clients have no TLS. oidc-provider sends every client metadata
+ * failure through `invalidate`, so this replaces that method and passes all
+ * other failures to the original.
+ * @param {Provider} provider
+ */
+function allowHttpInitiateLoginUri(provider) {
+  const schema = provider.Client.Schema.prototype
+  const { invalidate } = schema
+
+  /**
+   * @this {{ initiate_login_uri?: unknown }}
+   * @param {string} message
+   * @param {string} [code]
+   */
+  schema.invalidate = function (message, code) {
+    if (
+      message === INITIATE_LOGIN_URI_NOT_HTTPS &&
+      URL.parse(String(this.initiate_login_uri))?.protocol === 'http:'
+    ) {
+      return
+    }
+
+    invalidate.call(this, message, code)
+  }
+}
+
+/**
  * Runs node-oidc-provider inside this service, so its cookies are
  * first-party. Persistence is the HTTP adapter against forms-identity-api.
  * @satisfies {ServerRegisterPluginObject<void>}
@@ -84,6 +119,12 @@ export default {
       // https:// URLs and secure cookies. Removing this breaks every deployed
       // environment. What it trusts is what pinOrigin just wrote.
       provider.proxy = true
+
+      // Where cookies are not Secure the service runs over http, and so do
+      // its clients. Deployed environments keep the https rule.
+      if (!COOKIE_SECURE) {
+        allowHttpInitiateLoginUri(provider)
+      }
 
       // The provider turns internal faults into a bare `server_error` for the
       // client, so without this the cause never reaches the logs — an adapter

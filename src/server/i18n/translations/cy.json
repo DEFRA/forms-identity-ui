@@ -136,6 +136,10 @@
       "tryBack": "roi gynnig ar fotwm mynd yn ôl eich porwr",
       "contact": "<a class=\"govuk-link\" href=\"https://www.gov.uk/guidance/contact-defra\">gysylltu â Llinell Gymorth Defra</a> os oes gennych unrhyw gwestiynau"
     },
+    "signInAgain": {
+      "heading": "Mewngofnodwch eto",
+      "body": "Mae eich sesiwn wedi dod i ben. I gadw eich cyfrif yn ddiogel, ewch yn ôl i'r gwasanaeth roeddech yn ei ddefnyddio a mewngofnodwch eto."
+    },
     "errorSummaryTitle": "Mae problem wedi codi"
   },
   "signout": {

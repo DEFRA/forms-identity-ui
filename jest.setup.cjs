@@ -49,3 +49,5 @@ process.env.OIDC_RUNNER_REDIRECT_URIS =
   'http://localhost:3009/callback,http://localhost:3000/callback'
 process.env.OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS =
   'http://localhost:3009/auth/signed-out,http://localhost:3000/'
+process.env.OIDC_RUNNER_INITIATE_LOGIN_URI =
+  'http://localhost:3009/auth/initiate'

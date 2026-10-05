@@ -86,16 +86,23 @@ export function signOutResult(state, cancelled) {
  * @param {object} claims - ID token claims
  * @param {object} summary - token response summary
  * @param {object} accessTokenClaims - access token claims
+ * @param {string} accountUrl - the provider's account pages
  * @param {string} [notice] - HTML to show at the top of the page
  */
-export function signedInPage(claims, summary, accessTokenClaims, notice = '') {
+export function signedInPage(
+  claims,
+  summary,
+  accessTokenClaims,
+  accountUrl,
+  notice = ''
+) {
   return page(`
     ${notice}
     <p>Signed in.</p>
     ${table('ID token claims', claims)}
     ${table('Token response', summary)}
     ${table('Access token claims', accessTokenClaims)}
-    <p><a href="/login">Sign in again</a> <a href="/logout">Sign out</a></p>`)
+    <p><a href="/login">Sign in again</a> <a href="${escapeHtml(accountUrl)}">Security</a> <a href="/logout">Sign out</a></p>`)
 }
 
 /** @param {string} message */

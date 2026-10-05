@@ -82,8 +82,9 @@ async function discover() {
  * with. Holding one verifier at a time would break as soon as two sign-ins
  * overlap — a second tab, or an automated run alongside a manual one — because
  * the second would overwrite the first's and the earlier callback would fail
- * its state check.
- * @type {Map<string, string>}
+ * its state check. Each holds the PKCE verifier and the page to show after
+ * the callback.
+ * @type {Map<string, { verifier: string, returnTo: string }>}
  */
 const pending = new Map()
 
@@ -116,6 +117,48 @@ async function revokeRefreshToken() {
   })
 }
 
+/**
+ * Starts a sign in at the provider. The callback finishes it and sends the
+ * user to `returnTo`.
+ * @param {import('@hapi/hapi').ResponseToolkit} h
+ * @param {string} returnTo
+ */
+async function startSignIn(h, returnTo) {
+  const config = await discover()
+  const verifier = client.randomPKCECodeVerifier()
+  const state = client.randomState()
+  pending.set(state, { verifier, returnTo })
+
+  const authUrl = client.buildAuthorizationUrl(config, {
+    redirect_uri: REDIRECT_URI,
+    // `offline_access` asks for a refresh token that outlives the
+    // provider session. The provider accepts it only with a consent
+    // prompt, which it answers without a page.
+    scope: 'openid email offline_access',
+    prompt: 'consent',
+    // Named here only: the provider issues the token for the granted API
+    // without it being sent again at the token endpoint
+    resource: RESOURCE,
+    state,
+    code_challenge: await client.calculatePKCECodeChallenge(verifier),
+    code_challenge_method: 'S256'
+  })
+  return h.redirect(authUrl.href)
+}
+
+/**
+ * The link to the provider's account pages. It names this client and the
+ * page to come back to, so the provider can send the user here to sign in
+ * when its session has ended.
+ */
+function accountUrl() {
+  const url = new URL('/account', ISSUER)
+  url.searchParams.set('client_id', 'runner')
+  url.searchParams.set('returnUrl', `${BASE}/`)
+
+  return url.href
+}
+
 const server = Hapi.server({ port: PORT, host: 'localhost' })
 
 server.route([
@@ -143,6 +186,7 @@ server.route([
           session.claims,
           tokenSummary(session.tokens, session.obtainedAt),
           decodeJwt(session.tokens.access_token),
+          accountUrl(),
           result
         )
       }
@@ -152,27 +196,38 @@ server.route([
   {
     method: 'GET',
     path: '/login',
-    async handler(_request, h) {
-      const config = await discover()
-      const verifier = client.randomPKCECodeVerifier()
-      const state = client.randomState()
-      pending.set(state, verifier)
+    handler(_request, h) {
+      return startSignIn(h, '/')
+    }
+  },
+  {
+    // The sign in that the provider asks for (OpenID Connect Core, section
+    // 4). The provider's account pages send a user here when the provider
+    // session has ended. It is registered as the client's
+    // `initiate_login_uri` (OIDC_RUNNER_INITIATE_LOGIN_URI).
+    method: 'GET',
+    path: '/initiate',
+    handler(request, h) {
+      const { iss, target_link_uri: target } =
+        /** @type {{ iss?: string, target_link_uri?: string }} */ (
+          request.query
+        )
 
-      const authUrl = client.buildAuthorizationUrl(config, {
-        redirect_uri: REDIRECT_URI,
-        // `offline_access` asks for a refresh token that outlives the
-        // provider session. The provider accepts it only with a consent
-        // prompt, which it answers without a page.
-        scope: 'openid email offline_access',
-        prompt: 'consent',
-        // Named here only: the provider issues the token for the granted API
-        // without it being sent again at the token endpoint
-        resource: RESOURCE,
-        state,
-        code_challenge: await client.calculatePKCECodeChallenge(verifier),
-        code_challenge_method: 'S256'
-      })
-      return h.redirect(authUrl.href)
+      // The target is a full URL on another host, so it is accepted only on
+      // the provider's origin
+      if (
+        iss !== ISSUER ||
+        !target ||
+        URL.parse(target)?.origin !== new URL(ISSUER).origin
+      ) {
+        return h
+          .response(
+            errorPage('iss or target_link_uri is not from the provider')
+          )
+          .code(400)
+      }
+
+      return startSignIn(h, target)
     }
   },
   {
@@ -182,7 +237,7 @@ server.route([
       const config = await discover()
       const callbackUrl = new URL(request.url.href)
       const state = String(callbackUrl.searchParams.get('state'))
-      const verifier = pending.get(state)
+      const { verifier, returnTo = '/' } = pending.get(state) ?? {}
       pending.delete(state)
 
       try {
@@ -205,7 +260,7 @@ server.route([
         return errorPage(String(err))
       }
 
-      return h.redirect('/')
+      return h.redirect(returnTo)
     }
   },
   {

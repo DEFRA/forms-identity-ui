@@ -44,6 +44,10 @@ declare module '@hapi/hapi' {
   interface ServerApplicationState {
     oidcProvider: OidcProvider
   }
+
+  interface RequestApplicationState {
+    hasNoCitizenSession?: boolean
+  }
 }
 
 declare module '@hapi/yar' {
