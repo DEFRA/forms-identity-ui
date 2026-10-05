@@ -27,6 +27,25 @@ describe('oidc plugin', () => {
     expect(doc.token_endpoint).toBe('http://localhost:3011/token')
   })
 
+  it('advertises the refresh token scope and the revocation endpoint that a client finds by discovery', async () => {
+    const res = await server.inject({
+      method: 'GET',
+      url: '/.well-known/openid-configuration'
+    })
+
+    const doc = JSON.parse(res.payload)
+    expect(doc.scopes_supported).toEqual(['openid', 'offline_access', 'email'])
+    expect(doc.revocation_endpoint).toBe(
+      'http://localhost:3011/token/revocation'
+    )
+    expect(doc.revocation_endpoint_auth_methods_supported).toEqual([
+      'private_key_jwt'
+    ])
+    expect(doc.revocation_endpoint_auth_signing_alg_values_supported).toEqual([
+      'RS256'
+    ])
+  })
+
   it('builds endpoint URLs from the issuer, not from the caller headers', async () => {
     // A caller who could name the origin could name the jwks_uri, and a
     // relying party that resolved keys from it would accept tokens signed by

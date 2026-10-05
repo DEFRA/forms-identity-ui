@@ -294,7 +294,7 @@ export const config = convict({
         env: 'OIDC_TTL_ACCESS_TOKEN'
       },
       refreshToken: {
-        doc: "Refresh token lifetime in seconds. Must be no longer than forms-runner's SESSION_TIMEOUT.",
+        doc: 'Refresh token lifetime in seconds',
         format: 'nat',
         default: /** @type {number | null} */ (null),
         env: 'OIDC_TTL_REFRESH_TOKEN'

@@ -131,5 +131,11 @@
       "contact": "<a class=\"govuk-link\" href=\"https://www.gov.uk/guidance/contact-defra\">gysylltu â Llinell Gymorth Defra</a> os oes gennych unrhyw gwestiynau"
     },
     "errorSummaryTitle": "Mae problem wedi codi"
+  },
+  "signout": {
+    "title": "Ydych chi’n siŵr eich bod eisiau allgofnodi?",
+    "body": "Os byddwch yn allgofnodi, bydd angen i chi fewngofnodi eto gan ddefnyddio’ch cyfeiriad e-bost a’ch cod diogelwch.",
+    "button": "Allgofnodi",
+    "cancel": "Canslo"
   }
 }
