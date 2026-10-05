@@ -2,6 +2,9 @@
   "service": {
     "name": "Mewngofnodi i Ffurflenni Defra"
   },
+  "common": {
+    "back": "Yn ôl"
+  },
   "home": {
     "title": "Ni allwch fewngofnodi o'r dudalen hon",
     "body": "Dim ond wrth fewngofnodi i wefan, ap neu ffurflen ar-lein y defnyddir y dudalen hon.",
@@ -15,6 +18,9 @@
     "email": "Cyfeiriad e-bost",
     "phone": "Rhif ffôn symudol",
     "changeEmail": "Newid cyfeiriad e-bost",
+    "change": "Newid",
+    "emailAddress": "cyfeiriad e-bost",
+    "mobileNumber": "rhif ffôn symudol",
     "successNotificationTitleText": "Llwyddiant",
     "successChangedEmailNotificationText": "Mae eich cyfeiriad e-bost wedi'i newid.",
     "requestPhoneOtp": {

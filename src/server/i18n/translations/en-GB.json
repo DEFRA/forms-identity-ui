@@ -2,6 +2,9 @@
   "service": {
     "name": "Sign in to Defra Forms"
   },
+  "common": {
+    "back": "Back"
+  },
   "home": {
     "title": "You cannot sign in from this page",
     "body": "This page is only used when signing in to a website, app, or online form.",
@@ -15,6 +18,9 @@
     "email": "Email address",
     "phone": "Mobile phone number",
     "changeEmail": "Change email address",
+    "change": "Change",
+    "emailAddress": "email address",
+    "mobileNumber": "mobile number",
     "successNotificationTitleText": "Success",
     "successChangedEmailNotificationText": "Your email address has been changed.",
     "requestPhoneOtp": {

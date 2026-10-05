@@ -5,6 +5,7 @@ import Joi from 'joi'
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { getBackLink } from '~/src/server/common/helpers/navigation.js'
+import { setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
@@ -21,7 +22,8 @@ const JOURNEY_START_PATH = 'account/change-email'
 const uidParams = Joi.object({ uid: Joi.string().required() })
 
 const queryParamsSchema = Joi.object({
-  returnUrl: Joi.string()
+  returnUrl: Joi.string(),
+  language: Joi.string().valid('en-GB', 'cy')
 })
 
 /**
@@ -61,6 +63,7 @@ export default /** @type {ServerRoute[]} */ (
         const account = request.auth.credentials
 
         const { query, yar } = request
+        setLanguage(request)
 
         if (query.returnUrl) {
           yar.set(SESSION_KEY_BACK_LINK, query.returnUrl)
@@ -105,8 +108,10 @@ export default /** @type {ServerRoute[]} */ (
       },
       handler(request, h) {
         const { uid } = request.params
+        setLanguage(request)
         const account = /** @type {Account} */ (request.auth.credentials)
         const phoneEndDigits = getPhoneEndDigits(account.phone)
+
         const backLink = {
           href: '/account'
         }
@@ -151,8 +156,13 @@ export default /** @type {ServerRoute[]} */ (
       },
       async handler(request, h) {
         const { uid } = request.params
+        setLanguage(request)
         const account = /** @type {Account} */ (request.auth.credentials)
         const phoneEndDigits = getPhoneEndDigits(account.phone)
+
+        const backLink = {
+          href: `/account/${uid}/phone-sent-code`
+        }
 
         // Verify there is an OTP record for this interaction
         // i.e. a code has been requested
@@ -171,6 +181,7 @@ export default /** @type {ServerRoute[]} */ (
 
         return h.view('account/phone-code-sent', {
           uid,
+          backLink,
           phoneEndDigits,
           showResendNotification
         })
@@ -230,6 +241,7 @@ export default /** @type {ServerRoute[]} */ (
       },
       async handler(request, h) {
         const { uid } = request.params
+        setLanguage(request)
         // Verify the phone was previously validated on this interaction
         const phoneOtp = await identityApi.getOtp(
           uid,
@@ -240,7 +252,11 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(`/account/${uid}/change-email`)
         }
 
-        return h.view('account/new-email', { uid })
+        const backLink = {
+          href: `/account/${uid}/change-email`
+        }
+
+        return h.view('account/new-email', { uid, backLink })
       }
     }),
     /** @satisfies {ServerRoute<{ Params: { uid: string }, Query: { resend?: boolean}, Payload: { email: string } }>} */
@@ -295,6 +311,7 @@ export default /** @type {ServerRoute[]} */ (
       },
       async handler(request, h) {
         const { uid } = request.params
+        setLanguage(request)
 
         // Verify the phone was previously validated on this interaction
         const phoneOtp = await identityApi.getOtp(
@@ -322,11 +339,15 @@ export default /** @type {ServerRoute[]} */ (
           .flash(sessionNames.codeResendSuccessNotification)
           .at(0)
 
+        const backLink = {
+          href: `/account/${uid}/new-email`
+        }
+
         return h.view('account/email-code-sent', {
           uid,
+          backLink,
           email: emailOtp?.target,
-          showResendNotification,
-          backLink: { href: `/account/{${uid}}/change-email` }
+          showResendNotification
         })
       }
     }),

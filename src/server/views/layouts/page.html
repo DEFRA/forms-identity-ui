@@ -29,6 +29,7 @@
 
 {% block beforeContent %}
   {% if backLink %}
+    {% set backLink = { href: backLink.href, text: t('common.back') } %}
     {{ govukBackLink(backLink) }}
   {% endif %}
   {% include "partials/language-selector.html" %}
