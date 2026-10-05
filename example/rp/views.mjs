@@ -56,13 +56,41 @@ export function tokenSummary(tokens, obtainedAt) {
 }
 
 /**
+ * The result of a sign-out, when the provider sends the user back. It shows
+ * the `state` that the RP sent with the sign-out request.
+ * @param {string} state - the `state` query parameter
+ * @param {boolean} cancelled - true when the user selected Cancel
+ */
+export function signOutResult(state, cancelled) {
+  /** @type {unknown} */
+  let parsed
+
+  try {
+    parsed = JSON.parse(state)
+  } catch {
+    parsed = undefined
+  }
+
+  const values =
+    typeof parsed === 'object' && parsed !== null ? parsed : { state }
+
+  return `
+    <h2>${cancelled ? 'You cancelled sign-out' : 'You have signed out'}</h2>
+    <p>${cancelled ? 'Your session continues.' : 'Sign in again to continue.'}</p>
+    <p>The provider sent back the state that the example RP sent with the sign-out request. The example RP can read the form's slug from it, to send the user back to the form.</p>
+    ${table('Returned state', values)}`
+}
+
+/**
  * The signed-in home page
  * @param {object} claims - ID token claims
  * @param {object} summary - token response summary
  * @param {object} accessTokenClaims - access token claims
+ * @param {string} [notice] - HTML to show at the top of the page
  */
-export function signedInPage(claims, summary, accessTokenClaims) {
+export function signedInPage(claims, summary, accessTokenClaims, notice = '') {
   return page(`
+    ${notice}
     <p>Signed in.</p>
     ${table('ID token claims', claims)}
     ${table('Token response', summary)}

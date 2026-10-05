@@ -1,9 +1,9 @@
 /**
  * Example relying party for trying the sign-in journey in a browser without
  * forms-runner. The OIDC mechanics (discovery, PKCE, code exchange, logout
- * URLs) come from openid-client — the certified RP library — so this file is
- * only routing and session bookkeeping. Never deployed: lives outside src/,
- * so the babel build and Docker image never include it.
+ * URLs, token revocation) come from openid-client — the certified RP library
+ * — so this file is only routing and session bookkeeping. Never deployed:
+ * lives outside src/, so the babel build and Docker image never include it.
  *
  * Started automatically by this repo's `npm run dev` (alongside the
  * service) on :3901; forms-identity-api must also be running (:3010, with
@@ -15,24 +15,30 @@ import * as client from 'openid-client'
 
 import 'dotenv/config'
 
-import { errorPage, page, signedInPage, tokenSummary } from './views.mjs'
+import {
+  errorPage,
+  page,
+  signOutResult,
+  signedInPage,
+  tokenSummary
+} from './views.mjs'
 
 const ISSUER = process.env.EXAMPLE_RP_ISSUER ?? 'http://localhost:3011'
 const DEFAULT_PORT = 3901
 const PORT = Number(process.env.EXAMPLE_RP_PORT ?? DEFAULT_PORT)
 const BASE = `http://localhost:${PORT}`
 const REDIRECT_URI = `${BASE}/callback`
-const PRIVATE_JWKS = process.env.EXAMPLE_RP_PRIVATE_JWKS
+const PRIVATE_JWK_JSON = process.env.EXAMPLE_RP_PRIVATE_JWK
 const RESOURCE =
   process.env.EXAMPLE_RP_RESOURCE ?? 'urn:defra:forms:forms-submission-api'
 
-if (!PRIVATE_JWKS) {
+if (!PRIVATE_JWK_JSON) {
   throw new Error(
-    'EXAMPLE_RP_PRIVATE_JWKS must be set (this repo’s .env) — generate the pair with scripts/generate-client-keypair.mjs'
+    'EXAMPLE_RP_PRIVATE_JWK must be set (this repo’s .env) — generate the pair with scripts/generate-client-keypair.mjs'
   )
 }
 
-const [PRIVATE_JWK] = JSON.parse(PRIVATE_JWKS).keys
+const PRIVATE_JWK = JSON.parse(PRIVATE_JWK_JSON)
 
 /**
  * The client's signing key. Standing in for forms-runner, this process is
@@ -87,21 +93,60 @@ const pending = new Map()
  */
 const session = { obtainedAt: 0 }
 
+/**
+ * Revokes the refresh token at the provider's revocation endpoint (RFC 7009).
+ * The sign-in asked for `offline_access`, and the provider keeps that grant
+ * at sign-out, so revocation is what ends it.
+ */
+async function revokeRefreshToken() {
+  const refreshToken = session.tokens?.refresh_token
+
+  if (!refreshToken) {
+    return
+  }
+
+  const config = await discover()
+
+  if (!config.serverMetadata().revocation_endpoint) {
+    throw new Error('The provider lists no revocation_endpoint in discovery')
+  }
+
+  await client.tokenRevocation(config, refreshToken, {
+    token_type_hint: 'refresh_token'
+  })
+}
+
 const server = Hapi.server({ port: PORT, host: 'localhost' })
 
 server.route([
   {
     method: 'GET',
     path: '/',
-    handler() {
+    async handler(request) {
+      const { state, cancelled } =
+        /** @type {{ state?: string, cancelled?: string }} */ (request.query)
+
+      // The provider sends the user here with `state` after a sign-out. The
+      // Cancel link on the sign-out page also sends `state`, with
+      // `cancelled=true`. End the session only after a completed sign-out.
+      const result =
+        state === undefined ? '' : signOutResult(state, cancelled === 'true')
+
+      if (state !== undefined && cancelled !== 'true') {
+        await revokeRefreshToken()
+        delete session.tokens
+        delete session.claims
+      }
+
       if (session.claims && session.tokens) {
         return signedInPage(
           session.claims,
           tokenSummary(session.tokens, session.obtainedAt),
-          decodeJwt(session.tokens.access_token)
+          decodeJwt(session.tokens.access_token),
+          result
         )
       }
-      return page('<p><a href="/login">Sign in</a></p>')
+      return page(`${result}<p><a href="/login">Sign in</a></p>`)
     }
   },
   {
@@ -115,7 +160,11 @@ server.route([
 
       const authUrl = client.buildAuthorizationUrl(config, {
         redirect_uri: REDIRECT_URI,
-        scope: 'openid email',
+        // `offline_access` asks for a refresh token that outlives the
+        // provider session. The provider accepts it only with a consent
+        // prompt, which it answers without a page.
+        scope: 'openid email offline_access',
+        prompt: 'consent',
         // Named here only: the provider issues the token for the granted API
         // without it being sent again at the token endpoint
         resource: RESOURCE,
@@ -166,15 +215,16 @@ server.route([
       const config = await discover()
       const idToken = session.tokens?.id_token
 
-      delete session.tokens
-      delete session.claims
-
       const logoutUrl = client.buildEndSessionUrl(config, {
         ...(idToken && { id_token_hint: idToken }),
         client_id: 'runner',
         // Registered in OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS — without it
         // the provider shows its own success page instead of returning here
-        post_logout_redirect_uri: `${BASE}/`
+        post_logout_redirect_uri: `${BASE}/`,
+        // The example RP's own data for this sign-out: a dummy form slug. The
+        // provider sends it back unchanged. It also lets `/`, which is the
+        // home page too, know that the user came back from the provider.
+        state: JSON.stringify({ slug: 'example-form' })
       })
       return h.redirect(logoutUrl.href)
     }

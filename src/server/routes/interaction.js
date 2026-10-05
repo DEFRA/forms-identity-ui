@@ -148,6 +148,37 @@ async function finishLogin(request, h, accountId) {
 }
 
 /**
+ * Records which scopes the account grants the client.
+ * @param {Provider} provider
+ * @param {InteractionDetails} details
+ * @returns {Promise<string>}
+ */
+async function saveConsentGrant(provider, details) {
+  // The scope is the authorization request's own, already validated by the
+  // provider
+  const { client_id: clientId, scope } = details.params
+  const accountId = details.session?.accountId
+
+  if (typeof clientId !== 'string' || typeof scope !== 'string' || !accountId) {
+    throw Boom.internal(
+      'Consent interaction has no client_id, scope or account'
+    )
+  }
+
+  // The grant can reach the end of its lifetime between the authorization
+  // request and this page. The account then gets a new grant, so that the
+  // sign-in continues.
+  const existingGrant = details.grantId
+    ? await provider.Grant.find(details.grantId)
+    : undefined
+
+  const grant = existingGrant ?? new provider.Grant({ accountId, clientId })
+
+  grant.addOIDCScope(scope)
+  return grant.save()
+}
+
+/**
  *
  * @param {Request<{ Pres: InteractionPres, Query: { language?: string }; }>} request
  * @param {ResponseToolkit<{ Pres: InteractionPres, Query: { language?: string }; }>} h
@@ -198,21 +229,10 @@ export default /** @type {ServerRoute[]} */ (
         // (devInteractions is disabled), which is why the grant is built
         // here rather than by the library.
         if (details.prompt.name === 'consent') {
-          const params = /** @type {{ client_id?: string, scope?: string }} */ (
-            details.params
-          )
-          // Record which scopes the account grants the client. The scope is
-          // the authorization request's own ('openid email' from runner),
-          // already validated by the provider; the fallback only satisfies
-          // the loose params typing. The saved grant id is the complete
-          // consent result — the login half was submitted in the earlier
-          // step and merges in via mergeWithLastSubmission.
-          const grant = new provider.Grant({
-            accountId: details.session?.accountId,
-            clientId: params.client_id
-          })
-          grant.addOIDCScope(params.scope ?? '')
-          const grantId = await grant.save()
+          // The saved grant id is the complete consent result — the login
+          // half was submitted in the earlier step and merges in via
+          // mergeWithLastSubmission.
+          const grantId = await saveConsentGrant(provider, details)
           await provider.interactionFinished(
             request.raw.req,
             request.raw.res,

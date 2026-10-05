@@ -39,9 +39,10 @@ node scripts/generate-client-keypair.mjs  # the client's keypair, both halves
 ```
 
 The second prints two values. `OIDC_RUNNER_JWKS` is the public half and belongs
-here. `EXAMPLE_RP_PRIVATE_JWKS` is the private half, held by the client — for
-local development that is the example RP, and in a real environment it is
-forms-runner and nothing else.
+here. `OIDC_CLIENT_PRIVATE_JWK` is the private half, as one key, held by the
+client. In a real environment that is forms-runner and nothing else. For local
+development, put the same value here as `EXAMPLE_RP_PRIVATE_JWK`, for the
+example RP.
 
 Each key is named after its role, its algorithm and a random tail —
 `sig-rs256-4c1f8ab390d7`. Rotating means running the script again and replacing
@@ -53,8 +54,14 @@ and replace the values.
 
 `OIDC_RESOURCE_SERVERS` lists the APIs that can get an access token. Each name
 becomes the `aud` of the token, and a client names one in the `resource`
-parameter of the authorization request. `OIDC_TTL_ACCESS_TOKEN` matches the
-session lifetime, because there are no refresh tokens.
+parameter of the authorization request. `OIDC_TTL_ACCESS_TOKEN` is short, and
+the client gets a new access token with its refresh token.
+
+A client gets a refresh token when it asks for the `offline_access` scope with
+`prompt=consent`. The refresh token lasts for `OIDC_TTL_REFRESH_TOKEN`, after
+the provider session has ended. Sign-out keeps the grant, so the client
+revokes its refresh token at the revocation endpoint (`/token/revocation`)
+when the user comes back from a completed sign-out.
 
 ## Development
 

@@ -35,11 +35,10 @@ process.env.OIDC_TTL_AUTHORIZATION_CODE = '60'
 process.env.OIDC_TTL_ID_TOKEN = '300'
 // Short, because the client refreshes it with a refresh token
 process.env.OIDC_TTL_ACCESS_TOKEN = '300'
-// No longer than forms-runner's SESSION_TIMEOUT
-process.env.OIDC_TTL_REFRESH_TOKEN = '86400'
+process.env.OIDC_TTL_REFRESH_TOKEN = '604800'
 process.env.OIDC_TTL_INTERACTION = '3600'
 process.env.OIDC_TTL_SESSION = '86400'
-process.env.OIDC_TTL_GRANT = '86400'
+process.env.OIDC_TTL_GRANT = '604800'
 // Pin values a local .env could otherwise leak into tests (dotenv does not
 // override variables that are already set)
 process.env.OIDC_ISSUER = 'http://localhost:3011'
