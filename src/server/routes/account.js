@@ -161,7 +161,7 @@ export default /** @type {ServerRoute[]} */ (
         const phoneEndDigits = getPhoneEndDigits(account.phone)
 
         const backLink = {
-          href: `/account/${uid}/phone-sent-code`
+          href: `/account/${uid}/change-email`
         }
 
         // Verify there is an OTP record for this interaction
@@ -340,7 +340,7 @@ export default /** @type {ServerRoute[]} */ (
           .at(0)
 
         const backLink = {
-          href: `/account/${uid}/new-email`
+          href: `/account/${uid}/enter-email`
         }
 
         return h.view('account/email-code-sent', {
