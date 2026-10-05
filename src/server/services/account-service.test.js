@@ -23,16 +23,18 @@ jest.mock('~/src/server/lib/service-token.js', () => ({
 describe('account service', () => {
   const uid = 'uid-1'
   const code = '123456'
+  const accountId = 'account-id'
 
   describe('submitPhoneCode', () => {
     it('should submit for phone and verify successfully', async () => {
       jest.mocked(verifyOtp).mockResolvedValueOnce({ status: 'valid' })
-      const res = await submitPhoneCode(uid, code)
+      const res = await submitPhoneCode(uid, code, accountId)
       expect(verifyOtp).toHaveBeenCalledWith(
         {
           code: '123456',
           purpose: 'ACCOUNT_VERIFY_PHONE',
-          uid: 'uid-1'
+          uid: 'uid-1',
+          id: 'account-id'
         },
         undefined
       )
@@ -43,12 +45,13 @@ describe('account service', () => {
   describe('submitEmailCode', () => {
     it('should submit for email and verify successfully', async () => {
       jest.mocked(verifyOtp).mockResolvedValueOnce({ status: 'valid' })
-      const res = await submitEmailCode(uid, code)
+      const res = await submitEmailCode(uid, code, accountId)
       expect(verifyOtp).toHaveBeenCalledWith(
         {
           code: '123456',
           purpose: 'ACCOUNT_VERIFY_EMAIL',
-          uid: 'uid-1'
+          uid: 'uid-1',
+          id: 'account-id'
         },
         undefined
       )
