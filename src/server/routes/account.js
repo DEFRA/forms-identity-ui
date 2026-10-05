@@ -160,10 +160,6 @@ export default /** @type {ServerRoute[]} */ (
         const account = /** @type {Account} */ (request.auth.credentials)
         const phoneEndDigits = getPhoneEndDigits(account.phone)
 
-        const backLink = {
-          href: `/account/${uid}/change-email`
-        }
-
         // Verify there is an OTP record for this interaction
         // i.e. a code has been requested
         const phoneOtp = await identityApi.getOtp(
@@ -181,7 +177,6 @@ export default /** @type {ServerRoute[]} */ (
 
         return h.view('account/phone-code-sent', {
           uid,
-          backLink,
           phoneEndDigits,
           showResendNotification
         })
@@ -220,17 +215,6 @@ export default /** @type {ServerRoute[]} */ (
         })
       }
     }),
-    // /** @satisfies {ServerRoute<{  }>} */
-    // ({
-    //   method: 'GET',
-    //   path: '/account/{uid}/code/expired',
-    //   options: {
-    //     validate: { params: uidParams }
-    //   },
-    //   async handler(request, h) {
-    //     return commonOTPHandler(request, h, 'code-expired')
-    //   }
-    // }),
     /** @satisfies {ServerRoute<{ Params: { uid: string } }>} */
     ({
       method: 'GET',
@@ -252,11 +236,7 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(`/account/${uid}/change-email`)
         }
 
-        const backLink = {
-          href: `/account/${uid}/change-email`
-        }
-
-        return h.view('account/new-email', { uid, backLink })
+        return h.view('account/new-email', { uid })
       }
     }),
     /** @satisfies {ServerRoute<{ Params: { uid: string }, Query: { resend?: boolean}, Payload: { email: string } }>} */
@@ -339,13 +319,8 @@ export default /** @type {ServerRoute[]} */ (
           .flash(sessionNames.codeResendSuccessNotification)
           .at(0)
 
-        const backLink = {
-          href: `/account/${uid}/enter-email`
-        }
-
         return h.view('account/email-code-sent', {
           uid,
-          backLink,
           email: emailOtp?.target,
           showResendNotification
         })
