@@ -47,7 +47,7 @@ export async function findClientReturn(provider, { clientId, returnUrl }) {
  * stored from that visit.
  * @param {Request} request
  */
-export function findSentOrStoredClientReturn({ server, query, yar }) {
+export function clientReturnFor({ server, query, yar }) {
   return findClientReturn(server.app.oidcProvider, {
     clientId: query.client_id ?? yar.get(SESSION_KEY_CLIENT_ID),
     returnUrl: query.returnUrl ?? yar.get(SESSION_KEY_BACK_LINK)

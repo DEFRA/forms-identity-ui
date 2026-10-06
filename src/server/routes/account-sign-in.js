@@ -3,7 +3,7 @@ import { StatusCodes } from 'http-status-codes'
 
 import { config } from '~/src/config/index.js'
 import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
-import { findSentOrStoredClientReturn } from '~/src/server/services/client-return.js'
+import { clientReturnFor } from '~/src/server/services/client-return.js'
 
 const OIDC_ISSUER = config.get('oidc.issuer')
 
@@ -50,7 +50,7 @@ async function signInAtClient(request, h) {
 
   // Authentication runs before validation, so the query is as the user sent
   // it
-  const clientReturn = await findSentOrStoredClientReturn(request)
+  const clientReturn = await clientReturnFor(request)
 
   // With no client to send the user to, the page tells them to sign in
   // again from the service they came from
