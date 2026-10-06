@@ -215,6 +215,34 @@ describe('interaction pages', () => {
     }
   )
 
+  it('POST email shows the locked-out page in Welsh when the session is in Welsh', async () => {
+    jest.mocked(identityApi.requestOtp).mockResolvedValue({
+      status: 'locked-out',
+      lockedUntil: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+    })
+    const { crumb, cookie } = await getWithCrumb(
+      '/interaction/uid-1/email?language=cy'
+    )
+
+    const { container, response } = await renderResponse(server, {
+      method: 'POST',
+      url: '/interaction/uid-1/email',
+      headers: { cookie },
+      payload: { crumb, email: 'a@b.com' }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(
+      container.getByRole('heading', {
+        name: 'Gofynnwyd am ormod o godau diogelwch',
+        level: 1
+      })
+    ).toBeInTheDocument()
+    expect(
+      container.getByText('Rhowch gynnig arall arni ymhen 2 awr.')
+    ).toBeInTheDocument()
+  })
+
   it('POST email resend does not report a new code sent while locked out', async () => {
     jest.mocked(identityApi.requestOtp).mockResolvedValue({
       status: 'locked-out',

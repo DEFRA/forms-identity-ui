@@ -10,8 +10,9 @@ jest.mock('~/src/server/lib/identity-api.js', () => ({
  * Boots a server whose interactions expire after the given number of
  * seconds, with the interaction already dead so the timed-out page renders
  * @param {string} ttlSeconds
+ * @param {string} [url]
  */
-async function renderTimedOutPage(ttlSeconds) {
+async function renderTimedOutPage(ttlSeconds, url = '/interaction/uid-1') {
   const previous = process.env.OIDC_TTL_INTERACTION
   process.env.OIDC_TTL_INTERACTION = ttlSeconds
   jest.resetModules()
@@ -29,7 +30,7 @@ async function renderTimedOutPage(ttlSeconds) {
     try {
       const response = await server.inject({
         method: 'GET',
-        url: '/interaction/uid-1'
+        url
       })
       return response.payload
     } finally {
@@ -54,5 +55,15 @@ describe('timed-out page', () => {
     const html = await renderTimedOutPage('3600')
 
     expect(html).toContain('You have 1 hour to finish signing in.')
+  })
+  it('quotes the interaction lifetime in Welsh on the Welsh page', async () => {
+    const html = await renderTimedOutPage(
+      '5400',
+      '/interaction/uid-1?language=cy'
+    )
+
+    expect(html).toContain(
+      'Mae gennych 1 awr a 30 munud i gwblhau&#39;r broses fewngofnodi.'
+    )
   })
 })

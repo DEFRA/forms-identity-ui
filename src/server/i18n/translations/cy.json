@@ -76,6 +76,11 @@
     },
     "errorSummaryTitle": "Mae problem wedi codi"
   },
+  "duration": {
+    "hours": "[[count]] awr",
+    "minutes": "[[count]] munud",
+    "hoursAndMinutes": "[[hours]] a [[minutes]]"
+  },
   "errors": {
     "notFound": {
       "heading": "Heb ddod o hyd i'r dudalen",

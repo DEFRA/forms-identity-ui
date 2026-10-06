@@ -76,6 +76,13 @@
     },
     "errorSummaryTitle": "There is a problem"
   },
+  "duration": {
+    "hours_one": "[[count]] hour",
+    "hours_other": "[[count]] hours",
+    "minutes_one": "[[count]] minute",
+    "minutes_other": "[[count]] minutes",
+    "hoursAndMinutes": "[[hours]] and [[minutes]]"
+  },
   "errors": {
     "notFound": {
       "heading": "Page not found",
