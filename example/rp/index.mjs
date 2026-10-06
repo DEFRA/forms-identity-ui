@@ -133,7 +133,10 @@ async function startSignIn(h, returnTo) {
     redirect_uri: REDIRECT_URI,
     // `offline_access` asks for a refresh token that outlives the
     // provider session. The provider accepts it only with a consent
-    // prompt, which it answers without a page.
+    // prompt, which it answers without a page. forms-runner also sends
+    // `login`, to ask for a code at every sign in. It is left out here so
+    // that a live provider session signs the user in with no page, which
+    // the e2e suite relies on.
     scope: 'openid email offline_access',
     prompt: 'consent',
     // Named here only: the provider issues the token for the granted API
@@ -208,24 +211,8 @@ server.route([
     method: 'GET',
     path: '/initiate',
     handler(request, h) {
-      const { iss, target_link_uri: target } =
-        /** @type {{ iss?: string, target_link_uri?: string }} */ (
-          request.query
-        )
-
-      // The target is a full URL on another host, so it is accepted only on
-      // the provider's origin
-      if (
-        iss !== ISSUER ||
-        !target ||
-        URL.parse(target)?.origin !== new URL(ISSUER).origin
-      ) {
-        return h
-          .response(
-            errorPage('iss or target_link_uri is not from the provider')
-          )
-          .code(400)
-      }
+      const { target_link_uri: target = '/' } =
+        /** @type {{ target_link_uri?: string }} */ (request.query)
 
       return startSignIn(h, target)
     }
