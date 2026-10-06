@@ -1,3 +1,4 @@
+import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { cookieKeys, signingJwks } from '~/src/server/oidc/keys.js'
 
 /**
@@ -8,18 +9,30 @@ function jwk(kid) {
 }
 
 describe('signingJwks', () => {
-  it('returns each key with its number, signing key first', () => {
+  it('returns the keys with the signing key first', () => {
     const env = {
       OIDC_JWKS_KEY_4: jwk('kid-4'),
       OIDC_JWKS_KEY_5: jwk('kid-5')
     }
 
-    const keys = signingJwks(env, 5)
-
-    expect(keys.map(({ number, jwk: { kid } }) => ({ number, kid }))).toEqual([
-      { number: 5, kid: 'kid-5' },
-      { number: 4, kid: 'kid-4' }
+    expect(signingJwks(env, 5)).toEqual([
+      { kty: 'RSA', kid: 'kid-5', d: 'private-part-of-kid-5' },
+      { kty: 'RSA', kid: 'kid-4', d: 'private-part-of-kid-4' }
     ])
+  })
+
+  it('logs the number and the kid of each key, and which key signs', () => {
+    const info = jest.spyOn(logger, 'info')
+    const env = {
+      OIDC_JWKS_KEY_4: jwk('kid-4'),
+      OIDC_JWKS_KEY_5: jwk('kid-5')
+    }
+
+    signingJwks(env, 5)
+
+    expect(info).toHaveBeenCalledWith(
+      '[oidcKeys] Signing keys loaded - OIDC_JWKS_KEY_5 signs - 5: kid-5, 4: kid-4'
+    )
   })
 
   it.each([
@@ -74,11 +87,25 @@ describe('cookieKeys', () => {
     }
 
     expect(cookieKeys(env, 3)).toEqual([
-      { number: 3, value: 'cookie-three' },
-      { number: 1, value: 'cookie-one' },
-      { number: 2, value: 'cookie-two' },
-      { number: 10, value: 'cookie-ten' }
+      'cookie-three',
+      'cookie-one',
+      'cookie-two',
+      'cookie-ten'
     ])
+  })
+
+  it('logs the number of each key, and which key signs', () => {
+    const info = jest.spyOn(logger, 'info')
+    const env = {
+      OIDC_COOKIE_KEY_1: 'cookie-one',
+      OIDC_COOKIE_KEY_2: 'cookie-two'
+    }
+
+    cookieKeys(env, 2)
+
+    expect(info).toHaveBeenCalledWith(
+      '[oidcKeys] Cookie keys loaded - OIDC_COOKIE_KEY_2 signs - 2, 1'
+    )
   })
 
   it('reads only names that are the prefix and a number', () => {
@@ -92,7 +119,7 @@ describe('cookieKeys', () => {
       MY_OIDC_COOKIE_KEY_3: 'longer name'
     }
 
-    expect(cookieKeys(env, 1)).toEqual([{ number: 1, value: 'one' }])
+    expect(cookieKeys(env, 1)).toEqual(['one'])
   })
 
   it('treats an empty value as a key that is not there', () => {
@@ -103,7 +130,7 @@ describe('cookieKeys', () => {
       OIDC_COOKIE_KEY_4: undefined
     }
 
-    expect(cookieKeys(env, 1)).toEqual([{ number: 1, value: 'one' }])
+    expect(cookieKeys(env, 1)).toEqual(['one'])
   })
 
   it('refuses a pointer to a key that is not there, and lists the keys that are', () => {

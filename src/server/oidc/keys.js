@@ -1,5 +1,7 @@
 import Joi from 'joi'
 
+import { logger } from '~/src/server/common/helpers/logging/logger.js'
+
 /**
  * Keys that are set as numbered environment variables, one key for each
  * variable, with a pointer that holds the number of the key that signs.
@@ -129,7 +131,8 @@ function parseJwk(name, value) {
 }
 
 /**
- * The private keys that sign ID tokens and access tokens, signing key first.
+ * The private keys that sign ID tokens and access tokens, signing key first,
+ * in the form that the provider takes. Logs which keys are loaded.
  * @param {NodeJS.ProcessEnv} env
  * @param {number} signingNumber - the value of OIDC_JWKS_SIGNING_KEY
  */
@@ -144,22 +147,38 @@ export function signingJwks(env, signingNumber) {
 
   checkEachKidIsInOneKey(keys)
 
-  return signingKeyFirst(keys, JWKS_KEYS, signingNumber).map(
-    ({ number, jwk }) => ({ number, jwk })
+  const signingFirst = signingKeyFirst(keys, JWKS_KEYS, signingNumber)
+
+  // A `kid` is public, so the log can show which key is which
+  const numbersAndKids = signingFirst
+    .map(({ number, jwk }) => `${number}: ${jwk.kid}`)
+    .join(', ')
+
+  logger.info(
+    `[oidcKeys] Signing keys loaded - ${signingFirst[0].name} signs - ${numbersAndKids}`
   )
+
+  return signingFirst.map(({ jwk }) => jwk)
 }
 
 /**
- * The keys that sign the provider cookies, signing key first.
+ * The keys that sign the provider cookies, signing key first, in the form
+ * that the provider takes. Logs which keys are loaded.
  * @param {NodeJS.ProcessEnv} env
  * @param {number} signingNumber - the value of OIDC_COOKIE_SIGNING_KEY
  */
 export function cookieKeys(env, signingNumber) {
   const keys = readNumberedKeys(env, COOKIE_KEYS.prefix)
+  const signingFirst = signingKeyFirst(keys, COOKIE_KEYS, signingNumber)
 
-  return signingKeyFirst(keys, COOKIE_KEYS, signingNumber).map(
-    ({ number, value }) => ({ number, value })
+  // A cookie key has no public name, so the log shows its number
+  const numbers = signingFirst.map(({ number }) => number).join(', ')
+
+  logger.info(
+    `[oidcKeys] Cookie keys loaded - ${signingFirst[0].name} signs - ${numbers}`
   )
+
+  return signingFirst.map(({ value }) => value)
 }
 
 /**

@@ -9,18 +9,11 @@ import { cookieKeys, signingJwks } from '~/src/server/oidc/keys.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
 import { view } from '~/src/server/plugins/nunjucks/render.js'
 
-// All required at startup — the service refuses to boot without them
+// All required at startup — the service refuses to boot without them.
+// The provider signs with the first key of each list and accepts all of
+// them, so each list has the signing key first.
 const SIGNING_JWKS = signingJwks(process.env, config.get('oidc.jwksSigningKey'))
 const COOKIE_KEYS = cookieKeys(process.env, config.get('oidc.cookieSigningKey'))
-
-// The first key of each set signs. A `kid` is public, so the log can show
-// which key is which; a cookie key has no public name, only its number.
-logger.info(
-  `[oidcKeys] Signing keys loaded - OIDC_JWKS_KEY_${SIGNING_JWKS[0].number} signs - ${SIGNING_JWKS.map(({ number, jwk }) => `${number}: ${jwk.kid}`).join(', ')}`
-)
-logger.info(
-  `[oidcKeys] Cookie keys loaded - OIDC_COOKIE_KEY_${COOKIE_KEYS[0].number} signs - ${COOKIE_KEYS.map(({ number }) => number).join(', ')}`
-)
 
 const COOKIE_SECURE = config.get('oidc.cookieSecure')
 const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
@@ -113,7 +106,7 @@ export function buildProviderConfig(adapter) {
         jwks: RUNNER_JWKS
       }
     ],
-    jwks: { keys: SIGNING_JWKS.map(({ jwk }) => jwk) },
+    jwks: { keys: SIGNING_JWKS },
     clientAuthMethods: [CLIENT_AUTH_METHOD],
     pkce: { required: () => true },
     // A refresh returns a new access token but keeps the same refresh token.
@@ -210,7 +203,7 @@ export function buildProviderConfig(adapter) {
       }
     },
     cookies: {
-      keys: COOKIE_KEYS.map(({ value }) => value),
+      keys: COOKIE_KEYS,
       long: { secure: COOKIE_SECURE, sameSite: 'lax' },
       short: { secure: COOKIE_SECURE, sameSite: 'lax' }
     },
