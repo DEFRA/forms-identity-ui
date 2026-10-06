@@ -38,6 +38,7 @@ const CODE_LIFETIME_MS = 900_000
  * spec knows the code without reading an inbox.
  * @param {string} uid - the interaction uid from the browser's URL
  * @param {string} email
+ * @returns {Promise<string>} the code that is now stored
  */
 export async function captureCode(uid, email) {
   const mongo = await MongoClient.connect(MONGO_URI)
@@ -74,6 +75,8 @@ export async function captureCode(uid, email) {
   } finally {
     await mongo.close()
   }
+
+  return KNOWN_CODE
 }
 
 /**

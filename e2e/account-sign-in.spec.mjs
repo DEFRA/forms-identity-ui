@@ -8,9 +8,14 @@
  */
 import { expect, test } from '@playwright/test'
 
-import { ISSUER, KNOWN_CODE, RP, captureCode } from './support.mjs'
+import { ISSUER, RP, captureCode } from './support.mjs'
 
 const EMAIL = `e2e-account-${Date.now()}@example.com`
+
+const EMAIL_QUESTION = 'Enter your email address'
+const CONTINUE = 'Continue'
+const SIGNED_IN = 'Signed in.'
+const SECURITY = 'Security'
 
 /** @type {BrowserContext} */
 let context
@@ -29,29 +34,37 @@ test.afterAll(async () => {
 })
 
 /**
+ * The uid of the interaction the browser is on, from `/interaction/{uid}`
+ * @param {Page} page
+ */
+function interactionUid(page) {
+  const [, , uid] = new URL(page.url()).pathname.split('/')
+
+  return uid
+}
+
+/**
  * Completes the email and code steps, from the email page the browser is on
  * @param {Page} page
  */
 async function enterEmailAndCode(page) {
   await expect(
-    page.getByRole('heading', { name: 'Enter your email address' })
+    page.getByRole('heading', { name: EMAIL_QUESTION })
   ).toBeVisible()
 
-  const uid = new URL(page.url()).pathname.split('/')[2]
+  const uid = interactionUid(page)
 
-  await page
-    .getByRole('textbox', { name: 'Enter your email address' })
-    .fill(EMAIL)
-  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.getByRole('textbox', { name: EMAIL_QUESTION }).fill(EMAIL)
+  await page.getByRole('button', { name: CONTINUE }).click()
 
-  // The code is stored before Notify is called, so the known code can
+  // The code is stored before Notify is called, so a known code can
   // replace it whether or not the email was sent
-  await captureCode(uid, EMAIL)
+  const code = await captureCode(uid, EMAIL)
   await page.goto(`${ISSUER}/interaction/${uid}/code`)
   await page
     .getByRole('textbox', { name: 'Enter the 6 digit security code' })
-    .fill(KNOWN_CODE)
-  await page.getByRole('button', { name: 'Continue' }).click()
+    .fill(code)
+  await page.getByRole('button', { name: CONTINUE }).click()
 }
 
 /**
@@ -61,7 +74,7 @@ async function enterEmailAndCode(page) {
  */
 async function expectAccountPage(page) {
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Security' })
+    page.getByRole('heading', { level: 1, name: SECURITY })
   ).toBeVisible()
   await expect(page.getByText(EMAIL.toLowerCase())).toBeVisible()
   await expect(page.getByRole('link', { name: 'Back' })).toHaveAttribute(
@@ -80,10 +93,10 @@ test.describe
     await page
       .getByRole('textbox', { name: 'Mobile phone number' })
       .fill('07911 123456')
-    await page.getByRole('button', { name: 'Continue' }).click()
-    await expect(page.getByText('Signed in.')).toBeVisible()
+    await page.getByRole('button', { name: CONTINUE }).click()
+    await expect(page.getByText(SIGNED_IN)).toBeVisible()
 
-    await page.getByRole('link', { name: 'Security' }).click()
+    await page.getByRole('link', { name: SECURITY }).click()
 
     await expectAccountPage(page)
   })
@@ -93,8 +106,10 @@ test.describe
     // does when the relying party keeps its sign in with a refresh token
     await context.clearCookies({ name: /^_session/ })
 
+    // the example RP is unaffected by identity-ui cookies, so it is still
+    // signed in
     await page.goto(RP)
-    await expect(page.getByText('Signed in.')).toBeVisible()
+    await expect(page.getByText(SIGNED_IN)).toBeVisible()
 
     /** @type {string[]} */
     const visited = []
@@ -104,7 +119,7 @@ test.describe
       }
     })
 
-    await page.getByRole('link', { name: 'Security' }).click()
+    await page.getByRole('link', { name: SECURITY }).click()
 
     // the provider sent the user to the relying party, which started the
     // sign in: the email page is the first page the user sees
