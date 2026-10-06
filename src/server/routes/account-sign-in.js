@@ -1,3 +1,4 @@
+import Boom from '@hapi/boom'
 import { StatusCodes } from 'http-status-codes'
 
 import { config } from '~/src/config/index.js'
@@ -46,8 +47,7 @@ async function signInAtClient(request, h) {
   // the user back to the same refusal
   if (
     request.app.hasCitizenSession ||
-    !('isBoom' in response) ||
-    response.output.statusCode !== StatusCodes.UNAUTHORIZED.valueOf()
+    !Boom.isBoom(response, StatusCodes.UNAUTHORIZED)
   ) {
     return h.continue
   }
