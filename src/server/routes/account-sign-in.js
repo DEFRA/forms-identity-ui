@@ -50,11 +50,7 @@ async function signInAtClient(request, h) {
 
   // Authentication runs before validation, so the query is as the user sent
   // it
-  const clientReturn = await findSentOrStoredClientReturn(
-    request.server.app.oidcProvider,
-    request.query,
-    request.yar
-  )
+  const clientReturn = await findSentOrStoredClientReturn(request)
 
   // With no client to send the user to, the page tells them to sign in
   // again from the service they came from
