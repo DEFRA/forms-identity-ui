@@ -1,8 +1,8 @@
 import 'oidc-provider'
 
 declare module 'oidc-provider' {
-  // The class that validates client metadata. The published types leave it
-  // out; the library exposes it so that a deployment can adjust a check.
+  // node-oidc-provider publishes this but it's missing from the exported
+  // types. Patch it here so our type checks pass.
   namespace Client {
     const Schema: {
       prototype: {
