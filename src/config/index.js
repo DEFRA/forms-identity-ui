@@ -274,6 +274,12 @@ export const config = convict({
       default: /** @type {string[] | null} */ (null),
       env: 'OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS'
     },
+    runnerInitiateLoginUri: {
+      doc: 'initiate_login_uri for the client (OpenID Connect Core, section 4). The account pages send a user with no session here, so that the client starts its sign in.',
+      format: String,
+      default: /** @type {string | null} */ (null),
+      env: 'OIDC_RUNNER_INITIATE_LOGIN_URI'
+    },
     ttl: {
       authorizationCode: {
         doc: 'Authorization code lifetime in seconds',

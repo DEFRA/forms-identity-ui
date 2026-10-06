@@ -21,7 +21,7 @@ const { MongoClient } = apiRequire('mongodb')
 
 export const ISSUER = process.env.OIDC_ISSUER ?? 'http://localhost:3011'
 export const RP = process.env.EXAMPLE_RP_URL ?? 'http://localhost:3901'
-export const KNOWN_CODE = '123456'
+const KNOWN_CODE = '123456'
 export const RESOURCE =
   process.env.EXAMPLE_RP_RESOURCE ?? 'urn:defra:forms:forms-submission-api'
 
@@ -38,8 +38,9 @@ const CODE_LIFETIME_MS = 900_000
  * spec knows the code without reading an inbox.
  * @param {string} uid - the interaction uid from the browser's URL
  * @param {string} email
+ * @returns {Promise<string>} the code that is now stored
  */
-export async function captureCode(uid, email) {
+export async function replaceStoredCode(uid, email) {
   const mongo = await MongoClient.connect(MONGO_URI)
   // the UI keys the OTP record by a digest of the uid, so the browser's copy
   // has to be hashed before it will match
@@ -74,6 +75,8 @@ export async function captureCode(uid, email) {
   } finally {
     await mongo.close()
   }
+
+  return KNOWN_CODE
 }
 
 /**

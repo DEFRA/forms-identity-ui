@@ -82,8 +82,9 @@ async function discover() {
  * with. Holding one verifier at a time would break as soon as two sign-ins
  * overlap — a second tab, or an automated run alongside a manual one — because
  * the second would overwrite the first's and the earlier callback would fail
- * its state check.
- * @type {Map<string, string>}
+ * its state check. Each holds the PKCE verifier and the page to show after
+ * the callback.
+ * @type {Map<string, { verifier: string, returnTo: string }>}
  */
 const pending = new Map()
 
@@ -116,7 +117,66 @@ async function revokeRefreshToken() {
   })
 }
 
+/**
+ * The provider URL that starts a sign in. The callback finishes it and sends
+ * the user to `returnTo`.
+ * @param {string} returnTo
+ */
+async function signInUrl(returnTo) {
+  const config = await discover()
+  const verifier = client.randomPKCECodeVerifier()
+  const state = client.randomState()
+  pending.set(state, { verifier, returnTo })
+
+  const authUrl = client.buildAuthorizationUrl(config, {
+    redirect_uri: REDIRECT_URI,
+    // `offline_access` asks for a refresh token that outlives the
+    // provider session. The provider accepts it only with a consent
+    // prompt, which it answers without a page. forms-runner also sends
+    // `login`, to ask for a code at every sign in. It is left out here so
+    // that a live provider session signs the user in with no page, which
+    // the e2e suite relies on.
+    scope: 'openid email offline_access',
+    prompt: 'consent',
+    // Named here only: the provider issues the token for the granted API
+    // without it being sent again at the token endpoint
+    resource: RESOURCE,
+    state,
+    code_challenge: await client.calculatePKCECodeChallenge(verifier),
+    code_challenge_method: 'S256'
+  })
+  return authUrl.href
+}
+
+/**
+ * The link to the provider's account pages. It names this client and the
+ * page to come back to, so the provider can send the user here to sign in
+ * when its session has ended.
+ */
+function accountUrl() {
+  const url = new URL('/account', ISSUER)
+  url.searchParams.set('client_id', 'runner')
+  url.searchParams.set('returnUrl', `${BASE}/`)
+
+  return url.href
+}
+
 const server = Hapi.server({ port: PORT, host: 'localhost' })
+
+server.route(
+  /** @satisfies {ServerRoute<{ Query: { target_link_uri?: string } }>} */ ({
+    // The Sign in link, and also the sign in that the provider asks for
+    // (OpenID Connect Core, section 4). The provider's account pages send a
+    // user here with `target_link_uri` when the provider session has ended.
+    // It is registered as the client's `initiate_login_uri`
+    // (OIDC_RUNNER_INITIATE_LOGIN_URI).
+    method: 'GET',
+    path: '/login',
+    async handler(request, h) {
+      return h.redirect(await signInUrl(request.query.target_link_uri ?? '/'))
+    }
+  })
+)
 
 server.route([
   {
@@ -143,36 +203,11 @@ server.route([
           session.claims,
           tokenSummary(session.tokens, session.obtainedAt),
           decodeJwt(session.tokens.access_token),
+          accountUrl(),
           result
         )
       }
       return page(`${result}<p><a href="/login">Sign in</a></p>`)
-    }
-  },
-  {
-    method: 'GET',
-    path: '/login',
-    async handler(_request, h) {
-      const config = await discover()
-      const verifier = client.randomPKCECodeVerifier()
-      const state = client.randomState()
-      pending.set(state, verifier)
-
-      const authUrl = client.buildAuthorizationUrl(config, {
-        redirect_uri: REDIRECT_URI,
-        // `offline_access` asks for a refresh token that outlives the
-        // provider session. The provider accepts it only with a consent
-        // prompt, which it answers without a page.
-        scope: 'openid email offline_access',
-        prompt: 'consent',
-        // Named here only: the provider issues the token for the granted API
-        // without it being sent again at the token endpoint
-        resource: RESOURCE,
-        state,
-        code_challenge: await client.calculatePKCECodeChallenge(verifier),
-        code_challenge_method: 'S256'
-      })
-      return h.redirect(authUrl.href)
     }
   },
   {
@@ -182,7 +217,7 @@ server.route([
       const config = await discover()
       const callbackUrl = new URL(request.url.href)
       const state = String(callbackUrl.searchParams.get('state'))
-      const verifier = pending.get(state)
+      const { verifier, returnTo = '/' } = pending.get(state) ?? {}
       pending.delete(state)
 
       try {
@@ -205,7 +240,7 @@ server.route([
         return errorPage(String(err))
       }
 
-      return h.redirect('/')
+      return h.redirect(returnTo)
     }
   },
   {
@@ -244,3 +279,7 @@ server.events.on({ name: 'request', channels: 'error' }, (_request, event) => {
 
 await server.start()
 console.log(`Example RP listening on ${BASE} (issuer ${ISSUER})`)
+
+/**
+ * @import { ServerRoute } from '@hapi/hapi'
+ */

@@ -8,20 +8,24 @@ import { getBackLink } from '~/src/server/common/helpers/navigation.js'
 import { setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
+import { signedInOnly } from '~/src/server/routes/account-sign-in.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
+import {
+  findClientReturn,
+  storeClientReturn
+} from '~/src/server/services/client-return.js'
 import {
   INVALID_CODE_CONSUMED_OR_EXPIRED,
   VALID
 } from '~/src/server/services/outcomes.js'
 
-const SESSION_KEY_BACK_LINK = 'session-back-link'
 const JOURNEY_START_PATH = 'account/change-email'
 
 const uidParams = Joi.object({ uid: Joi.string().required() })
 
 const queryParamsSchema = Joi.object({
+  client_id: Joi.string(),
   returnUrl: Joi.string(),
   language: Joi.string().valid('en-GB', 'cy')
 })
@@ -57,21 +61,25 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account',
       options: {
         validate: { query: queryParamsSchema },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
-      handler(request, h) {
+      async handler(request, h) {
         const account = request.auth.credentials
 
         const { query, yar } = request
         setLanguage(request)
 
-        if (query.returnUrl) {
-          yar.set(SESSION_KEY_BACK_LINK, query.returnUrl)
+        const clientReturn = await findClientReturn(
+          request.server.app.oidcProvider,
+          { clientId: query.client_id, returnUrl: query.returnUrl }
+        )
+
+        // Only a client that names itself replaces the stored one
+        if (clientReturn) {
+          storeClientReturn(request, clientReturn)
         }
 
-        const backLink = yar.get(SESSION_KEY_BACK_LINK)
-          ? { href: yar.get(SESSION_KEY_BACK_LINK) }
-          : undefined
+        const backLink = getBackLink(yar)
 
         const notificationSuccessKey = request.yar
           .flash(sessionNames.accountSuccessNotification)
@@ -91,7 +99,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: '/account/change-email',
       options: {
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       handler(_request, h) {
         const uid = randomUUID()
@@ -104,7 +112,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/change-email',
       options: {
         validate: { params: uidParams },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       handler(request, h) {
         const { uid } = request.params
@@ -129,7 +137,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/send-code',
       options: {
         validate: { params: uidParams },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -152,7 +160,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/phone-sent-code',
       options: {
         validate: { params: uidParams },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -188,7 +196,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/phone-code',
       options: {
         validate: { params: uidParams, payload: formPayload('code') },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -221,7 +229,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/enter-email',
       options: {
         validate: { params: uidParams },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -251,7 +259,7 @@ export default /** @type {ServerRoute[]} */ (
             email: Joi.string().email().optional()
           })
         },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -287,7 +295,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/email-code',
       options: {
         validate: { params: uidParams },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -332,7 +340,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/email-code',
       options: {
         validate: { params: uidParams, payload: formPayload('code') },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params

@@ -9,6 +9,12 @@ const account = {
   phone: '+447507123456'
 }
 
+/** The registered client, as the provider returns it */
+const runnerClient = {
+  redirectUris: ['http://localhost:3009/callback'],
+  initiateLoginUri: 'http://localhost:3009/auth/initiate'
+}
+
 jest.mock('~/src/server/lib/identity-api.js', () => ({
   requestOtpViaEmail: jest.fn(),
   requestOtpViaSms: jest.fn(),
@@ -53,6 +59,13 @@ describe('/account', () => {
   beforeEach(() => {
     jest.mocked(getServiceToken).mockResolvedValue('token-1')
     sessionSpy = jest.spyOn(server.app.oidcProvider.Session, 'get')
+    jest
+      .spyOn(server.app.oidcProvider.Client, 'find')
+      .mockImplementation((id) =>
+        Promise.resolve(
+          id === 'runner' ? /** @type {never} */ (runnerClient) : undefined
+        )
+      )
   })
 
   /**
@@ -102,7 +115,7 @@ describe('/account', () => {
 
     const { container, response } = await renderResponse(server, {
       method: 'GET',
-      url: '/account?returnUrl=http://localhost:3009/return-page'
+      url: '/account?client_id=runner&returnUrl=http://localhost:3009/return-page'
     })
 
     expect(response.statusCode).toBe(200)
@@ -126,13 +139,144 @@ describe('/account', () => {
     expect(identityApi.getAccount).not.toHaveBeenCalled()
   })
 
-  test('is unauthorized when the session account no longer exists', async () => {
+  test.each([
+    {
+      reason: 'is not on an origin of the client',
+      url: '/account?client_id=runner&returnUrl=https://other.example/page'
+    },
+    {
+      reason: 'names no client',
+      url: '/account?returnUrl=http://localhost:3009/return-page'
+    }
+  ])('shows no Back link for a return url that $reason', async ({ url }) => {
+    sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'acc-1' }))
+    jest.mocked(identityApi.getAccount).mockResolvedValue(account)
+
+    const { container, response } = await renderResponse(server, {
+      method: 'GET',
+      url
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(container.queryByRole('link', { name: 'Back' })).toBeNull()
+  })
+
+  describe('with no signed-in session', () => {
+    beforeEach(() => {
+      sessionSpy.mockResolvedValue(
+        /** @type {never} */ ({ accountId: undefined })
+      )
+    })
+
+    /**
+     * @param {string | string[] | undefined} location
+     */
+    function signInRedirect(location) {
+      const url = new URL(String(location))
+
+      return {
+        endpoint: `${url.origin}${url.pathname}`,
+        iss: url.searchParams.get('iss'),
+        target: url.searchParams.get('target_link_uri')
+      }
+    }
+
+    test('sends the user to the client to sign in, and back to the account page', async () => {
+      const response = await server.inject({
+        method: 'GET',
+        url: '/account?client_id=runner&returnUrl=http://localhost:3009/return-page'
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(signInRedirect(response.headers.location)).toEqual({
+        endpoint: 'http://localhost:3009/auth/initiate',
+        iss: 'http://localhost:3011',
+        target:
+          'http://localhost:3011/account?client_id=runner&returnUrl=http%3A%2F%2Flocalhost%3A3009%2Freturn-page'
+      })
+      expect(identityApi.getAccount).not.toHaveBeenCalled()
+    })
+
+    test('leaves out a return url that is not on an origin of the client', async () => {
+      const response = await server.inject({
+        method: 'GET',
+        url: '/account?client_id=runner&returnUrl=https://other.example/page'
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(signInRedirect(response.headers.location).target).toBe(
+        'http://localhost:3011/account?client_id=runner'
+      )
+    })
+
+    test.each([
+      {
+        reason: 'the request names a client that is not registered',
+        url: '/account?client_id=unknown&returnUrl=http://localhost:3009/return-page'
+      },
+      { reason: 'the request names no client', url: '/account/change-email' }
+    ])(
+      'tells the user to sign in again from their service when $reason',
+      async ({ url }) => {
+        const { container, response } = await renderResponse(server, {
+          method: 'GET',
+          url
+        })
+
+        expect(response.statusCode).toBe(401)
+        expect(
+          container.getByRole('heading', { level: 1, name: 'Sign in again' })
+        ).toBeInTheDocument()
+        expect(server.app.oidcProvider.Client.find).not.toHaveBeenCalled()
+      }
+    )
+
+    describe('after an earlier visit from the client', () => {
+      /** @type {string} */
+      let cookie
+
+      beforeEach(async () => {
+        sessionSpy.mockResolvedValueOnce(
+          /** @type {never} */ ({ accountId: 'acc-1' })
+        )
+        jest.mocked(identityApi.getAccount).mockResolvedValue(account)
+
+        const visit = await server.inject({
+          method: 'GET',
+          url: '/account?client_id=runner&returnUrl=http://localhost:3009/return-page'
+        })
+
+        cookie = [visit.headers['set-cookie']]
+          .flat()
+          .map((value) => String(value).split(';')[0])
+          .join('; ')
+      })
+
+      test.each(['/account/change-email', '/account/some-uid/phone-sent-code'])(
+        'sends the user to that client to sign in, and back to the account page, from %s',
+        async (url) => {
+          const response = await server.inject({
+            method: 'GET',
+            url,
+            headers: { cookie }
+          })
+
+          expect(response.statusCode).toBe(302)
+          expect(signInRedirect(response.headers.location).target).toBe(
+            'http://localhost:3011/account?client_id=runner&returnUrl=http%3A%2F%2Flocalhost%3A3009%2Freturn-page'
+          )
+        }
+      )
+    })
+  })
+
+  test('is unauthorized when the session account no longer exists, and does not start a sign in', async () => {
     sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'gone' }))
     jest.mocked(identityApi.getAccount).mockResolvedValue(null)
 
     const { response } = await renderResponse(server, {
       method: 'GET',
-      url: '/account'
+      url: '/account?client_id=runner&returnUrl=http://localhost:3009/return-page'
     })
 
     expect(response.statusCode).toBe(401)

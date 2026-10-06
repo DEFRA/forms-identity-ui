@@ -115,7 +115,7 @@ the team, or overwrite the stored code with the one the tests use:
 
 ```sh
 # take the uid from the URL: /interaction/<uid>/code
-node -e "import('./e2e/support.mjs').then(m => m.captureCode('<uid>', '<email>'))"
+node -e "import('./e2e/support.mjs').then(m => m.replaceStoredCode('<uid>', '<email>'))"
 ```
 
 Then go back to `/interaction/<uid>/code` and enter `123456`.
