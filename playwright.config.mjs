@@ -5,7 +5,7 @@ import { defineConfig } from '@playwright/test'
  * local run of the journey:
  *   forms-identity-api:  npm run dev  (:3010, with its docker mongo)
  *   forms-identity-ui:   npm run dev  (:3011), with
- *     OIDC_RUNNER_INITIATE_LOGIN_URI=http://localhost:3901/initiate so that
+ *     OIDC_RUNNER_INITIATE_LOGIN_URI=http://localhost:3901/login so that
  *     the account pages send a user with no session to the relying party below
  * The relying party on :3901 is started below if it is not already running,
  * so `npm run dev` covers it either way.

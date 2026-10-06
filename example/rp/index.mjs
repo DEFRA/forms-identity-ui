@@ -118,12 +118,11 @@ async function revokeRefreshToken() {
 }
 
 /**
- * Starts a sign in at the provider. The callback finishes it and sends the
- * user to `returnTo`.
- * @param {import('@hapi/hapi').ResponseToolkit} h
+ * The provider URL that starts a sign in. The callback finishes it and sends
+ * the user to `returnTo`.
  * @param {string} returnTo
  */
-async function startSignIn(h, returnTo) {
+async function signInUrl(returnTo) {
   const config = await discover()
   const verifier = client.randomPKCECodeVerifier()
   const state = client.randomState()
@@ -146,7 +145,7 @@ async function startSignIn(h, returnTo) {
     code_challenge: await client.calculatePKCECodeChallenge(verifier),
     code_challenge_method: 'S256'
   })
-  return h.redirect(authUrl.href)
+  return authUrl.href
 }
 
 /**
@@ -163,6 +162,21 @@ function accountUrl() {
 }
 
 const server = Hapi.server({ port: PORT, host: 'localhost' })
+
+server.route(
+  /** @satisfies {ServerRoute<{ Query: { target_link_uri?: string } }>} */ ({
+    // The Sign in link, and also the sign in that the provider asks for
+    // (OpenID Connect Core, section 4). The provider's account pages send a
+    // user here with `target_link_uri` when the provider session has ended.
+    // It is registered as the client's `initiate_login_uri`
+    // (OIDC_RUNNER_INITIATE_LOGIN_URI).
+    method: 'GET',
+    path: '/login',
+    async handler(request, h) {
+      return h.redirect(await signInUrl(request.query.target_link_uri ?? '/'))
+    }
+  })
+)
 
 server.route([
   {
@@ -194,27 +208,6 @@ server.route([
         )
       }
       return page(`${result}<p><a href="/login">Sign in</a></p>`)
-    }
-  },
-  {
-    method: 'GET',
-    path: '/login',
-    handler(_request, h) {
-      return startSignIn(h, '/')
-    }
-  },
-  {
-    // The sign in that the provider asks for (OpenID Connect Core, section
-    // 4). The provider's account pages send a user here when the provider
-    // session has ended. It is registered as the client's
-    // `initiate_login_uri` (OIDC_RUNNER_INITIATE_LOGIN_URI).
-    method: 'GET',
-    path: '/initiate',
-    handler(request, h) {
-      const { target_link_uri: target = '/' } =
-        /** @type {{ target_link_uri?: string }} */ (request.query)
-
-      return startSignIn(h, target)
     }
   },
   {
@@ -286,3 +279,7 @@ server.events.on({ name: 'request', channels: 'error' }, (_request, event) => {
 
 await server.start()
 console.log(`Example RP listening on ${BASE} (issuer ${ISSUER})`)
+
+/**
+ * @import { ServerRoute } from '@hapi/hapi'
+ */
