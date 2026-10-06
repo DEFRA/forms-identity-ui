@@ -20,7 +20,7 @@
 
       <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
 
-      <form method="post" action="/account/{{ uid }}/new-email" novalidate>
+      <form method="post" action="/account/enter-email" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
         {{ govukInput({

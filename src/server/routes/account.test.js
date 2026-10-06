@@ -31,7 +31,7 @@ jest.mock('~/src/server/lib/service-token.js', () => ({
  */
 const auth = {
   strategy: 'citizen-session',
-  artifacts: {},
+  artifacts: { sessionUid: 'sess-id-1' },
   credentials: /** @type {never} */ (account)
 }
 
@@ -151,18 +151,18 @@ describe('/account', () => {
         /** @type {never} */ ({ status: 'invalid-code-consumed-or-expired' })
       )
 
-    const { crumb, cookie } = await getWithCrumb('/account/uid-1/change-email')
+    const { crumb, cookie } = await getWithCrumb('/account/change-email')
 
     const { response } = await renderResponse(server, {
       method: 'POST',
-      url: '/account/uid-1/phone-code',
+      url: '/account/phone-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth
     })
 
     expect(response.statusCode).toBe(302)
-    expect(response.headers.location).toBe('/account/uid-1/code/expired')
+    expect(response.headers.location).toBe('/account/code/expired')
   })
 
   test('redirects to the first page when no phone OTP but the user has hit a later page (new email)', async () => {
@@ -174,18 +174,18 @@ describe('/account', () => {
     })
     jest.mocked(identityApi.getOtp).mockResolvedValueOnce(null)
 
-    const { crumb, cookie } = await getWithCrumb('/account/uid-1/change-email')
+    const { crumb, cookie } = await getWithCrumb('/account/change-email')
 
     const { response } = await renderResponse(server, {
       method: 'POST',
-      url: '/account/uid-1/new-email',
+      url: '/account/enter-email',
       payload: { crumb, email: 'new-email@test.com' },
       headers: { cookie },
       auth
     })
 
     expect(response.statusCode).toBe(302)
-    expect(response.headers.location).toBe('/account/uid-1/change-email')
+    expect(response.headers.location).toBe('/account/change-email')
   })
 
   test('redirects to the first page when no phone OTP but the user has hit a later page (email code)', async () => {
@@ -197,18 +197,18 @@ describe('/account', () => {
     })
     jest.mocked(identityApi.getOtp).mockResolvedValueOnce(null)
 
-    const { crumb, cookie } = await getWithCrumb('/account/uid-1/change-email')
+    const { crumb, cookie } = await getWithCrumb('/account/change-email')
 
     const { response } = await renderResponse(server, {
       method: 'GET',
-      url: '/account/uid-1/email-code',
+      url: '/account/email-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth
     })
 
     expect(response.statusCode).toBe(302)
-    expect(response.headers.location).toBe('/account/uid-1/change-email')
+    expect(response.headers.location).toBe('/account/change-email')
   })
 
   test('redirects to the first page when no email OTP but the user has hit a later page (email code)', async () => {
@@ -225,18 +225,18 @@ describe('/account', () => {
     })
     jest.mocked(identityApi.getOtp).mockResolvedValueOnce(null)
 
-    const { crumb, cookie } = await getWithCrumb('/account/uid-1/change-email')
+    const { crumb, cookie } = await getWithCrumb('/account/change-email')
 
     const { response } = await renderResponse(server, {
       method: 'GET',
-      url: '/account/uid-1/email-code',
+      url: '/account/email-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth
     })
 
     expect(response.statusCode).toBe(302)
-    expect(response.headers.location).toBe('/account/uid-1/change-email')
+    expect(response.headers.location).toBe('/account/change-email')
   })
 
   test('redirects to the first page when no email OTP but the user POSTs a later page (email code)', async () => {
@@ -248,18 +248,18 @@ describe('/account', () => {
     })
     jest.mocked(identityApi.getOtp).mockResolvedValueOnce(null)
 
-    const { crumb, cookie } = await getWithCrumb('/account/uid-1/change-email')
+    const { crumb, cookie } = await getWithCrumb('/account/change-email')
 
     const { response } = await renderResponse(server, {
       method: 'POST',
-      url: '/account/uid-1/email-code',
+      url: '/account/email-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth
     })
 
     expect(response.statusCode).toBe(302)
-    expect(response.headers.location).toBe('/account/uid-1/change-email')
+    expect(response.headers.location).toBe('/account/change-email')
   })
 })
 
