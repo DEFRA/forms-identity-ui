@@ -36,7 +36,11 @@ function postPayload(index) {
 
 describe('identity-api client', () => {
   it('requestOtpViaEmail posts uid and email', async () => {
-    jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
+    jest
+      .mocked(postJson)
+      .mockResolvedValue(
+        /** @type {never} */ ({ body: { status: 'otp-issued' } })
+      )
 
     await requestOtpViaEmail(
       { uid: 'uid-1', email: 'a@b.com', purpose: PURPOSE.SIGNIN_VERIFY_EMAIL },
@@ -55,6 +59,27 @@ describe('identity-api client', () => {
       transport: 'EMAIL',
       purpose: 'SIGNIN_VERIFY_EMAIL'
     })
+  })
+
+  it('requestOtp returns the verdict body', async () => {
+    const lockedOut = {
+      status: 'locked-out',
+      lockedUntil: '2026-09-21T12:00:00.000Z'
+    }
+    jest
+      .mocked(postJson)
+      .mockResolvedValue(/** @type {never} */ ({ body: lockedOut }))
+
+    await expect(
+      requestOtpViaEmail(
+        {
+          uid: 'uid-1',
+          email: 'a@b.com',
+          purpose: PURPOSE.SIGNIN_VERIFY_EMAIL
+        },
+        'token-1'
+      )
+    ).resolves.toEqual(lockedOut)
   })
 
   it('verifyOtp returns the verdict body', async () => {
