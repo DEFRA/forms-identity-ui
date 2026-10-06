@@ -230,19 +230,17 @@ export const config = convict({
       default: /** @type {string | null} */ (null),
       env: 'OIDC_ISSUER'
     },
-    jwks: {
-      doc: 'Private JWKS JSON (run `node scripts/generate-jwks.mjs`)',
-      format: String,
-      default: /** @type {string | null} */ (null),
-      sensitive: true,
-      env: 'OIDC_JWKS'
+    jwksSigningKey: {
+      doc: 'Number of the key that signs tokens. The keys are the secrets OIDC_JWKS_KEY_<n>, one private JWK each (run `node scripts/generate-jwks.mjs`), read in src/server/oidc/keys.js. See docs/key-rotation.md.',
+      format: 'nat',
+      default: /** @type {number | null} */ (null),
+      env: 'OIDC_JWKS_SIGNING_KEY'
     },
-    cookieKeys: {
-      doc: 'Comma-separated cookie signing keys, identical across containers',
-      format: 'csv',
-      default: /** @type {string[] | null} */ (null),
-      sensitive: true,
-      env: 'OIDC_COOKIE_KEYS'
+    cookieSigningKey: {
+      doc: 'Number of the key that signs provider cookies. The keys are the secrets OIDC_COOKIE_KEY_<n>, identical across containers, read in src/server/oidc/keys.js. See docs/key-rotation.md.',
+      format: 'nat',
+      default: /** @type {number | null} */ (null),
+      env: 'OIDC_COOKIE_SIGNING_KEY'
     },
     cookieSecure: {
       doc: 'Secure flag on provider cookies (off for local http)',

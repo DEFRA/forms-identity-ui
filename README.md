@@ -34,9 +34,16 @@ without them, so a misconfigured environment fails at boot rather than at first
 sign-in. Two need generating:
 
 ```sh
-node scripts/generate-jwks.mjs            # OIDC_JWKS — signs our ID and access tokens
+node scripts/generate-jwks.mjs            # OIDC_JWKS_KEY_1 — signs our ID and access tokens
 node scripts/generate-client-keypair.mjs  # the client's keypair, both halves
 ```
+
+The signing keys and the cookie keys are numbered: `OIDC_JWKS_KEY_1`,
+`OIDC_JWKS_KEY_2` and so on, with one key in each. `OIDC_JWKS_SIGNING_KEY`
+holds the number of the key that signs, and the service accepts tokens from
+each key that is set. `OIDC_COOKIE_KEY_<n>` and `OIDC_COOKIE_SIGNING_KEY` work
+the same way. [docs/key-rotation.md](docs/key-rotation.md) tells you how to
+change a key in a deployed environment.
 
 The second prints two values. `OIDC_RUNNER_JWKS` is the public half and belongs
 here. `OIDC_CLIENT_PRIVATE_JWK` is the private half, as one key, held by the
@@ -45,9 +52,8 @@ development, put the same value here as `EXAMPLE_RP_PRIVATE_JWK`, for the
 example RP.
 
 Each key is named after its role, its algorithm and a random tail —
-`sig-rs256-4c1f8ab390d7`. Rotating means running the script again and replacing
-the value: the new key names itself, so there is nothing to keep track of, and
-a copy of the old key found later still answers to the old name.
+`sig-rs256-4c1f8ab390d7`. A new key names itself, so a copy of an old key found
+later still answers to the old name.
 
 All keys are RS256. If your `.env` has older ES256 keys, run both scripts again
 and replace the values.

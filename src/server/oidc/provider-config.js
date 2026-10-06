@@ -5,14 +5,44 @@ import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { CLIENT_AUTH_METHOD, SIGNING_ALG } from '~/src/server/constants.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
+import { cookieKeys, signingJwks } from '~/src/server/oidc/keys.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
 import { view } from '~/src/server/plugins/nunjucks/render.js'
 
-// All required at startup — config validation refuses to boot without them
-const JWKS = /** @type {{ keys: JWK[] }} */ (
-  JSON.parse(config.get('oidc.jwks'))
+// The most keys a set holds in a rotation: the new key, the key that signs
+// and the key before it
+const MAX_KEYS_IN_ROTATION = 3
+
+// All required at startup — the service refuses to boot without them
+const SIGNING_JWKS = signingJwks(process.env, config.get('oidc.jwksSigningKey'))
+const COOKIE_KEYS = cookieKeys(process.env, config.get('oidc.cookieSigningKey'))
+
+// The first key of each set signs. A `kid` is public, so the log can show
+// which key is which; a cookie key has no public name, only its number.
+logger.info(
+  `[oidcKeys] Signing keys loaded - OIDC_JWKS_KEY_${SIGNING_JWKS[0].number} signs - ${SIGNING_JWKS.map(({ number, jwk }) => `${number}: ${jwk.kid}`).join(', ')}`
 )
-const COOKIE_KEYS = config.get('oidc.cookieKeys')
+logger.info(
+  `[oidcKeys] Cookie keys loaded - OIDC_COOKIE_KEY_${COOKIE_KEYS[0].number} signs - ${COOKIE_KEYS.map(({ number }) => number).join(', ')}`
+)
+
+warnIfOldKeysRemain('OIDC_JWKS_KEY', SIGNING_JWKS.length)
+warnIfOldKeysRemain('OIDC_COOKIE_KEY', COOKIE_KEYS.length)
+
+/**
+ * A rotation ends when the old key is deleted. More keys than a rotation
+ * needs means that step was missed, and an old key is still accepted.
+ * @param {string} prefix
+ * @param {number} count
+ */
+function warnIfOldKeysRemain(prefix, count) {
+  if (count > MAX_KEYS_IN_ROTATION) {
+    logger.warn(
+      `[oidcKeys] ${count} ${prefix}_<n> keys are loaded - delete the old keys, see docs/key-rotation.md`
+    )
+  }
+}
+
 const COOKIE_SECURE = config.get('oidc.cookieSecure')
 const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.runnerJwks'))
@@ -104,7 +134,7 @@ export function buildProviderConfig(adapter) {
         jwks: RUNNER_JWKS
       }
     ],
-    jwks: { keys: JWKS.keys },
+    jwks: { keys: SIGNING_JWKS.map(({ jwk }) => jwk) },
     clientAuthMethods: [CLIENT_AUTH_METHOD],
     pkce: { required: () => true },
     // A refresh returns a new access token but keeps the same refresh token.
@@ -201,7 +231,7 @@ export function buildProviderConfig(adapter) {
       }
     },
     cookies: {
-      keys: COOKIE_KEYS,
+      keys: COOKIE_KEYS.map(({ value }) => value),
       long: { secure: COOKIE_SECURE, sameSite: 'lax' },
       short: { secure: COOKIE_SECURE, sameSite: 'lax' }
     },
