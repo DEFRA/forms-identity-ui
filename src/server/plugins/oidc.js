@@ -6,7 +6,6 @@ import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 
 const OIDC_ISSUER = config.get('oidc.issuer')
-const COOKIE_SECURE = config.get('oidc.cookieSecure')
 const { host: ISSUER_HOST, protocol: ISSUER_PROTOCOL } = new URL(OIDC_ISSUER)
 const ISSUER_PROTO = ISSUER_PROTOCOL.replace(':', '')
 
@@ -120,9 +119,9 @@ export default {
       // environment. What it trusts is what pinOrigin just wrote.
       provider.proxy = true
 
-      // Where cookies are not Secure the service runs over http, and so do
-      // its clients. Deployed environments keep the https rule.
-      if (!COOKIE_SECURE) {
+      // In development the service runs over http, and so do its clients.
+      // Production keeps the https rule.
+      if (config.get('isDevelopment')) {
         allowHttpInitiateLoginUri(provider)
       }
 

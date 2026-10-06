@@ -92,9 +92,7 @@ export function buildProviderConfig(adapter) {
         // Where the account pages send a user who has no session. The client
         // starts its own sign in there, so that its session and the provider
         // session start together and for the same account.
-        ...(RUNNER_INITIATE_LOGIN_URI && {
-          initiate_login_uri: RUNNER_INITIATE_LOGIN_URI
-        }),
+        initiate_login_uri: RUNNER_INITIATE_LOGIN_URI,
         response_types: ['code'],
         grant_types: ['authorization_code', 'refresh_token'],
         // The client proves itself by signing a short-lived assertion with a
