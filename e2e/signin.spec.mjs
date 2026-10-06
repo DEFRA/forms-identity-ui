@@ -12,10 +12,9 @@ import { expect, test } from '@playwright/test'
 
 import {
   ISSUER,
-  KNOWN_CODE,
   RESOURCE,
   RP,
-  captureCode,
+  replaceStoredCode,
   tokenEndpoint
 } from './support.mjs'
 
@@ -62,6 +61,7 @@ test.afterAll(async () => {
 /**
  * Drives the browser from the RP through the email and code steps
  * @param {Page} page
+ * @returns {Promise<string>} the code to enter on the code page
  */
 async function signInUpToCode(page) {
   await page.goto(`${RP}/login`)
@@ -80,13 +80,13 @@ async function signInUpToCode(page) {
   // failures (a dummy key, or a team key that refuses unknown recipients)
   // surface an error page without losing the journey — swap in the known
   // code and continue from the code page either way
-  await captureCode(uid, EMAIL)
+  const code = await replaceStoredCode(uid, EMAIL)
   await page.goto(`${ISSUER}/interaction/${uid}/code`)
   await expect(
     page.getByRole('heading', { name: 'Check your email' })
   ).toBeVisible()
 
-  return uid
+  return code
 }
 
 /**
@@ -103,7 +103,7 @@ function detail(page, tableName, rowName) {
 
 test.describe.serial('citizen sign-in', () => {
   test('signs a new user up end to end and issues tokens', async () => {
-    await signInUpToCode(page)
+    const code = await signInUpToCode(page)
 
     // a wrong code re-renders with a GDS error
     const codeInput = page.getByRole('textbox', {
@@ -114,7 +114,7 @@ test.describe.serial('citizen sign-in', () => {
     await expect(page.getByRole('alert')).toContainText('There is a problem')
 
     // the right code moves to the phone step (no account exists yet)
-    await codeInput.fill(KNOWN_CODE)
+    await codeInput.fill(code)
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(
       page.getByRole('heading', { name: 'Enter your mobile phone number' })
@@ -166,10 +166,10 @@ test.describe.serial('citizen sign-in', () => {
     const context = await browser.newContext()
     const page = await context.newPage()
 
-    await signInUpToCode(page)
+    const code = await signInUpToCode(page)
     await page
       .getByRole('textbox', { name: 'Enter the 6 digit security code' })
-      .fill(KNOWN_CODE)
+      .fill(code)
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // straight back to the RP — no phone page for an account that exists
@@ -243,10 +243,10 @@ test.describe.serial('citizen sign-in', () => {
     const context = await browser.newContext({ javaScriptEnabled: false })
     const page = await context.newPage()
 
-    await signInUpToCode(page)
+    const code = await signInUpToCode(page)
     await page
       .getByRole('textbox', { name: 'Enter the 6 digit security code' })
-      .fill(KNOWN_CODE)
+      .fill(code)
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page.getByText('Signed in.')).toBeVisible()
 

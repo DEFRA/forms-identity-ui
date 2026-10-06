@@ -8,7 +8,7 @@
  */
 import { expect, test } from '@playwright/test'
 
-import { ISSUER, RP, captureCode } from './support.mjs'
+import { ISSUER, RP, replaceStoredCode } from './support.mjs'
 
 const EMAIL = `e2e-account-${Date.now()}@example.com`
 
@@ -59,7 +59,7 @@ async function enterEmailAndCode(page) {
 
   // The code is stored before Notify is called, so a known code can
   // replace it whether or not the email was sent
-  const code = await captureCode(uid, EMAIL)
+  const code = await replaceStoredCode(uid, EMAIL)
   await page.goto(`${ISSUER}/interaction/${uid}/code`)
   await page
     .getByRole('textbox', { name: 'Enter the 6 digit security code' })
