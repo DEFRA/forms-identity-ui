@@ -60,6 +60,13 @@
       "emailInfo": "Your email might take a few minutes to arrive. If you do not get an email, check your spam folder.",
       "continue": "Get security code"
     },
+    "lockedOut": {
+      "title": "Too many security codes requested",
+      "body": [
+        "You have requested too many security codes.",
+        "Try again in [[duration]]."
+      ]
+    },
     "timedOut": {
       "title": "For your security, we ended your sign in",
       "body": [

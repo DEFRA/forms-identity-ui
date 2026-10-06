@@ -35,7 +35,11 @@ function postPayload(index) {
 
 describe('identity-api client', () => {
   it('requestOtp posts uid and email', async () => {
-    jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
+    jest
+      .mocked(postJson)
+      .mockResolvedValue(
+        /** @type {never} */ ({ body: { status: 'otp-issued' } })
+      )
 
     await requestOtp({ uid: 'uid-1', email: 'a@b.com' }, 'token-1')
 
@@ -49,6 +53,20 @@ describe('identity-api client', () => {
       uid: hashId('uid-1'),
       email: 'a@b.com'
     })
+  })
+
+  it('requestOtp returns the verdict body', async () => {
+    const lockedOut = {
+      status: 'locked-out',
+      lockedUntil: '2026-09-21T12:00:00.000Z'
+    }
+    jest
+      .mocked(postJson)
+      .mockResolvedValue(/** @type {never} */ ({ body: lockedOut }))
+
+    await expect(
+      requestOtp({ uid: 'uid-1', email: 'a@b.com' }, 'token-1')
+    ).resolves.toEqual(lockedOut)
   })
 
   it('verifyOtp returns the verdict body', async () => {

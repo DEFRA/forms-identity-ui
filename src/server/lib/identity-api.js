@@ -19,20 +19,24 @@ const baseUrl = config.get('identityApi.url')
  * stores and matches the digest with no change of its own. All four sites
  * have to agree: a digest on one side and a plaintext uid on the other gives
  * a 404, not an error.
+ * @typedef {{ status: 'otp-issued' } | { status: 'locked-out', lockedUntil: string }} RequestResult
  * @typedef {{ status: 'invalid' } | { status: 'invalid-code-format' } | { status: 'invalid-code-consumed-or-expired' } | { status: 'phone-required' } | { status: 'signed-in', accountId: string }} VerifyResult
  * @typedef {{ status: 'invalid' } | { status: 'invalid-phone' } | { status: 'signed-in', accountId: string }} CompleteResult
  */
 
 /**
- * Mints and emails a security code for the interaction
+ * Mints and emails a security code for the interaction, unless the address
+ * has asked for too many and is locked out
  * @param {{ uid: string, email: string }} input
  * @param {string} token
+ * @returns {Promise<RequestResult>}
  */
 export async function requestOtp({ uid, email }, token) {
-  await postJson(new URL('/otp/request', baseUrl), {
+  const { body } = await postJson(new URL('/otp/request', baseUrl), {
     payload: { uid: hashId(uid), email },
     headers: bearerHeaders(token)
   })
+  return /** @type {RequestResult} */ (body)
 }
 
 /**
