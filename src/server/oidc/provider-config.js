@@ -9,10 +9,6 @@ import { cookieKeys, signingJwks } from '~/src/server/oidc/keys.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
 import { view } from '~/src/server/plugins/nunjucks/render.js'
 
-// The most keys a set holds in a rotation: the new key, the key that signs
-// and the key before it
-const MAX_KEYS_IN_ROTATION = 3
-
 // All required at startup — the service refuses to boot without them
 const SIGNING_JWKS = signingJwks(process.env, config.get('oidc.jwksSigningKey'))
 const COOKIE_KEYS = cookieKeys(process.env, config.get('oidc.cookieSigningKey'))
@@ -25,23 +21,6 @@ logger.info(
 logger.info(
   `[oidcKeys] Cookie keys loaded - OIDC_COOKIE_KEY_${COOKIE_KEYS[0].number} signs - ${COOKIE_KEYS.map(({ number }) => number).join(', ')}`
 )
-
-warnIfOldKeysRemain('OIDC_JWKS_KEY', SIGNING_JWKS.length)
-warnIfOldKeysRemain('OIDC_COOKIE_KEY', COOKIE_KEYS.length)
-
-/**
- * A rotation ends when the old key is deleted. More keys than a rotation
- * needs means that step was missed, and an old key is still accepted.
- * @param {string} prefix
- * @param {number} count
- */
-function warnIfOldKeysRemain(prefix, count) {
-  if (count > MAX_KEYS_IN_ROTATION) {
-    logger.warn(
-      `[oidcKeys] ${count} ${prefix}_<n> keys are loaded - delete the old keys, see docs/key-rotation.md`
-    )
-  }
-}
 
 const COOKIE_SECURE = config.get('oidc.cookieSecure')
 const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
