@@ -39,7 +39,10 @@ export function citizenSessionScheme() {
         return h.unauthenticated(Boom.unauthorized(null, CITIZEN_SESSION))
       }
 
-      return h.authenticated({ credentials: account })
+      return h.authenticated({
+        credentials: account,
+        artifacts: { sessionUid: session.uid }
+      })
     }
   }
 }

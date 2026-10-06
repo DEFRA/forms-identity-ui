@@ -20,7 +20,7 @@
 
     <p class="govuk-body">{{ t('account.requestPhoneOtp.para2') }}</p>
 
-    <form method="post" action="/account/{{ uid }}/change-email" novalidate="">
+    <form method="post" action="/account/send-code" novalidate="">
       <input type="hidden" name="crumb" value="{{ crumb }}">
 
       {{ govukButton({
