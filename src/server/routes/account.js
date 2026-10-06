@@ -12,6 +12,7 @@ import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
 import {
+  INVALID_CODE,
   INVALID_CODE_CONSUMED_OR_EXPIRED,
   VALID
 } from '~/src/server/services/outcomes.js'
@@ -98,7 +99,7 @@ export default /** @type {ServerRoute[]} */ (
         return h.redirect(`/account/${uid}/change-email`)
       }
     }),
-    /** @satisfies {ServerRoute<{ Params: { uid: string } }>} */
+    /** @satisfies {ServerRoute<{ Params: { uid: string }, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/account/{uid}/change-email',
@@ -126,7 +127,7 @@ export default /** @type {ServerRoute[]} */ (
     /** @satisfies {ServerRoute<{ Params: { uid: string }, Query: { resend?: boolean} }>} */
     ({
       method: 'POST',
-      path: '/account/{uid}/send-code',
+      path: '/account/{uid}/change-email',
       options: {
         validate: { params: uidParams },
         auth: { mode: 'required', strategy: CITIZEN_SESSION }
@@ -143,13 +144,13 @@ export default /** @type {ServerRoute[]} */ (
           await getServiceToken()
         )
 
-        return h.redirect(`/account/${uid}/phone-sent-code`)
+        return h.redirect(`/account/${uid}/phone-code`)
       }
     }),
-    /** @satisfies {ServerRoute<{ Params: { uid: string } }>} */
+    /** @satisfies {ServerRoute<{ Params: { uid: string }, Query: { language?: string } }>} */
     ({
       method: 'GET',
-      path: '/account/{uid}/phone-sent-code',
+      path: '/account/{uid}/phone-code',
       options: {
         validate: { params: uidParams },
         auth: { mode: 'required', strategy: CITIZEN_SESSION }
@@ -187,7 +188,10 @@ export default /** @type {ServerRoute[]} */ (
       method: 'POST',
       path: '/account/{uid}/phone-code',
       options: {
-        validate: { params: uidParams, payload: formPayload('code') },
+        validate: {
+          params: uidParams,
+          payload: formPayload('code')
+        },
         auth: { mode: 'required', strategy: CITIZEN_SESSION }
       },
       async handler(request, h) {
@@ -200,12 +204,24 @@ export default /** @type {ServerRoute[]} */ (
           account.id
         )
 
-        if (result.outcome === VALID) {
-          return h.redirect(`/account/${uid}/enter-email`)
+        if (
+          result.outcome === INVALID_CODE ||
+          result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED
+        ) {
+          return h.view('account/phone-code', {
+            uid,
+            backLink: getBackLink(request.yar),
+            phoneEndDigits: getPhoneEndDigits(account.phone),
+            errorKey:
+              'errorKey' in result
+                ? result.errorKey
+                : 'signin.code.errorInvalid',
+            code: code ?? ''
+          })
         }
 
-        if (result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED) {
-          return h.redirect(`/account/${uid}/code/expired`)
+        if (result.outcome === VALID) {
+          return h.redirect(`/account/${uid}/enter-email`)
         }
 
         return h.view(JOURNEY_START_PATH, {
@@ -215,7 +231,7 @@ export default /** @type {ServerRoute[]} */ (
         })
       }
     }),
-    /** @satisfies {ServerRoute<{ Params: { uid: string } }>} */
+    /** @satisfies {ServerRoute<{ Params: { uid: string }, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/account/{uid}/enter-email',
@@ -236,19 +252,19 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(`/account/${uid}/change-email`)
         }
 
-        return h.view('account/new-email', { uid })
+        return h.view('account/enter-email', { uid })
       }
     }),
-    /** @satisfies {ServerRoute<{ Params: { uid: string }, Query: { resend?: boolean}, Payload: { email: string } }>} */
+    /** @satisfies {ServerRoute<{ Params: { uid: string }, Query: { resend?: boolean}, Payload: { email?: string } }>} */
     ({
       method: 'POST',
-      path: '/account/{uid}/new-email',
+      path: '/account/{uid}/enter-email',
       options: {
         validate: {
           params: uidParams,
           payload: Joi.object({
             crumb: Joi.string().optional(),
-            email: Joi.string().email().optional()
+            email: Joi.string().allow('')
           })
         },
         auth: { mode: 'required', strategy: CITIZEN_SESSION }
@@ -257,6 +273,23 @@ export default /** @type {ServerRoute[]} */ (
         const { uid } = request.params
         const { email } = request.payload
         const account = /** @type {Account} */ (request.auth.credentials)
+
+        if (!email) {
+          return h.view('account/enter-email', {
+            uid,
+            email: email ?? '',
+            errorKey: 'account.newEmail.errorRequired'
+          })
+        }
+
+        const { error } = Joi.string().email().validate(email)
+        if (error) {
+          return h.view('account/enter-email', {
+            uid,
+            email,
+            errorKey: 'account.newEmail.errorFormat'
+          })
+        }
 
         // Verify the phone was previously validated on this interaction
         const phoneOtp = await identityApi.getOtp(
@@ -281,7 +314,7 @@ export default /** @type {ServerRoute[]} */ (
         return h.redirect(`/account/${uid}/email-code`)
       }
     }),
-    /** @satisfies {ServerRoute<{ Params: { uid: string } }>} */
+    /** @satisfies {ServerRoute<{ Params: { uid: string }, Query: { language?: string } }>} */
     ({
       method: 'GET',
       path: '/account/{uid}/email-code',
@@ -354,6 +387,21 @@ export default /** @type {ServerRoute[]} */ (
           code,
           account.id
         )
+
+        if (result.outcome === INVALID_CODE) {
+          const emailOtp = await identityApi.getOtp(
+            uid,
+            await getServiceToken(),
+            PURPOSE.ACCOUNT_VERIFY_EMAIL
+          )
+          return h.view('account/email-code', {
+            uid,
+            errorKey: result.errorKey,
+            email: emailOtp?.target,
+            code: code ?? ''
+          })
+        }
+
         if (result.outcome === VALID) {
           // Update the email address in the account. This will also consume the email OTP
           await accountService.changeEmailAddress(uid, account.id)
@@ -374,6 +422,31 @@ export default /** @type {ServerRoute[]} */ (
           uid,
           backLink: getBackLink(request.yar),
           phoneEndDigits: getPhoneEndDigits(account.phone)
+        })
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Params: { uid: string }, Query: { language?: string, transport?: string } }>} */
+    ({
+      method: 'GET',
+      path: '/account/{uid}/code/resend',
+      options: {
+        validate: { params: uidParams },
+        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+      },
+      handler(request, h) {
+        const { uid } = request.params
+        setLanguage(request)
+        const isSms = request.query.transport === 'sms'
+        const account = request.auth.credentials
+        const { email } = account
+        const target = isSms
+          ? getPhoneEndDigits(/** @type {string} */ (account.phone))
+          : email
+        return h.view('account/code-resend', {
+          uid,
+          isSms,
+          target,
+          email
         })
       }
     })

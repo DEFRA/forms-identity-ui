@@ -41,7 +41,7 @@
       "continue": "Continue",
       "problemsDetails": {
         "summaryText": "Problems with the security code?",
-        "body": "We can <a class=\"govuk-link\" href=\"./code-resend\">send the security code again</a> if the security code is not working or you did not receive it."
+        "body": "We can <a class=\"govuk-link\" href=\"./code/resend?transport=sms\">send the security code again</a> if the security code is not working or you did not receive it."
       }
     },
     "newEmail": {
@@ -60,8 +60,16 @@
       "continue": "Continue",
       "problemsDetails": {
         "summaryText": "Problems with the security code?",
-        "body": "We can <a class=\"govuk-link\" href=\"./code-resend\">send the security code again</a> or you can <a class=\"govuk-link\" href=\"./enter-email\">use a different email address</a>."
+        "body": "We can <a class=\"govuk-link\" href=\"./code/resend?transport=email\">send the security code again</a> or you can <a class=\"govuk-link\" href=\"./enter-email\">use a different email address</a>."
       }
+    },
+    "codeResend": {
+      "title": "Get security code",
+      "sentToEmail": "We will send a security code to:",
+      "sentToPhone": "We will send a security code to your mobile phone number ending with",
+      "lockoutInfo": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
+      "emailInfo": "Your email might take a few minutes to arrive. If you do not get an email, check your spam folder.",
+      "continue": "Get security code"
     }
   },
   "layout": {

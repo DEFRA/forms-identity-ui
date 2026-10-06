@@ -1,0 +1,65 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% set pageTitle = t('account.changeEmail') + " : " + t('account.sentEmailOtp.title') %}
+{% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+
+      {% if showResendNotification %}
+        {{ govukNotificationBanner({
+          type: "success",
+          titleText: t('account.sentEmailOtp.resendNotificationTitleText'),
+          text: t('account.sentEmailOtp.resendNotificationText')
+        }) }}
+      {% endif %}
+
+      {% if errorKey %}
+        {{ govukErrorSummary({
+          titleText: t('errors.errorSummaryTitle'),
+          errorList: [{ text: t(errorKey), href: "#code" }]
+        }) }}
+      {% endif %}
+
+      <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
+      <h1 class="govuk-heading-l">{{ t('account.sentEmailOtp.title') }}</h1>
+
+      <div class="govuk-inset-text">
+        {{ t('account.sentEmailOtp.inset') }} <strong>{{ email }}</strong>
+      </div>
+
+      <p class="govuk-body">{{ t('account.sentEmailOtp.para1') }}</p>
+
+      <form method="post" action="/account/{{ uid }}/email-code" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        {{ govukInput({
+          label: { text: t('account.sentEmailOtp.enterCode') },
+          classes: "govuk-input--width-10 govuk-input--extra-letter-spacing",
+          id: "code",
+          name: "code",
+          type: "text",
+          value: code,
+          inputmode: "numeric",
+          autocomplete: "one-time-code",
+          spellcheck: false,
+          errorMessage: errorMessage
+        }) }}
+
+        {{ govukButton({ text: t('account.sentEmailOtp.continue') }) }}
+      </form>
+
+      {{ govukDetails({
+        summaryText: t('account.sentEmailOtp.problemsDetails.summaryText'),
+        html: t('account.sentEmailOtp.problemsDetails.body')
+      }) }}
+    </div>
+  </div>
+{% endblock %}
