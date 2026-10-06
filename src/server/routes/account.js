@@ -11,6 +11,7 @@ import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
 import {
+  INVALID_CODE,
   INVALID_CODE_CONSUMED_OR_EXPIRED,
   VALID
 } from '~/src/server/services/outcomes.js'
@@ -233,8 +234,19 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(EMAIL_JOURNEY_ENTER_EMAIL)
         }
 
-        if (result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED) {
-          return h.redirect('/account/code/expired')
+        if (
+          result.outcome === INVALID_CODE ||
+          result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED
+        ) {
+          return h.view('account/phone-code', {
+            backLink: getBackLink(request.yar),
+            phoneEndDigits: getPhoneEndDigits(account.phone),
+            errorKey:
+              'errorKey' in result
+                ? result.errorKey
+                : 'signin.code.errorInvalid',
+            code: code ?? ''
+          })
         }
 
         return h.view(JOURNEY_START_VIEW, {
@@ -423,7 +435,6 @@ export default /** @type {ServerRoute[]} */ (
         pre: [preHandler]
       },
       handler(request, h) {
-        const uid = getSessionUid(request)
         const isSms = request.query.transport === 'sms'
         const account = request.auth.credentials
         const { email } = account
@@ -431,7 +442,6 @@ export default /** @type {ServerRoute[]} */ (
           ? getPhoneEndDigits(/** @type {string} */ (account.phone))
           : email
         return h.view('account/code-resend', {
-          uid,
           isSms,
           target,
           email
