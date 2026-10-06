@@ -2,12 +2,8 @@ import Boom from '@hapi/boom'
 import { StatusCodes } from 'http-status-codes'
 
 import { config } from '~/src/config/index.js'
-import {
-  SESSION_KEY_BACK_LINK,
-  SESSION_KEY_CLIENT_ID
-} from '~/src/server/common/constants/session-names.js'
 import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
-import { findClientReturn } from '~/src/server/services/client-return.js'
+import { findSentOrStoredClientReturn } from '~/src/server/services/client-return.js'
 
 const OIDC_ISSUER = config.get('oidc.issuer')
 
@@ -53,12 +49,12 @@ async function signInAtClient(request, h) {
   }
 
   // Authentication runs before validation, so the query is as the user sent
-  // it. A client names itself when it sends a user to the account page. The
-  // session holds that name for the steps of a journey, which have no query.
-  const clientReturn = await findClientReturn(request.server.app.oidcProvider, {
-    clientId: request.query.client_id ?? request.yar.get(SESSION_KEY_CLIENT_ID),
-    returnUrl: request.query.returnUrl ?? request.yar.get(SESSION_KEY_BACK_LINK)
-  })
+  // it
+  const clientReturn = await findSentOrStoredClientReturn(
+    request.server.app.oidcProvider,
+    request.query,
+    request.yar
+  )
 
   // With no client to send the user to, the page tells them to sign in
   // again from the service they came from

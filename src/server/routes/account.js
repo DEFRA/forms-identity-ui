@@ -3,11 +3,7 @@ import { randomUUID } from 'node:crypto'
 import Joi from 'joi'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
-import {
-  SESSION_KEY_BACK_LINK,
-  SESSION_KEY_CLIENT_ID,
-  sessionNames
-} from '~/src/server/common/constants/session-names.js'
+import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { getBackLink } from '~/src/server/common/helpers/navigation.js'
 import { setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
@@ -15,7 +11,10 @@ import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { signedInOnly } from '~/src/server/routes/account-sign-in.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
-import { findClientReturn } from '~/src/server/services/client-return.js'
+import {
+  findClientReturn,
+  storeClientReturn
+} from '~/src/server/services/client-return.js'
 import {
   INVALID_CODE_CONSUMED_OR_EXPIRED,
   VALID
@@ -75,22 +74,12 @@ export default /** @type {ServerRoute[]} */ (
           { clientId: query.client_id, returnUrl: query.returnUrl }
         )
 
-        // Only a client that names itself sets these. The Back link belongs
-        // to that client, so a return address on another origin is left out
-        // and the page shows no Back link.
+        // Only a client that names itself replaces the stored one
         if (clientReturn) {
-          yar.set(SESSION_KEY_CLIENT_ID, clientReturn.clientId)
-
-          if (clientReturn.returnUrl) {
-            yar.set(SESSION_KEY_BACK_LINK, clientReturn.returnUrl)
-          } else {
-            yar.clear(SESSION_KEY_BACK_LINK)
-          }
+          storeClientReturn(yar, clientReturn)
         }
 
-        const backLink = yar.get(SESSION_KEY_BACK_LINK)
-          ? { href: yar.get(SESSION_KEY_BACK_LINK) }
-          : undefined
+        const backLink = getBackLink(yar)
 
         const notificationSuccessKey = request.yar
           .flash(sessionNames.accountSuccessNotification)

@@ -1,3 +1,7 @@
+import {
+  SESSION_KEY_BACK_LINK,
+  SESSION_KEY_CLIENT_ID
+} from '~/src/server/common/constants/session-names.js'
 import { REGISTERED_CLIENT_IDS } from '~/src/server/oidc/provider-config.js'
 
 /**
@@ -37,6 +41,39 @@ export async function findClientReturn(provider, { clientId, returnUrl }) {
 }
 
 /**
+ * Finds the client that sent the user, for a request that can be a step in a
+ * journey. A client names itself in the query when it sends a user to the
+ * account page. The steps of a journey have no query, so they use the client
+ * stored from that visit.
+ * @param {Provider} provider
+ * @param {{ client_id?: unknown, returnUrl?: unknown }} query
+ * @param {Yar} yar
+ */
+export function findSentOrStoredClientReturn(provider, query, yar) {
+  return findClientReturn(provider, {
+    clientId: query.client_id ?? yar.get(SESSION_KEY_CLIENT_ID),
+    returnUrl: query.returnUrl ?? yar.get(SESSION_KEY_BACK_LINK)
+  })
+}
+
+/**
+ * Stores the client and its Back link for the steps of a journey. The Back
+ * link belongs to that client, so with no return address the stored one is
+ * cleared and the pages show no Back link.
+ * @param {Yar} yar
+ * @param {ClientReturn} clientReturn
+ */
+export function storeClientReturn(yar, { clientId, returnUrl }) {
+  yar.set(SESSION_KEY_CLIENT_ID, clientId)
+
+  if (returnUrl) {
+    yar.set(SESSION_KEY_BACK_LINK, returnUrl)
+  } else {
+    yar.clear(SESSION_KEY_BACK_LINK)
+  }
+}
+
+/**
  * @typedef {object} ClientReturn
  * @property {string} clientId - the registered client
  * @property {string} [initiateLoginUri] - where that client starts a sign in
@@ -44,5 +81,6 @@ export async function findClientReturn(provider, { clientId, returnUrl }) {
  */
 
 /**
+ * @import { Yar } from '@hapi/yar'
  * @import Provider from 'oidc-provider'
  */
