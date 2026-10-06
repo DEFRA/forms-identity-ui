@@ -1,13 +1,4 @@
-import {
-  cookieKeys,
-  readNumberedKeys,
-  signingJwks
-} from '~/src/server/oidc/keys.js'
-
-const JWKS_KEYS = {
-  prefix: 'OIDC_JWKS_KEY_',
-  pointerName: 'OIDC_JWKS_SIGNING_KEY'
-}
+import { cookieKeys, signingJwks } from '~/src/server/oidc/keys.js'
 
 /**
  * @param {string} kid
@@ -15,75 +6,6 @@ const JWKS_KEYS = {
 function jwk(kid) {
   return JSON.stringify({ kty: 'RSA', kid, d: `private-part-of-${kid}` })
 }
-
-describe('readNumberedKeys', () => {
-  it('returns the signing key first, then the others from the highest number to the lowest', () => {
-    const env = {
-      OIDC_JWKS_KEY_1: 'one',
-      OIDC_JWKS_KEY_2: 'two',
-      OIDC_JWKS_KEY_3: 'three',
-      OIDC_JWKS_KEY_10: 'ten'
-    }
-
-    const keys = readNumberedKeys(env, { ...JWKS_KEYS, signingNumber: 2 })
-
-    expect(keys).toEqual([
-      { number: 2, name: 'OIDC_JWKS_KEY_2', value: 'two' },
-      { number: 10, name: 'OIDC_JWKS_KEY_10', value: 'ten' },
-      { number: 3, name: 'OIDC_JWKS_KEY_3', value: 'three' },
-      { number: 1, name: 'OIDC_JWKS_KEY_1', value: 'one' }
-    ])
-  })
-
-  it('reads only names that are the prefix and a number', () => {
-    const env = {
-      OIDC_JWKS_KEY_1: 'one',
-      OIDC_JWKS_KEY_: 'no number',
-      OIDC_JWKS_KEY_01: 'leading zero',
-      OIDC_JWKS_KEY_0: 'zero',
-      OIDC_JWKS_KEY_1A: 'letter',
-      OIDC_COOKIE_KEY_2: 'other set',
-      MY_OIDC_JWKS_KEY_3: 'longer name'
-    }
-
-    const keys = readNumberedKeys(env, { ...JWKS_KEYS, signingNumber: 1 })
-
-    expect(keys.map((key) => key.name)).toEqual(['OIDC_JWKS_KEY_1'])
-  })
-
-  it('treats an empty value as a key that is not there', () => {
-    const env = {
-      OIDC_JWKS_KEY_1: 'one',
-      OIDC_JWKS_KEY_2: '',
-      OIDC_JWKS_KEY_3: '   ',
-      OIDC_JWKS_KEY_4: undefined
-    }
-
-    const keys = readNumberedKeys(env, { ...JWKS_KEYS, signingNumber: 1 })
-
-    expect(keys.map((key) => key.number)).toEqual([1])
-  })
-
-  it('refuses a pointer to a key that is not there, and lists the keys that are', () => {
-    const env = {
-      OIDC_JWKS_KEY_1: 'one',
-      OIDC_JWKS_KEY_2: 'two',
-      OIDC_JWKS_KEY_3: 'three'
-    }
-
-    expect(() =>
-      readNumberedKeys(env, { ...JWKS_KEYS, signingNumber: 100 })
-    ).toThrow(
-      'OIDC_JWKS_SIGNING_KEY is 100, but the keys that exist are 1, 2, 3'
-    )
-  })
-
-  it('refuses to load when there are no keys', () => {
-    expect(() =>
-      readNumberedKeys({}, { ...JWKS_KEYS, signingNumber: 1 })
-    ).toThrow('OIDC_JWKS_SIGNING_KEY is 1, but no OIDC_JWKS_KEY_<n> is set')
-  })
-})
 
 describe('signingJwks', () => {
   it('returns each key with its number, signing key first', () => {
@@ -134,26 +56,71 @@ describe('signingJwks', () => {
       'OIDC_JWKS_KEY_1 and OIDC_JWKS_KEY_2 have the same kid'
     )
   })
+
+  it('refuses a pointer to a key that is not there', () => {
+    expect(() => signingJwks({ OIDC_JWKS_KEY_1: jwk('kid-1') }, 7)).toThrow(
+      'OIDC_JWKS_SIGNING_KEY is 7, but the keys that exist are 1'
+    )
+  })
 })
 
 describe('cookieKeys', () => {
-  it('returns each key with its number, signing key first', () => {
+  it('returns the signing key first, then the others from the lowest number to the highest', () => {
     const env = {
+      OIDC_COOKIE_KEY_10: 'cookie-ten',
+      OIDC_COOKIE_KEY_3: 'cookie-three',
       OIDC_COOKIE_KEY_1: 'cookie-one',
-      OIDC_COOKIE_KEY_2: 'cookie-two',
-      OIDC_COOKIE_KEY_3: 'cookie-three'
+      OIDC_COOKIE_KEY_2: 'cookie-two'
     }
 
-    expect(cookieKeys(env, 2)).toEqual([
-      { number: 2, value: 'cookie-two' },
+    expect(cookieKeys(env, 3)).toEqual([
       { number: 3, value: 'cookie-three' },
-      { number: 1, value: 'cookie-one' }
+      { number: 1, value: 'cookie-one' },
+      { number: 2, value: 'cookie-two' },
+      { number: 10, value: 'cookie-ten' }
     ])
   })
 
-  it('refuses a pointer to a key that is not there', () => {
-    expect(() => cookieKeys({ OIDC_COOKIE_KEY_1: 'cookie-one' }, 7)).toThrow(
-      'OIDC_COOKIE_SIGNING_KEY is 7, but the keys that exist are 1'
+  it('reads only names that are the prefix and a number', () => {
+    const env = {
+      OIDC_COOKIE_KEY_1: 'one',
+      OIDC_COOKIE_KEY_: 'no number',
+      OIDC_COOKIE_KEY_01: 'leading zero',
+      OIDC_COOKIE_KEY_0: 'zero',
+      OIDC_COOKIE_KEY_1A: 'letter',
+      OIDC_JWKS_KEY_2: 'other set',
+      MY_OIDC_COOKIE_KEY_3: 'longer name'
+    }
+
+    expect(cookieKeys(env, 1)).toEqual([{ number: 1, value: 'one' }])
+  })
+
+  it('treats an empty value as a key that is not there', () => {
+    const env = {
+      OIDC_COOKIE_KEY_1: 'one',
+      OIDC_COOKIE_KEY_2: '',
+      OIDC_COOKIE_KEY_3: '   ',
+      OIDC_COOKIE_KEY_4: undefined
+    }
+
+    expect(cookieKeys(env, 1)).toEqual([{ number: 1, value: 'one' }])
+  })
+
+  it('refuses a pointer to a key that is not there, and lists the keys that are', () => {
+    const env = {
+      OIDC_COOKIE_KEY_1: 'one',
+      OIDC_COOKIE_KEY_2: 'two',
+      OIDC_COOKIE_KEY_3: 'three'
+    }
+
+    expect(() => cookieKeys(env, 100)).toThrow(
+      'OIDC_COOKIE_SIGNING_KEY is 100, but the keys that exist are 1, 2, 3'
+    )
+  })
+
+  it('refuses to load when there are no keys', () => {
+    expect(() => cookieKeys({}, 1)).toThrow(
+      'OIDC_COOKIE_SIGNING_KEY is 1, but no OIDC_COOKIE_KEY_<n> is set'
     )
   })
 })
