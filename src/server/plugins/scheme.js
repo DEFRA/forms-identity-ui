@@ -22,12 +22,14 @@ export function citizenSessionScheme() {
       const session = await provider.Session.get(ctx)
 
       if (!session.accountId) {
-        // Recorded apart from the other refusals below. A new sign in gives
-        // this request what it lacks. The others have a session already, so
-        // a new sign in would bring the user back to the same refusal.
-        request.app.hasNoCitizenSession = true
         return h.unauthenticated(Boom.unauthorized(null, CITIZEN_SESSION))
       }
+
+      // Recorded apart from the credentials, which the refusals below also
+      // leave empty. A new sign in gives a request with no session what it
+      // lacks; these have a session already, so a new sign in would bring
+      // the user back to the same refusal.
+      request.app.hasCitizenSession = true
 
       const account = await getAccount(
         session.accountId,

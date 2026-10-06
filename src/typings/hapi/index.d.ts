@@ -46,7 +46,7 @@ declare module '@hapi/hapi' {
   }
 
   interface RequestApplicationState {
-    hasNoCitizenSession?: boolean
+    hasCitizenSession?: boolean
   }
 }
 

@@ -12,7 +12,7 @@ import { getBackLink } from '~/src/server/common/helpers/navigation.js'
 import { setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
+import { signedInOnly } from '~/src/server/routes/account-sign-in.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
 import { findClientReturn } from '~/src/server/services/client-return.js'
@@ -62,7 +62,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account',
       options: {
         validate: { query: queryParamsSchema },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const account = request.auth.credentials
@@ -110,7 +110,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: '/account/change-email',
       options: {
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       handler(_request, h) {
         const uid = randomUUID()
@@ -123,7 +123,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/change-email',
       options: {
         validate: { params: uidParams },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       handler(request, h) {
         const { uid } = request.params
@@ -148,7 +148,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/send-code',
       options: {
         validate: { params: uidParams },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -171,7 +171,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/phone-sent-code',
       options: {
         validate: { params: uidParams },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -207,7 +207,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/phone-code',
       options: {
         validate: { params: uidParams, payload: formPayload('code') },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -240,7 +240,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/enter-email',
       options: {
         validate: { params: uidParams },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -270,7 +270,7 @@ export default /** @type {ServerRoute[]} */ (
             email: Joi.string().email().optional()
           })
         },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -306,7 +306,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/email-code',
       options: {
         validate: { params: uidParams },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
@@ -351,7 +351,7 @@ export default /** @type {ServerRoute[]} */ (
       path: '/account/{uid}/email-code',
       options: {
         validate: { params: uidParams, payload: formPayload('code') },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...signedInOnly
       },
       async handler(request, h) {
         const { uid } = request.params
