@@ -1,0 +1,27 @@
+
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% extends "layouts/page.html" %}
+
+{% set pageTitle = t('account.changeEmail') + " : " %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+
+    {% if errorKey %}
+      {{ govukErrorSummary({
+        titleText: t('errors.errorSummaryTitle'),
+        errorList: [{ text: t(errorKey), href: "#" }]
+      }) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
+    <h1 class="govuk-heading-l">{{ t('account.updateError.title') }}</h1>
+
+    <p class="govuk-body">{{ t('account.updateError.body') | safe }}</p>
+
+  </div>
+    </div>
+  </div>
+{% endblock %}

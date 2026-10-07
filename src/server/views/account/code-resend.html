@@ -1,0 +1,42 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+
+{% set pageTitle = t('signin.codeResend.title') %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      <h1 class="govuk-heading-l">{{ t('account.codeResend.title') }}</h1>
+
+      <div class="govuk-inset-text">
+        {{ t('account.codeResend.sentToPhone') if isSms else t('account.codeResend.sentToEmail')}} <strong>{{ target }}</strong>
+      </div>
+
+      <p class="govuk-body">{{ t('account.codeResend.lockoutInfo') }}</p>
+
+      {% if isSms %}
+        <form method="POST" action="/account/send-code?resend=true">
+          <input type="hidden" name="crumb" value="{{ crumb }}">
+          {{ govukButton({
+            text: t('account.codeResend.continue')
+          }) }}
+        </form>
+      {% else %}
+        <p class="govuk-body">{{ t('account.codeResend.emailInfo') }}</p>
+
+        <form method="POST" action="/account/enter-email?resend=true">
+          <input type="hidden" name="crumb" value="{{ crumb }}">
+          <input type="hidden" name="email" value="{{ email }}">
+          {{ govukButton({
+            text: t('account.codeResend.continue')
+          }) }}
+        </form>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

@@ -41,14 +41,16 @@
       "continue": "Parhau",
       "problemsDetails": {
         "summaryText": "Problemau gyda'r cod diogelwch?",
-        "body": "Gallwn <a class=\"govuk-link\" href=\"./code-resend\">anfon y cod diogelwch eto</a> os nad yw'r cod diogelwch yn gweithio neu os na chawsoch ef."
+        "body": "Gallwn <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code-resend\">anfon y cod diogelwch eto</a> os nad yw'r cod diogelwch yn gweithio neu os na chawsoch ef."
       }
     },
     "newEmail": {
       "title": "Rhowch eich cyfeiriad e-bost newydd",
       "continue": "Parhau",
       "errorRequired": "Rhowch gyfeiriad e-bost",
-      "errorFormat": "Rhowch gyfeiriad e-bost yn y fformat cywir, fel enw@example.com"
+      "errorFormat": "Rhowch gyfeiriad e-bost yn y fformat cywir, fel enw@example.com",
+      "errorSameAsCurrent": "Rhowch gyfeiriad e-bost gwahanol. Mae hwn yr un fath â'ch cyfeiriad e-bost presennol.",
+      "errorAlreadyTaken": "Rhowch gyfeiriad e-bost gwahanol. Mae'r cyfeiriad e-bost hwn eisoes yn cael ei ddefnyddio ar gyfer mewngofnodi arall."
     },
     "sentEmailOtp": {
       "title": "Gwiriwch eich e-bost",
@@ -60,8 +62,20 @@
       "continue": "Parhau",
       "problemsDetails": {
         "summaryText": "Problemau gyda'r cod diogelwch?",
-        "body": "Gallwn <a class=\"govuk-link\" href=\"./code-resend\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link\" href=\"./enter-email\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
+        "body": "Gallwn <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code-resend\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./enter-email\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
       }
+    },
+    "codeResend": {
+      "title": "Cael cod diogelwch",
+      "sentToEmail": "Byddwn yn anfon cod diogelwch at:",
+      "sentToPhone": "Byddwn yn anfon cod diogelwch i'ch rhif ffôn symudol sy'n gorffen gyda",
+      "lockoutInfo": "Gallwch ofyn am 5 cod diogelwch. Os gofynnwch am fwy na 5, cewch eich cloi allan am 2 awr.",
+      "emailInfo": "Gallai gymryd ychydig funudau i'ch e-bost gyrraedd. Os na fyddwch yn derbyn e-bost, gwiriwch eich ffolder sbam.",
+      "continue": "Cael cod diogelwch"
+    },
+    "updateError": {
+      "title": "Ni chafodd eich cyfeiriad e-bost ei ddiweddaru",
+      "body": "Bydd angen i chi <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/enter-email\">ddewis cyfeiriad e-bost gwahanol</a> neu <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">ganslo</a>."
     }
   },
   "layout": {
@@ -90,7 +104,7 @@
       "errorInvalid": "Nid yw'r cod a roesoch yn gywir neu mae wedi dod i ben – rhowch gynnig arall arni neu gofynnwch am god newydd",
       "problemsDetails": {
         "summaryText": "Problemau gyda'r cod diogelwch?",
-        "body": "Gallwn <a class=\"govuk-link\" href=\"./code/resend\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link\" href=\".\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
+        "body": "Gallwn <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link govuk-link--no-visited-state\" href=\".\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
       }
     },
     "phone": {
@@ -140,13 +154,13 @@
       "heading": "Heb ddod o hyd i'r dudalen",
       "body1": "Os gwnaethoch deipio'r cyfeiriad gwe, gwiriwch ei fod yn gywir.",
       "body2": "Os gwnaethoch ludo'r cyfeiriad gwe, gwiriwch eich bod wedi copïo'r cyfeiriad cyfan.",
-      "body3": "Os yw'r cyfeiriad gwe yn gywir neu os gwnaethoch ddewis dolen neu fotwm, <a href=\"https://www.gov.uk/guidance/contact-defra\" class=\"govuk-link\">cysylltwch â Llinell Gymorth Defra</a> os oes angen i chi siarad â rhywun."
+      "body3": "Os yw'r cyfeiriad gwe yn gywir neu os gwnaethoch ddewis dolen neu fotwm, <a href=\"https://www.gov.uk/guidance/contact-defra\" class=\"govuk-link govuk-link--no-visited-state\">cysylltwch â Llinell Gymorth Defra</a> os oes angen i chi siarad â rhywun."
     },
     "serverError": {
       "heading": "Mae'n ddrwg gennym, mae problem gyda'r gwasanaeth",
       "canYou": "Gallwch:",
       "tryBack": "roi gynnig ar fotwm mynd yn ôl eich porwr",
-      "contact": "<a class=\"govuk-link\" href=\"https://www.gov.uk/guidance/contact-defra\">gysylltu â Llinell Gymorth Defra</a> os oes gennych unrhyw gwestiynau"
+      "contact": "<a class=\"govuk-link govuk-link--no-visited-state\" href=\"https://www.gov.uk/guidance/contact-defra\">gysylltu â Llinell Gymorth Defra</a> os oes gennych unrhyw gwestiynau"
     },
     "errorSummaryTitle": "Mae problem wedi codi"
   },
