@@ -115,6 +115,13 @@
       "emailInfo": "Gall gymryd ychydig funudau i'ch e-bost gyrraedd. Os na chewch e-bost, gwiriwch eich ffolder sbam.",
       "continue": "Cael cod diogelwch"
     },
+    "lockedOut": {
+      "title": "Gofynnwyd am ormod o godau diogelwch",
+      "body": [
+        "Rydych wedi gofyn am ormod o godau diogelwch.",
+        "Rhowch gynnig arall arni ymhen [[duration]]."
+      ]
+    },
     "timedOut": {
       "title": "Er eich diogelwch, daeth eich sesiwn fewngofnodi i ben",
       "body": [
@@ -122,6 +129,11 @@
         "Ewch yn ôl i'r gwasanaeth roeddech yn ei ddefnyddio a mewngofnodwch eto."
       ]
     }
+  },
+  "duration": {
+    "hours": "[[count]] awr",
+    "minutes": "[[count]] munud",
+    "hoursAndMinutes": "[[hours]] a [[minutes]]"
   },
   "errors": {
     "notFound": {

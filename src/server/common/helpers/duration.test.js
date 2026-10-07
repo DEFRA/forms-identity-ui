@@ -11,7 +11,18 @@ describe('formatDuration', () => {
     [7200, '2 hours'],
     [5400, '1 hour and 30 minutes']
   ])('describes %i seconds as "%s"', (seconds, expected) => {
-    expect(formatDuration(seconds)).toBe(expected)
+    expect(formatDuration(seconds, 'en-GB')).toBe(expected)
+  })
+
+  it.each([
+    [60, '1 munud'],
+    [1800, '30 munud'],
+    [3600, '1 awr'],
+    [7200, '2 awr'],
+    [10800, '3 awr'],
+    [5400, '1 awr a 30 munud']
+  ])('describes %i seconds in Welsh as "%s"', (seconds, expected) => {
+    expect(formatDuration(seconds, 'cy')).toBe(expected)
   })
 })
 
@@ -39,17 +50,25 @@ describe('formatHoursUntil', () => {
     [7560, '3 hours'],
     [10800, '3 hours']
   ])('describes %i seconds away as "%s"', (seconds, expected) => {
-    expect(formatHoursUntil(secondsFromNow(seconds), NOW)).toBe(expected)
+    expect(formatHoursUntil(secondsFromNow(seconds), 'en-GB', NOW)).toBe(
+      expected
+    )
   })
 
   it('does not round up an exact hour for a few seconds of clock difference', () => {
-    expect(formatHoursUntil(secondsFromNow(7205), NOW)).toBe('2 hours')
+    expect(formatHoursUntil(secondsFromNow(7205), 'en-GB', NOW)).toBe('2 hours')
   })
 
   it.each([0, -60])(
     'describes a time %i seconds away as 1 hour rather than none',
     (seconds) => {
-      expect(formatHoursUntil(secondsFromNow(seconds), NOW)).toBe('1 hour')
+      expect(formatHoursUntil(secondsFromNow(seconds), 'en-GB', NOW)).toBe(
+        '1 hour'
+      )
     }
   )
+
+  it('describes the time in Welsh', () => {
+    expect(formatHoursUntil(secondsFromNow(7200), 'cy', NOW)).toBe('2 awr')
+  })
 })
