@@ -1,5 +1,6 @@
 jest.mock('~/src/server/lib/identity-api.js', () => ({
-  requestOtp: jest.fn(),
+  requestOtpViaEmail: jest.fn(),
+  requestOtpViaSms: jest.fn(),
   verifyOtp: jest.fn(),
   completeSignup: jest.fn(),
   getAccount: jest.fn(),

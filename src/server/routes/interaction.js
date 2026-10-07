@@ -30,7 +30,7 @@ const querySchema = Joi.object()
  * the handlers and the signin service only ever see a string or nothing.
  * @param {string} field
  */
-function formPayload(field) {
+export function formPayload(field) {
   return Joi.object({
     crumb: Joi.string().optional(),
     [field]: Joi.string().allow('').optional()
@@ -281,7 +281,8 @@ export default /** @type {ServerRoute[]} */ (
           payload: formPayload('email'),
           query: querySchema.concat(emailQuery)
         },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         const details = request.pre.details
@@ -353,7 +354,8 @@ export default /** @type {ServerRoute[]} */ (
           query: querySchema
         },
         plugins: { blankie: signinFormCsp },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         const details = request.pre.details
@@ -423,7 +425,8 @@ export default /** @type {ServerRoute[]} */ (
           query: querySchema
         },
         plugins: { blankie: signinFormCsp },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         const details = request.pre.details

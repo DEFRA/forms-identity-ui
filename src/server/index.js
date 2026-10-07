@@ -14,6 +14,7 @@ import { requestTracing } from '~/src/server/common/helpers/request-tracing.js'
 import { prepareSecureContext } from '~/src/server/common/helpers/secure-context/index.js'
 import { getCacheEngine } from '~/src/server/common/helpers/session-cache/cache-engine.js'
 import { serviceToken } from '~/src/server/lib/service-token.js'
+import pluginAuth from '~/src/server/plugins/auth.js'
 import pluginBlankie from '~/src/server/plugins/blankie.js'
 import pluginCrumb from '~/src/server/plugins/crumb.js'
 import pluginErrorPages from '~/src/server/plugins/error-pages.js'
@@ -95,6 +96,7 @@ export async function createServer() {
   // identity API as soon as it is used and needs the token available
   await server.register(serviceToken)
   await server.register(pluginOidc)
+  await server.register(pluginAuth)
   await server.register(pluginRouter)
   await server.register(pluginErrorPages)
 

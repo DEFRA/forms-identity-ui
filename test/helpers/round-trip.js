@@ -78,7 +78,7 @@ function createStubApi() {
   const artifacts = new Map()
   /**
    * OTP records by the uid the UI sends, standing in for the otps collection
-   * @type {Map<string, { email: string, verified: boolean }>}
+   * @type {Map<string, { target: string, verified: boolean }>}
    */
   const otps = new Map()
   /**
@@ -150,7 +150,7 @@ function createStubApi() {
   function signinEndpoints(method, segments, body) {
     if (segments[0] === 'otp') {
       if (segments[1] === 'request') {
-        otps.set(body.uid, { email: body.email, verified: false })
+        otps.set(body.uid, { target: body.target, verified: false })
         return { status: 200, body: { status: 'otp-issued' } }
       }
       if (segments[1] === 'verify') {
@@ -162,7 +162,7 @@ function createStubApi() {
         record.verified = true
 
         const existing = [...accounts.values()].find(
-          (account) => account.email === record.email
+          (account) => account.email === record.target
         )
         return {
           status: 200,
@@ -173,7 +173,16 @@ function createStubApi() {
       }
 
       const record = otps.get(segments[1])
-      return record ? { status: 200, body: { email: record.email } } : NOT_FOUND
+      return record
+        ? {
+            status: 200,
+            body: {
+              target: record.target,
+              verified: record.verified,
+              consumed: false
+            }
+          }
+        : NOT_FOUND
     }
 
     if (segments[0] === 'accounts') {
@@ -185,7 +194,7 @@ function createStubApi() {
         }
         const account = {
           id: randomBytes(16).toString('hex'),
-          email: record.email
+          email: record.target
         }
         accounts.set(account.id, account)
         return {

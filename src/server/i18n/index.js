@@ -53,7 +53,7 @@ export function getLanguage(query, yar) {
 
 /**
  * Set the language in the session if the query has a `language` key
- * @param {Request<ReqRefDefaults>} request
+ * @param {Request<ReqRefDefaults> | Request<{ Params: { uid: string; }; }>} request
  */
 export function setLanguage(request) {
   const { yar, query } = request
