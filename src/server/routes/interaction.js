@@ -9,13 +9,13 @@ import {
   formatDuration,
   formatHoursUntil
 } from '~/src/server/common/helpers/duration.js'
-import { setLanguage } from '~/src/server/i18n/index.js'
+import { getLanguage, setLanguage } from '~/src/server/i18n/index.js'
 import { signinFormCsp } from '~/src/server/plugins/blankie.js'
 import * as signinService from '~/src/server/services/signin-service.js'
 
 // how long the timed-out page tells the user they had, taken from the
 // setting that actually ends the interaction so the two cannot disagree
-const INTERACTION_DURATION = formatDuration(config.get('oidc.ttl.interaction'))
+const INTERACTION_TTL_SECONDS = config.get('oidc.ttl.interaction')
 
 const uidParams = Joi.object({ uid: Joi.string().required() })
 const emailQuery = Joi.object({ resend: Joi.boolean().optional() })
@@ -64,7 +64,10 @@ export async function requireInteraction(request, h) {
     if (err instanceof errors.SessionNotFound) {
       return h
         .view('interaction/timed-out', {
-          interactionDuration: INTERACTION_DURATION
+          interactionDuration: formatDuration(
+            INTERACTION_TTL_SECONDS,
+            getLanguage(request.query, request.yar)
+          )
         })
         .code(StatusCodes.GONE)
         .takeover()
@@ -296,7 +299,10 @@ export default /** @type {ServerRoute[]} */ (
 
         if (result.outcome === signinService.LOCKED_OUT) {
           return h.view('interaction/locked-out', {
-            retryAfter: formatHoursUntil(result.lockedUntil)
+            retryAfter: formatHoursUntil(
+              result.lockedUntil,
+              getLanguage(request.query, request.yar)
+            )
           })
         }
 
