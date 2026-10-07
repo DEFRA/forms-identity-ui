@@ -11,12 +11,15 @@ import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
 import {
+  EMAIL_ALREADY_IN_USE,
+  EMAIL_SAME_AS_CURRENT,
   INVALID_CODE,
   INVALID_CODE_CONSUMED_OR_EXPIRED,
   VALID
 } from '~/src/server/services/outcomes.js'
 
 const SESSION_KEY_BACK_LINK = 'session-back-link'
+const SESSION_KEY_NEW_EMAIL = 'session-new-email'
 
 // Views
 const JOURNEY_START_VIEW = 'account/change-email'
@@ -31,6 +34,8 @@ const EMAIL_JOURNEY_PHONE_SENT_CODE = '/account/phone-sent-code'
 const EMAIL_JOURNEY_PHONE_CODE = '/account/phone-code'
 const EMAIL_JOURNEY_ENTER_EMAIL = '/account/enter-email'
 const EMAIL_JOURNEY_EMAIL_CODE = '/account/email-code'
+const EMAIL_JOURNEY_CODE_RESEND = '/account/code/resend'
+const EMAIL_JOURNEY_CHANGE_EMAIL_ERROR = '/account/change-email-error'
 
 // Paths - change phone number
 const PHONE_JOURNEY_START_PATH = '/account/change-phone'
@@ -164,6 +169,7 @@ export default /** @type {ServerRoute[]} */ (
         auth: { mode: 'required', strategy: CITIZEN_SESSION }
       },
       async handler(request, h) {
+        const { query, yar } = request
         const uid = getSessionUid(request)
         const account = /** @type {Account} */ (request.auth.credentials)
         await identityApi.requestOtpViaSms(
@@ -174,6 +180,10 @@ export default /** @type {ServerRoute[]} */ (
           },
           await getServiceToken()
         )
+
+        if (query.resend) {
+          yar.flash(sessionNames.codeResendSuccessNotification, true)
+        }
 
         return h.redirect(EMAIL_JOURNEY_PHONE_SENT_CODE)
       }
@@ -292,21 +302,10 @@ export default /** @type {ServerRoute[]} */ (
         auth: { mode: 'required', strategy: CITIZEN_SESSION }
       },
       async handler(request, h) {
+        const { query, yar } = request
         const uid = getSessionUid(request)
         const { email } = request.payload
         const account = /** @type {Account} */ (request.auth.credentials)
-
-        const trimmed = email.trim()
-        const { error } = emailSchema.validate(trimmed)
-
-        if (error) {
-          return h.view('account/enter-email', {
-            email,
-            errorKey: trimmed
-              ? 'account.newEmail.errorFormat'
-              : 'account.newEmail.errorRequired'
-          })
-        }
 
         // Verify the phone was previously validated on this interaction
         const phoneOtp = await identityApi.getOtp(
@@ -318,6 +317,24 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(EMAIL_JOURNEY_START_PATH)
         }
 
+        const trimmed = email.trim().toLowerCase()
+        const { error } = emailSchema.validate(trimmed)
+        let errorKey = ''
+        if (error) {
+          errorKey = trimmed
+            ? 'account.newEmail.errorFormat'
+            : 'account.newEmail.errorRequired'
+        } else if (account.email === trimmed) {
+          errorKey = 'account.newEmail.errorSameAsCurrent'
+        }
+
+        if (errorKey) {
+          return h.view('account/enter-email', {
+            email,
+            errorKey
+          })
+        }
+
         await identityApi.requestOtpViaEmail(
           {
             uid,
@@ -327,6 +344,10 @@ export default /** @type {ServerRoute[]} */ (
           },
           await getServiceToken()
         )
+
+        if (query.resend) {
+          yar.flash(sessionNames.codeResendSuccessNotification, true)
+        }
 
         return h.redirect(EMAIL_JOURNEY_EMAIL_CODE)
       }
@@ -368,6 +389,9 @@ export default /** @type {ServerRoute[]} */ (
           .flash(sessionNames.codeResendSuccessNotification)
           .at(0)
 
+        // Save email in session in case the user needs a resend
+        request.yar.set(SESSION_KEY_NEW_EMAIL, emailOtp?.target)
+
         return h.view('account/email-code-sent', {
           email: emailOtp?.target,
           showResendNotification
@@ -405,7 +429,23 @@ export default /** @type {ServerRoute[]} */ (
 
         if (result.outcome === VALID) {
           // Update the email address in the account. This will also consume the email OTP
-          await accountService.changeEmailAddress(uid, account.id)
+          const result = await accountService.changeEmailAddress(
+            uid,
+            account.id
+          )
+
+          // Failure in the API - display error page so user can follow link to re-enter email
+          if (
+            result.status === EMAIL_SAME_AS_CURRENT ||
+            result.status === EMAIL_ALREADY_IN_USE
+          ) {
+            const errorKey =
+              result.status === EMAIL_SAME_AS_CURRENT
+                ? 'account.newEmail.errorSameAsCurrent'
+                : 'account.newEmail.errorAlreadyTaken'
+            request.yar.flash(sessionNames.changeEmailError, errorKey)
+            return h.redirect(EMAIL_JOURNEY_CHANGE_EMAIL_ERROR)
+          }
 
           // Notification
           request.yar.flash(
@@ -413,11 +453,30 @@ export default /** @type {ServerRoute[]} */ (
             'account.successChangedEmailNotificationText'
           )
 
+          // Clear email from session
+          request.yar.clear(SESSION_KEY_NEW_EMAIL)
+
           return h.redirect(ACCOUNT_PATH)
         }
 
-        if (result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED) {
-          return h.redirect('/account/code/expired')
+        if (
+          result.outcome === INVALID_CODE ||
+          result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED
+        ) {
+          const emailOtp = await identityApi.getOtp(
+            uid,
+            await getServiceToken(),
+            PURPOSE.ACCOUNT_VERIFY_EMAIL
+          )
+          return h.view('account/email-code', {
+            uid,
+            errorKey:
+              'errorKey' in result
+                ? result.errorKey
+                : 'signin.code.errorInvalid',
+            email: emailOtp?.target,
+            code: code ?? ''
+          })
         }
 
         return h.view(JOURNEY_START_VIEW, {
@@ -426,10 +485,10 @@ export default /** @type {ServerRoute[]} */ (
         })
       }
     }),
-    /** @satisfies {ServerRoute<{ Params: { uid: string }, Query: { language?: string, transport?: string } }>} */
+    /** @satisfies {ServerRoute<{ Query: { language?: string, transport?: string } }>} */
     ({
       method: 'GET',
-      path: '/account/code/resend',
+      path: EMAIL_JOURNEY_CODE_RESEND,
       options: {
         auth: { mode: 'required', strategy: CITIZEN_SESSION },
         pre: [preHandler]
@@ -437,7 +496,7 @@ export default /** @type {ServerRoute[]} */ (
       handler(request, h) {
         const isSms = request.query.transport === 'sms'
         const account = request.auth.credentials
-        const { email } = account
+        const email = request.yar.get(SESSION_KEY_NEW_EMAIL) // This may not exist if it's a phone code resend
         const target = isSms
           ? getPhoneEndDigits(/** @type {string} */ (account.phone))
           : email
@@ -445,6 +504,21 @@ export default /** @type {ServerRoute[]} */ (
           isSms,
           target,
           email
+        })
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Query: { language?: string } }>} */
+    ({
+      method: 'GET',
+      path: EMAIL_JOURNEY_CHANGE_EMAIL_ERROR,
+      options: {
+        auth: { mode: 'required', strategy: CITIZEN_SESSION },
+        pre: [preHandler]
+      },
+      handler(request, h) {
+        const errorKey = request.yar.flash(sessionNames.changeEmailError).at(0)
+        return h.view('account/change-email-error', {
+          errorKey
         })
       }
     })

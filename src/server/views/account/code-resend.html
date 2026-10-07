@@ -18,19 +18,20 @@
       </div>
 
       <p class="govuk-body">{{ t('account.codeResend.lockoutInfo') }}</p>
-      <p class="govuk-body">{{ t('account.codeResend.emailInfo') }}</p>
 
       {% if isSms %}
-        <form method="POST" action="{../phone-code?resend=true">
+        <form method="POST" action="/account/send-code?resend=true">
           <input type="hidden" name="crumb" value="{{ crumb }}">
           {{ govukButton({
             text: t('account.codeResend.continue')
           }) }}
         </form>
       {% else %}
-        <form method="POST" action="../email-code?resend=true">
+        <p class="govuk-body">{{ t('account.codeResend.emailInfo') }}</p>
+
+        <form method="POST" action="/account/enter-email?resend=true">
           <input type="hidden" name="crumb" value="{{ crumb }}">
-          <input type="hidden" name="email" value="{{ email }}"
+          <input type="hidden" name="email" value="{{ email }}">
           {{ govukButton({
             text: t('account.codeResend.continue')
           }) }}

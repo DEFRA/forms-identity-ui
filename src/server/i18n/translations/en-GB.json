@@ -41,14 +41,16 @@
       "continue": "Continue",
       "problemsDetails": {
         "summaryText": "Problems with the security code?",
-        "body": "We can <a class=\"govuk-link\" href=\"./code/resend?transport=sms\">send the security code again</a> if the security code is not working or you did not receive it."
+        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend?transport=sms\">send the security code again</a> if the security code is not working or you did not receive it."
       }
     },
     "newEmail": {
       "title": "Enter your new email address",
       "continue": "Continue",
       "errorRequired": "Enter an email address",
-      "errorFormat": "Enter an email address in the correct format, like name@example.com"
+      "errorFormat": "Enter an email address in the correct format, like name@example.com",
+      "errorSameAsCurrent": "Enter a different email address. This is the same as your current email address.",
+      "errorAlreadyTaken": "Enter a different email address. This email address is already used for another sign-in."
     },
     "sentEmailOtp": {
       "title": "Check your email",
@@ -60,7 +62,7 @@
       "continue": "Continue",
       "problemsDetails": {
         "summaryText": "Problems with the security code?",
-        "body": "We can <a class=\"govuk-link\" href=\"./code/resend?transport=email\">send the security code again</a> or you can <a class=\"govuk-link\" href=\"./enter-email\">use a different email address</a>."
+        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend?transport=email\">send the security code again</a> or you can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./enter-email\">use a different email address</a>."
       }
     },
     "codeResend": {
@@ -70,6 +72,10 @@
       "lockoutInfo": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
       "emailInfo": "Your email might take a few minutes to arrive. If you do not get an email, check your spam folder.",
       "continue": "Get security code"
+    },
+    "updateError": {
+      "title": "Your email address was not updated",
+      "body": "You will need to <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/enter-email\">choose a different email address</a> or <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">cancel</a>."
     }
   },
   "layout": {
@@ -98,7 +104,7 @@
       "errorInvalid": "The code you entered is not correct or has expired – enter it again or request a new code",
       "problemsDetails": {
         "summaryText": "Problems with the security code?",
-        "body": "We can <a class=\"govuk-link\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link\" href=\".\">use a different email address</a>."
+        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link govuk-link--no-visited-state\" href=\".\">use a different email address</a>."
       }
     },
     "phone": {
@@ -143,7 +149,7 @@
       "heading": "Page not found",
       "body1": "If you typed the web address, check it is correct.",
       "body2": "If you pasted the web address, check you copied the entire address.",
-      "body3": "If the web address is correct or you selected a link or button, <a href=\"https://www.gov.uk/guidance/contact-defra\" class=\"govuk-link\">contact the Defra Helpline</a> if you need to speak to someone."
+      "body3": "If the web address is correct or you selected a link or button, <a href=\"https://www.gov.uk/guidance/contact-defra\" class=\"govuk-link govuk-link--no-visited-state\">contact the Defra Helpline</a> if you need to speak to someone."
     },
     "serverError": {
       "heading": "Sorry, there is a problem with the service",
