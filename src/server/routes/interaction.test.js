@@ -221,7 +221,7 @@ describe('interaction pages', () => {
   )
 
   it('POST email shows the locked-out page in Welsh when the session is in Welsh', async () => {
-    jest.mocked(identityApi.requestOtp).mockResolvedValue({
+    jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
       status: 'locked-out',
       lockedUntil: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
     })
