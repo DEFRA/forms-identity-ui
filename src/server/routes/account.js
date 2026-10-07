@@ -319,14 +319,14 @@ export default /** @type {ServerRoute[]} */ (
 
         const trimmed = email.trim().toLowerCase()
         const { error } = emailSchema.validate(trimmed)
-        let errorKey = ''
-        if (error) {
-          errorKey = trimmed
-            ? 'account.newEmail.errorFormat'
-            : 'account.newEmail.errorRequired'
-        } else if (account.email === trimmed) {
-          errorKey = 'account.newEmail.errorSameAsCurrent'
-        }
+        const entryErrorKey = trimmed
+          ? 'account.newEmail.errorFormat'
+          : 'account.newEmail.errorRequired'
+        const sameEmailErrorKey =
+          account.email === trimmed
+            ? 'account.newEmail.errorSameAsCurrent'
+            : undefined
+        const errorKey = error ? entryErrorKey : sameEmailErrorKey
 
         if (errorKey) {
           return h.view('account/enter-email', {
@@ -429,18 +429,18 @@ export default /** @type {ServerRoute[]} */ (
 
         if (result.outcome === VALID) {
           // Update the email address in the account. This will also consume the email OTP
-          const result = await accountService.changeEmailAddress(
+          const changeResult = await accountService.changeEmailAddress(
             uid,
             account.id
           )
 
           // Failure in the API - display error page so user can follow link to re-enter email
           if (
-            result.status === EMAIL_SAME_AS_CURRENT ||
-            result.status === EMAIL_ALREADY_IN_USE
+            changeResult.status === EMAIL_SAME_AS_CURRENT ||
+            changeResult.status === EMAIL_ALREADY_IN_USE
           ) {
             const errorKey =
-              result.status === EMAIL_SAME_AS_CURRENT
+              changeResult.status === EMAIL_SAME_AS_CURRENT
                 ? 'account.newEmail.errorSameAsCurrent'
                 : 'account.newEmail.errorAlreadyTaken'
             request.yar.flash(sessionNames.changeEmailError, errorKey)
