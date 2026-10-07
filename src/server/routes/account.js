@@ -1,4 +1,3 @@
-import Boom from '@hapi/boom'
 import Joi from 'joi'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
@@ -49,11 +48,7 @@ const emailSchema = Joi.string().email().required()
  * @param {Request<any>} request
  */
 export function getSessionUid(request) {
-  const uid = request.auth.artifacts.sessionUid
-  if (!uid) {
-    throw Boom.badRequest()
-  }
-  return /** @type {string} */ (uid)
+  return /** @type {string} */ (request.auth.artifacts.sessionUid)
 }
 
 /**
@@ -140,8 +135,6 @@ export default /** @type {ServerRoute[]} */ (
         pre: [preHandler]
       },
       handler(request, h) {
-        // Check we have a session
-        getSessionUid(request)
         const account = /** @type {Account} */ (request.auth.credentials)
         const phoneEndDigits = getPhoneEndDigits(account.phone)
 
