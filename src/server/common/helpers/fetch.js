@@ -1,6 +1,8 @@
 import Boom from '@hapi/boom'
 import Wreck from '@hapi/wreck'
 
+import { applyLogContextHeaders } from '~/src/server/common/helpers/request-tracing.js'
+
 const MIN_OK_STATUS = 200
 const MAX_OK_STATUS = 299
 const NOT_FOUND = 404
@@ -32,6 +34,14 @@ export function bearerHeaders(token) {
  * @returns {Promise<{response: object, body: unknown}>}
  */
 export async function request(method, url, options) {
+  const { headers: requestHeaders } =
+    /** @type {{ headers?: Record<string, string> }} */ (options)
+  const headers = applyLogContextHeaders(requestHeaders)
+
+  if (headers) {
+    options = { ...options, headers }
+  }
+
   const response = await Wreck.request(method, url.href, options)
   // Wreck's own types promise a value, but a JSON read of an empty body
   // resolves null and any JSON scalar is a primitive

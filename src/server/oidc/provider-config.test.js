@@ -1,3 +1,9 @@
+import {
+  createLogContext,
+  getUserId,
+  runWithLogContext
+} from '@defra/forms-common'
+
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
@@ -143,6 +149,20 @@ describe('buildProviderConfig', () => {
     await expect(
       cfg.findAccount?.(fakeCtx, 'gone', undefined)
     ).resolves.toBeUndefined()
+  })
+
+  it('findAccount adds the account ID to the log context', async () => {
+    const cfg = buildProviderConfig(fakeAdapter)
+    jest.mocked(getServiceToken).mockResolvedValue('token-1')
+    jest.mocked(getAccount).mockResolvedValue(null)
+
+    const userId = await runWithLogContext(createLogContext(), async () => {
+      await cfg.findAccount?.(fakeCtx, 'acc-1', undefined)
+
+      return getUserId()
+    })
+
+    expect(userId).toBe('acc-1')
   })
 })
 

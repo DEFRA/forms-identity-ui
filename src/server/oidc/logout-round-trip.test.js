@@ -11,6 +11,8 @@
  * at the revocation endpoint (RFC 7009). The tests do the same, and then
  * check that no token of the sign-in still works.
  */
+import { getUserId } from '@defra/forms-common'
+
 import { renderResponse } from '~/test/helpers/component-helpers.js'
 import {
   CLIENT_ASSERTION_TYPE,
@@ -238,6 +240,23 @@ describe('logout round trip', () => {
 
     await revoke(tokens.refresh_token)
     await expectSignInEnded(tokens)
+  })
+
+  it('adds the account ID of the provider session to the log context', async () => {
+    const tokens = await signIn('log-context@example.com')
+    const { sub } = /** @type {{ sub: string }} */ (
+      JSON.parse(
+        Buffer.from(tokens.id_token.split('.')[1], 'base64url').toString()
+      )
+    )
+
+    // The response log is written when this event is emitted
+    const onResponse = jest.fn(() => getUserId())
+    roundTrip.server.events.once('response', onResponse)
+
+    await openSignOut({ client_id: 'runner' })
+
+    expect(onResponse).toHaveReturnedWith(sub)
   })
 
   it('ends the sign-in when the provider session expired before sign-out', async () => {
