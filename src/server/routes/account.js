@@ -55,7 +55,7 @@ function otpMissing(otp) {
 
 export default /** @type {ServerRoute[]} */ (
   /** @type {unknown[]} */ ([
-    /** @type {ServerRoute} */
+    /** @satisfies {ServerRoute<{ Query: { client_id?: string, returnUrl?: string, language?: string } }>} */
     ({
       method: 'GET',
       path: '/account',

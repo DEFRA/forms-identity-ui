@@ -53,7 +53,7 @@ export function getLanguage(query, yar) {
 
 /**
  * Set the language in the session if the query has a `language` key
- * @param {Request<ReqRefDefaults> | Request<{ Params: { uid: string; }; }>} request
+ * @param {Pick<Request, 'query' | 'yar'>} request
  */
 export function setLanguage(request) {
   const { yar, query } = request
@@ -64,6 +64,6 @@ export function setLanguage(request) {
 }
 
 /**
- * @import { Request, RequestQuery, ReqRefDefaults } from '@hapi/hapi'
+ * @import { Request, RequestQuery } from '@hapi/hapi'
  * @import { Yar } from '@hapi/yar'
  */
