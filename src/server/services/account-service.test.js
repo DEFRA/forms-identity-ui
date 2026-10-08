@@ -1,10 +1,6 @@
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { verifyOtp } from '~/src/server/lib/identity-api.js'
-import {
-  submitCode,
-  submitEmailCode,
-  submitPhoneCode
-} from '~/src/server/services/account-service.js'
+import { submitCode } from '~/src/server/services/account-service.js'
 
 jest.mock('~/src/server/lib/identity-api.js', () => ({
   requestOtpViaEmail: jest.fn(),
@@ -22,46 +18,14 @@ jest.mock('~/src/server/lib/service-token.js', () => ({
 
 describe('account service', () => {
   const uid = 'uid-1'
-  const code = '123456'
-  const accountId = 'account-id'
-
-  describe('submitPhoneCode', () => {
-    it('should submit for phone and verify successfully', async () => {
-      jest.mocked(verifyOtp).mockResolvedValueOnce({ status: 'valid' })
-      const res = await submitPhoneCode(uid, code, accountId)
-      expect(verifyOtp).toHaveBeenCalledWith(
-        {
-          code: '123456',
-          purpose: 'ACCOUNT_VERIFY_PHONE',
-          uid: 'uid-1',
-          id: 'account-id'
-        },
-        undefined
-      )
-      expect(res).toEqual({ outcome: 'valid' })
-    })
-  })
-
-  describe('submitEmailCode', () => {
-    it('should submit for email and verify successfully', async () => {
-      jest.mocked(verifyOtp).mockResolvedValueOnce({ status: 'valid' })
-      const res = await submitEmailCode(uid, code, accountId)
-      expect(verifyOtp).toHaveBeenCalledWith(
-        {
-          code: '123456',
-          purpose: 'ACCOUNT_VERIFY_EMAIL',
-          uid: 'uid-1',
-          id: 'account-id'
-        },
-        undefined
-      )
-      expect(res).toEqual({ outcome: 'valid' })
-    })
-  })
 
   describe('submitCode (general)', () => {
     it('should return invalid if code is missing (empty)', async () => {
-      const res = await submitCode(uid, '', PURPOSE.ACCOUNT_VERIFY_EMAIL)
+      const res = await submitCode(
+        uid,
+        '',
+        PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_EMAIL
+      )
       expect(res).toEqual({
         outcome: 'invalid-code',
         errorKey: 'signin.code.errorRequired'
@@ -69,7 +33,11 @@ describe('account service', () => {
     })
 
     it('should return invalid if code is missing (undefined)', async () => {
-      const res = await submitCode(uid, undefined, PURPOSE.ACCOUNT_VERIFY_EMAIL)
+      const res = await submitCode(
+        uid,
+        undefined,
+        PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_EMAIL
+      )
       expect(res).toEqual({
         outcome: 'invalid-code',
         errorKey: 'signin.code.errorRequired'
@@ -83,7 +51,7 @@ describe('account service', () => {
       const res = await submitCode(
         uid,
         'invalid-format',
-        PURPOSE.ACCOUNT_VERIFY_EMAIL
+        PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_EMAIL
       )
       expect(res).toEqual({
         outcome: 'invalid-code',
