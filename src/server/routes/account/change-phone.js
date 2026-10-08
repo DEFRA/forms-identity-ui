@@ -263,10 +263,11 @@ export default /** @type {ServerRoute[]} */ (
 
         // Failure in the API - display error page so user can follow link to re-enter email
         if (changeResult.status !== VALID) {
-          const errorKey =
+          request.yar.flash(
+            sessionNames.changeEmailError,
             errorsLookup[changeResult.status] ??
-            'account.updateError.errorGeneral'
-          request.yar.flash(sessionNames.changeEmailError, errorKey)
+              'account.updateError.errorGeneral'
+          )
           return h.redirect(JOURNEY_CHANGE_PHONE_ERROR)
         }
 
