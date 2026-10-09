@@ -251,7 +251,8 @@ export default /** @type {ServerRoute[]} */ (
           } else {
             errorKey = 'account.newPhone.errorFormat'
           }
-        } else if (account.phone === trimmed) {
+        }
+        if (!errorKey && account.phone === trimmed) {
           errorKey = 'account.newPhone.errorSameAsCurrent'
         }
 
