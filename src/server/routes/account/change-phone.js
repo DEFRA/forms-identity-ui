@@ -32,6 +32,7 @@ const accountAction = 'change-phone'
 
 // Views
 const JOURNEY_START_VIEW = 'account/change-phone'
+const ENTER_PHONE_VIEW = 'account/enter-phone'
 
 const PATH_PREFIX = '/account/change-phone'
 
@@ -214,7 +215,7 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(PHONE_JOURNEY_START_PATH)
         }
 
-        return h.view('account/enter-phone')
+        return h.view(ENTER_PHONE_VIEW)
       }
     }),
     /** @satisfies {ServerRoute<{ Query: { resend?: boolean}, Payload: { phone: string } }>} */
@@ -243,17 +244,19 @@ export default /** @type {ServerRoute[]} */ (
         const trimmed = phone.trim()
         const { error } = phoneSchema.validate(trimmed)
 
-        const entryErrorKey = trimmed
-          ? 'account.newPhone.errorFormat'
-          : 'account.newPhone.errorRequired'
-        const sameEmailErrorKey =
-          account.phone === trimmed
-            ? 'account.newPhone.errorSameAsCurrent'
-            : undefined
-        const errorKey = error ? entryErrorKey : sameEmailErrorKey
+        let errorKey
+        if (error) {
+          if (!trimmed) {
+            errorKey = 'account.newPhone.errorRequired'
+          } else {
+            errorKey = 'account.newPhone.errorFormat'
+          }
+        } else if (account.phone === trimmed) {
+          errorKey = 'account.newPhone.errorSameAsCurrent'
+        }
 
         if (errorKey) {
-          return h.view('account/enter-phone', {
+          return h.view(ENTER_PHONE_VIEW, {
             phone: trimmed,
             errorKey
           })
@@ -274,7 +277,7 @@ export default /** @type {ServerRoute[]} */ (
 
           request.yar.flash(sessionNames.changeEmailError, errorKeyOnChange)
           if (changeResult.status === INVALID_PHONE) {
-            return h.view('account/enter-phone', {
+            return h.view(ENTER_PHONE_VIEW, {
               phone: trimmed,
               errorKey: errorKeyOnChange
             })
