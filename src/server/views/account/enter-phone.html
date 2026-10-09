@@ -4,7 +4,7 @@
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% from "govuk/components/input/macro.njk" import govukInput %}
 
-{% set pageTitle = t('account.changeEmail') + " : " + t('account.newEmail.title') %}
+{% set pageTitle = t('account.changePhone') + " : " + t('account.newPhone.title') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
 {% block content %}
@@ -14,31 +14,32 @@
       {% if errorKey %}
         {{ govukErrorSummary({
           titleText: t('errors.errorSummaryTitle'),
-          errorList: [{ text: t(errorKey), href: "#email" }]
+          errorList: [{ text: t(errorKey), href: "#phone" }]
         }) }}
       {% endif %}
 
-      <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
+      {% include "account/partials/span.html" %}
+      <h1 class="govuk-heading-l">{{ t('account.newPhone.title') }}</h1>
 
-      <form method="post" action="/account/change-email/enter-email" novalidate>
+      <form method="post" action="/account/change-phone/enter-phone" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        <p class="govuk-body">{{ t('account.newPhone.body') }}</p>
 
         {{ govukInput({
           label: {
-            text: t('account.newEmail.title'),
-            classes: "govuk-label--l",
-            isPageHeading: true
+            text: t('account.newPhone.label')
           },
-          id: "email",
-          name: "email",
-          type: "email",
-          autocomplete: "email",
+          id: "phone",
+          name: "phone",
+          type: "phone",
+          autocomplete: "phone",
           spellcheck: false,
-          value: email,
+          value: phone,
           errorMessage: errorMessage
         }) }}
 
-        {{ govukButton({ text: t('account.newEmail.continue') }) }}
+        {{ govukButton({ text: t('account.newPhone.continue') }) }}
       </form>
 
     </div>

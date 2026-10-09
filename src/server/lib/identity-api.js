@@ -24,7 +24,7 @@ const baseUrl = config.get('identityApi.url')
  * a 404, not an error.
  * @typedef {{ status: 'otp-issued' } | { status: 'locked-out', lockedUntil: string }} RequestResult
  * @typedef {{ status: 'invalid' } | { status: 'invalid-code-format' } | { status: 'invalid-code-consumed-or-expired' } | { status: 'phone-required' } | { status: 'signed-in', accountId: string } | { status: 'valid' }} VerifyResult
- * @typedef {{ status: 'invalid' } | { status: 'invalid-phone' } | { status: 'signed-in', accountId: string } | { status: 'email-same-as-current' } | { status: 'email-already-in-use' }} CompleteResult
+ * @typedef {{ status: 'valid' } | { status: 'invalid' } | { status: 'invalid-phone' } | { status: 'signed-in', accountId: string } | { status: 'same-as-current' } | { status: 'already-in-use' }} CompleteResult
  */
 
 /**
@@ -183,6 +183,23 @@ export async function updateEmail({ uid, accountId }, token) {
   const { body } = await patchJson(
     new URL(`/accounts/${hashId(uid)}/${accountId}/email`, baseUrl),
     {
+      headers: bearerHeaders(token)
+    }
+  )
+  return /** @type {CompleteResult} */ (body)
+}
+
+/**
+ * Completes JIT change phone number
+ * @param {{ uid: string, accountId: string, phone: string }} input
+ * @param {string} token
+ * @returns {Promise<CompleteResult>}
+ */
+export async function updatePhone({ uid, accountId, phone }, token) {
+  const { body } = await patchJson(
+    new URL(`/accounts/${hashId(uid)}/${accountId}/phone`, baseUrl),
+    {
+      payload: { phone },
       headers: bearerHeaders(token)
     }
   )

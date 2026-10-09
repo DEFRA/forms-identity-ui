@@ -28,7 +28,7 @@
         }) }}
       {% endif %}
 
-      <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
+      {% include "account/partials/span.html" %}
       <h1 class="govuk-heading-l">{{ t('account.sentEmailOtp.title') }}</h1>
 
       <div class="govuk-inset-text">
@@ -37,7 +37,7 @@
 
       <p class="govuk-body">{{ t('account.sentEmailOtp.para1') }}</p>
 
-      <form method="post" action="/account/email-code" novalidate>
+      <form method="post" action="/account/{{ accountAction }}/email-code" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
         {{ govukInput({
