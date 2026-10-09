@@ -34,6 +34,8 @@ const ISSUER = 'http://localhost:3011'
 const REDIRECT_URI = 'http://localhost:3009/callback'
 const KNOWN_CODE = '123456'
 const PHONE = '07911 123456'
+// A well-formed number the stub API rejects as a business rule
+const API_REJECTED_PHONE = '07912 111222'
 
 /**
  * Artifact payloads by `${model}/${id}`, standing in for the OIDC adapter's
@@ -245,6 +247,10 @@ function accountsEndpoints(method, segments, body) {
 
     if (!account || !record?.verified) {
       return NOT_FOUND
+    }
+
+    if (body.phone === API_REJECTED_PHONE) {
+      return { status: 200, body: { status: 'invalid-phone' } }
     }
 
     if (account.phone === body.phone) {
@@ -648,6 +654,21 @@ describe('change-phone round trip', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.payload).toContain('This is the same as your current mobile')
+    expect(account.phone).toBe(PHONE)
+  })
+
+  it('shows the generic error page if the API reports the new phone as invalid', async () => {
+    const account = await signIn('api-invalid-phone@example.com', PHONE)
+    await verifyEmail()
+
+    const res = await browse('/account/change-phone/enter-phone', {
+      ...crumb(),
+      phone: API_REJECTED_PHONE
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.payload).toContain(
+      'Enter a mobile phone number in the correct format'
+    )
     expect(account.phone).toBe(PHONE)
   })
 

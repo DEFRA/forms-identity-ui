@@ -22,7 +22,11 @@ import {
 } from '~/src/server/routes/account/account.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
-import { SAME_AS_CURRENT, VALID } from '~/src/server/services/outcomes.js'
+import {
+  INVALID_PHONE,
+  SAME_AS_CURRENT,
+  VALID
+} from '~/src/server/services/outcomes.js'
 
 const accountAction = 'change-phone'
 
@@ -40,6 +44,7 @@ const JOURNEY_CHANGE_PHONE_ERROR = `${PATH_PREFIX}/change-phone-error`
 
 // Error mapping
 const errorsLookup = /** @type {Record<string, string>} */ ({
+  [INVALID_PHONE]: 'account.newPhone.errorFormat',
   [SAME_AS_CURRENT]: 'account.newPhone.errorSameAsCurrent'
 })
 
@@ -263,11 +268,17 @@ export default /** @type {ServerRoute[]} */ (
 
         // Failure in the API - display error page so user can follow link to re-enter email
         if (changeResult.status !== VALID) {
-          request.yar.flash(
-            sessionNames.changeEmailError,
+          const errorKeyOnChange =
             errorsLookup[changeResult.status] ??
-              'account.updateError.errorGeneral'
-          )
+            'account.updateError.errorGeneral'
+
+          request.yar.flash(sessionNames.changeEmailError, errorKeyOnChange)
+          if (changeResult.status === INVALID_PHONE) {
+            return h.view('account/enter-phone', {
+              phone: trimmed,
+              errorKey: errorKeyOnChange
+            })
+          }
           return h.redirect(JOURNEY_CHANGE_PHONE_ERROR)
         }
 
