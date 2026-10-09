@@ -29,6 +29,7 @@ const EMAIL_JOURNEY_PHONE_SENT_CODE = '/account/phone-sent-code'
 const EMAIL_JOURNEY_PHONE_CODE = '/account/phone-code'
 const EMAIL_JOURNEY_ENTER_EMAIL = '/account/enter-email'
 const EMAIL_JOURNEY_EMAIL_CODE = '/account/email-code'
+const EMAIL_JOURNEY_DELETE_ACCOUNT_CODE = '/account/delete-account'
 
 // Paths - change phone number
 const PHONE_JOURNEY_START_PATH = '/account/change-phone'
@@ -352,6 +353,58 @@ export default /** @type {ServerRoute[]} */ (
         return h.view('account/email-code-sent', {
           email: emailOtp?.target,
           showResendNotification
+        })
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Payload: { code?: string } }>} */
+    ({
+      method: 'POST',
+      path: EMAIL_JOURNEY_DELETE_ACCOUNT_CODE,
+      options: {
+        validate: { payload: formPayload('code') },
+        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+      },
+      async handler(request, h) {
+        const uid = getSessionUid(request)
+        const { code } = request.payload
+        const account = /** @type {Account} */ (request.auth.credentials)
+
+        // Verify the phone was previously validated on this interaction
+        const phoneOtp = await identityApi.getOtp(
+          uid,
+          await getServiceToken(),
+          PURPOSE.ACCOUNT_VERIFY_PHONE
+        )
+        if (!otpVerified(phoneOtp)) {
+          return h.redirect(EMAIL_JOURNEY_START_PATH)
+        }
+
+        const result = await accountService.submitEmailCode(
+          uid,
+          code,
+          account.id
+        )
+
+        if (result.outcome === VALID) {
+          // Update the email address in the account. This will also consume the email OTP
+          await accountService.changeEmailAddress(uid, account.id)
+
+          // Notification
+          request.yar.flash(
+            sessionNames.accountSuccessNotification,
+            'account.successChangedEmailNotificationText'
+          )
+
+          return h.redirect(ACCOUNT_PATH)
+        }
+
+        if (result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED) {
+          return h.redirect('/account/code/expired')
+        }
+
+        return h.view(JOURNEY_START_VIEW, {
+          backLink: getBackLink(request.yar),
+          phoneEndDigits: getPhoneEndDigits(account.phone)
         })
       }
     }),

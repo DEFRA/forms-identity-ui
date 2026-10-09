@@ -23,6 +23,9 @@
     "mobileNumber": "mobile number",
     "successNotificationTitleText": "Success",
     "successChangedEmailNotificationText": "Your email address has been changed.",
+    "deleteSignInTitle": "Delete your sign-in",
+    "deleteSignInInfo": "This will permanently delete your sign-in. You’ll no longer be able to access the forms you’ve used with it.",
+    "deleteSignInLinkText": "Delete your sign-in",
     "requestPhoneOtp": {
       "title": "Get security code",
       "inset": "We will send a security code to your mobile phone number ending with",

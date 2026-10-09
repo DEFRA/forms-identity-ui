@@ -57,6 +57,15 @@
         ]
       }) }}
 
+      <h2 class="govuk-heading-m">{{ t('account.deleteSignInTitle') }}</h2>
+      <p class="govuk-body">{{ t('account.deleteSignInInfo') }}</p>
+      <p class="govuk-body">
+        <form method="post">
+          <button class="govuk-button govuk-button--warning">
+            {{ t('account.deleteSignInLinkText') }}
+          </button>
+        </form>
+      </p>
     </div>
   </div>
 {% endblock %}
