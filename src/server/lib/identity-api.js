@@ -90,10 +90,7 @@ export async function verifyOtp(
 }
 
 /**
- * Completes JIT signup with the recovery phone number. The API decides if
- * the phone number is acceptable. It answers 400 for text that is not a
- * telephone number, which becomes the `invalid-phone` verdict here, the
- * same verdict the API gives for a number the account cannot use.
+ * Completes JIT signup with the recovery phone number
  * @param {{ uid: string, phone: string }} input
  * @param {string} token
  * @returns {Promise<CompleteResult>}
