@@ -121,6 +121,26 @@ describe('identity-api client', () => {
     })
   })
 
+  it('completeSignup turns a 400 from the API into the invalid-phone verdict', async () => {
+    jest
+      .mocked(postJson)
+      .mockRejectedValue(
+        Boom.badRequest('"phone" must be a mobile phone number')
+      )
+
+    await expect(
+      completeSignup({ uid: 'uid-1', phone: 'not a number' }, 'token-1')
+    ).resolves.toEqual({ status: 'invalid-phone' })
+  })
+
+  it('completeSignup passes other API failures on', async () => {
+    jest.mocked(postJson).mockRejectedValue(Boom.badGateway())
+
+    await expect(
+      completeSignup({ uid: 'uid-1', phone: '07911 123456' }, 'token-1')
+    ).rejects.toMatchObject({ output: { statusCode: 502 } })
+  })
+
   it('keys the OTP record the same way at all four call sites', async () => {
     jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({ body: {} }))
     jest

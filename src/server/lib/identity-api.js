@@ -4,6 +4,7 @@ import { TRANSPORT } from '~/src/server/common/constants/transport.js'
 import {
   bearerHeaders,
   getJson,
+  isBadRequestError,
   isNotFoundError,
   patchJson,
   postJson
@@ -89,17 +90,26 @@ export async function verifyOtp(
 }
 
 /**
- * Completes JIT signup with the recovery phone number
+ * Completes JIT signup with the recovery phone number. The API decides if
+ * the phone number is acceptable and answers 400 when it is not, which
+ * becomes the `invalid-phone` verdict here.
  * @param {{ uid: string, phone: string }} input
  * @param {string} token
  * @returns {Promise<CompleteResult>}
  */
 export async function completeSignup({ uid, phone }, token) {
-  const { body } = await postJson(new URL('/accounts', baseUrl), {
-    payload: { uid: hashId(uid), phone },
-    headers: bearerHeaders(token)
-  })
-  return /** @type {CompleteResult} */ (body)
+  try {
+    const { body } = await postJson(new URL('/accounts', baseUrl), {
+      payload: { uid: hashId(uid), phone },
+      headers: bearerHeaders(token)
+    })
+    return /** @type {CompleteResult} */ (body)
+  } catch (err) {
+    if (isBadRequestError(err)) {
+      return { status: 'invalid-phone' }
+    }
+    throw err
+  }
 }
 
 /**

@@ -2,7 +2,6 @@ import Boom from '@hapi/boom'
 import Joi from 'joi'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
-import { joi as telephoneJoi } from '~/src/server/common/helpers/telephone.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 
@@ -28,9 +27,6 @@ export const RESTART = 'restart'
 const OTP_ISSUED = 'otp-issued'
 
 const emailSchema = Joi.string().email().required()
-const phoneSchema = /** @type {TelephoneSchema} */ (telephoneJoi.string())
-  .phoneNumber()
-  .required()
 
 /**
  * Journey outcomes: plain data the route handlers translate into
@@ -146,18 +142,8 @@ export async function submitPhone(uid, phone) {
     }
   }
 
-  // shape check before the downstream call — the API's route validation
-  // applies the same telephone rule and rejects non-numbers as a 400, so
-  // they must never leave this service; whether the number is a MOBILE is
-  // the API's business rule, returned as an invalid-phone verdict
-  if (phoneSchema.validate(trimmed).error) {
-    return {
-      outcome: INVALID_PHONE,
-      phone: trimmed,
-      errorKey: 'signin.phone.errorInvalid'
-    }
-  }
-
+  // the API owns the rules for a phone number, so that there is one copy
+  // of them; its refusal comes back as the invalid-phone verdict
   const result = await identityApi.completeSignup(
     { uid, phone: trimmed },
     await getServiceToken()
@@ -185,7 +171,3 @@ export async function submitPhone(uid, phone) {
 export async function getSigninEmail(uid) {
   return (await identityApi.getOtpTarget(uid, await getServiceToken())) ?? ''
 }
-
-/**
- * @import { TelephoneSchema } from '~/src/server/common/helpers/telephone.js'
- */
