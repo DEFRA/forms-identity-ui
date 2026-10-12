@@ -1,5 +1,6 @@
 import Joi from 'joi'
 
+import { config } from '~/src/config/index.js'
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { getBackLink } from '~/src/server/common/helpers/navigation.js'
@@ -34,11 +35,21 @@ const EMAIL_JOURNEY_EMAIL_CODE = '/account/email-code'
 const PHONE_JOURNEY_START_PATH = '/account/change-phone'
 
 const queryParamsSchema = Joi.object({
-  returnUrl: Joi.string(),
+  returnUrl: Joi.string()
+    .custom(
+      (value, helpers) =>
+        runnerHomepageReturnPath(value) ?? helpers.error('any.invalid')
+    )
+    .messages({
+      'any.invalid':
+        '"returnUrl" must be a homepage path within the runner service'
+    }),
   language: Joi.string().valid('en-GB', 'cy')
 })
 
 const emailSchema = Joi.string().email().required()
+
+const redirectUris = config.get('oidc.runnerRedirectUris')
 
 /* eslint-disable jsdoc/reject-any-type -- hapi request refs are invariant, so only any-ref helpers can be shared by payload-narrowed routes */
 
@@ -87,6 +98,50 @@ export function preHandlerMethod(request, h) {
 /** The pre entry every /interaction route must carry */
 const preHandler = {
   method: preHandlerMethod
+}
+
+/**
+ * @param {string} value
+ * @returns {URL | null}
+ */
+function parseUri(value) {
+  try {
+    return new URL(value)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The path must be within the runner service to prevent rogue URLs fooling users into nevigating 'Back' to a rogue site.
+ * @param {string} [value]
+ * @returns {string | null}
+ */
+export function runnerHomepageReturnPath(value) {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const url = parseUri(value)
+  if (!url) {
+    return null
+  }
+
+  // Use OIDC_RUNNER_REDIRECT_URIS as the list of allowable hosts that a 'Back' navigation can go to
+  const uniqueHosts = new Set()
+  redirectUris.forEach((uri) => {
+    const redirectUri = parseUri(uri)
+    if (redirectUri) {
+      uniqueHosts.add(`${redirectUri.protocol}://${redirectUri.host}`)
+    }
+  })
+
+  if (!uniqueHosts.has(`${url.protocol}://${url.host}`)) {
+    return null
+  }
+
+  // The path must be within a 'hompegae' route
+  return url.pathname.startsWith('/homepage/') ? url.href : null
 }
 
 export default /** @type {ServerRoute[]} */ (
