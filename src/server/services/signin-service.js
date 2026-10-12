@@ -142,8 +142,6 @@ export async function submitPhone(uid, phone) {
     }
   }
 
-  // the API owns the rules for a phone number, so that there is one copy
-  // of them; its refusal comes back as the invalid-phone verdict
   const result = await identityApi.completeSignup(
     { uid, phone: trimmed },
     await getServiceToken()
