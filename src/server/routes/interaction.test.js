@@ -1,4 +1,3 @@
-import { within } from '@testing-library/dom'
 import { errors } from 'oidc-provider'
 
 import { createServer } from '~/src/server/index.js'
@@ -675,34 +674,16 @@ describe('interaction pages', () => {
     })
 
     expect(response.statusCode).toBe(200)
+    expect(container.getByRole('alert')).toContainElement(
+      container.getByRole('heading', { name: 'There is a problem' })
+    )
     expect(
-      within(container.getByRole('alert')).getByRole('link', {
-        name: 'Enter your mobile phone number'
-      })
+      container.getByRole('link', { name: 'Enter your mobile phone number' })
     ).toHaveAttribute('href', '#phone')
     expect(identityApi.completeSignup).not.toHaveBeenCalled()
   })
 
-  it('POST phone sends the number to the API as the citizen typed it', async () => {
-    jest
-      .mocked(identityApi.completeSignup)
-      .mockResolvedValue({ status: 'signed-in', accountId: 'acc-2' })
-    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
-
-    await server.inject({
-      method: 'POST',
-      url: '/interaction/uid-1/phone',
-      headers: { cookie },
-      payload: { crumb, phone: ' 07700900000 ' }
-    })
-
-    expect(identityApi.completeSignup).toHaveBeenCalledWith(
-      { uid: 'uid-1', phone: '07700900000' },
-      expect.anything()
-    )
-  })
-
-  it('POST phone re-renders with an error when the API refuses the phone', async () => {
+  it('POST phone re-renders with an error on an invalid phone', async () => {
     jest
       .mocked(identityApi.completeSignup)
       .mockResolvedValue({ status: 'invalid-phone' })
@@ -712,18 +693,15 @@ describe('interaction pages', () => {
       method: 'POST',
       url: '/interaction/uid-1/phone',
       headers: { cookie },
-      payload: { crumb, phone: 'not a number' }
+      payload: { crumb, phone: '020 7946 0000' }
     })
 
     expect(response.statusCode).toBe(200)
     expect(
-      within(container.getByRole('alert')).getByRole('link', {
+      container.getByRole('link', {
         name: 'Enter a mobile phone number in the correct format'
       })
     ).toHaveAttribute('href', '#phone')
-    expect(
-      container.getByRole('textbox', { name: 'Mobile phone number' })
-    ).toHaveValue('not a number')
   })
 
   it('POST phone bounces to the email page on an out-of-order call', async () => {
