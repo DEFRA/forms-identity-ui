@@ -251,7 +251,7 @@ export default /** @type {ServerRoute[]} */ (
           .flash(sessionNames.codeResendSuccessNotification)
           .at(0)
 
-        return h.view('account/phone-code-sent', {
+        return h.view('account/phone-code', {
           phoneEndDigits,
           showResendNotification
         })
@@ -398,7 +398,7 @@ export default /** @type {ServerRoute[]} */ (
         // Save email in session in case the user needs a resend
         request.yar.set(SESSION_KEY_NEW_EMAIL, emailOtp?.target)
 
-        return h.view('account/email-code-sent', {
+        return h.view('account/email-code', {
           email: emailOtp?.target,
           showResendNotification
         })
