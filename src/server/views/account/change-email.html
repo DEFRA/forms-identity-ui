@@ -1,4 +1,3 @@
-
 {% from "govuk/components/button/macro.njk" import govukButton %}
 
 {% extends "layouts/page.html" %}
@@ -6,14 +5,15 @@
 {% set pageTitle = t('account.changeEmail') + " : " + t('account.requestPhoneOtp.title') %}
 
 {% block content %}
-  <div class="govuk-grid-row">
-    <div class="govuk-grid-column-full">
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
 
     <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
     <h1 class="govuk-heading-l">{{ t('account.requestPhoneOtp.title') }}</h1>
 
     <div class="govuk-inset-text">
-      {{ t('account.requestPhoneOtp.inset') }} <strong>{{ phoneEndDigits }}</strong>
+      {{ t('account.requestPhoneOtp.inset') }}
+      <strong>{{ phoneEndDigits }}</strong>
     </div>
 
     <p class="govuk-body">{{ t('account.requestPhoneOtp.para1') }}</p>
@@ -24,11 +24,10 @@
       <input type="hidden" name="crumb" value="{{ crumb }}">
 
       {{ govukButton({
-        text: t('account.requestPhoneOtp.getCode')
-      }) }}
+      text: t('account.requestPhoneOtp.getCode')
+    }) }}
     </form>
 
   </div>
-    </div>
-  </div>
+</div>
 {% endblock %}
