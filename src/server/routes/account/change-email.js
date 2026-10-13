@@ -357,6 +357,7 @@ export default /** @type {ServerRoute[]} */ (
           return h.view('account/email-code', {
             errorKey: codeErrorKey(result),
             email: emailOtp?.target,
+            accountAction,
             code: code ?? ''
           })
         }

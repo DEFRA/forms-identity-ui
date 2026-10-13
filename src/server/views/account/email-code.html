@@ -6,7 +6,8 @@
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
-{% set pageTitle = t('account.changeEmail') + " : " + t('account.sentEmailOtp.title') %}
+{% set journeyTitle = t('account.changePhone') if accountAction === 'change-phone' else t('account.changeEmail') %}
+{% set pageTitle = journeyTitle + " : " + t('account.sentEmailOtp.title') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
 {% block content %}
