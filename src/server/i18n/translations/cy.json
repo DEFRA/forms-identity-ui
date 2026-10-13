@@ -18,16 +18,25 @@
     "email": "Cyfeiriad e-bost",
     "phone": "Rhif ffôn symudol",
     "changeEmail": "Newid cyfeiriad e-bost",
+    "changePhone": "Newid rhif ffôn symudol",
     "change": "Newid",
     "emailAddress": "cyfeiriad e-bost",
     "mobileNumber": "rhif ffôn symudol",
     "successNotificationTitleText": "Llwyddiant",
-    "successChangedEmailNotificationText": "Mae eich cyfeiriad e-bost wedi'i newid.",
+    "successChangedEmailNotificationText": "Mae eich cyfeiriad e-bost wedi'i newid",
+    "successChangedPhoneNotificationText": "Mae eich rhif ffôn symudol wedi'i newid",
     "requestPhoneOtp": {
       "title": "Cael cod diogelwch",
       "inset": "Byddwn yn anfon cod diogelwch at eich rhif ffôn symudol sy'n gorffen â",
       "para1": "Gallwch ofyn am 5 cod diogelwch. Os byddwch yn gofyn am fwy na 5, cewch eich cloi allan am 2 awr.",
       "para2": "Gall gymryd ychydig funudau i gyrraedd.",
+      "getCode": "Cael cod diogelwch"
+    },
+    "requestEmailOtp": {
+      "title": "Cael cod diogelwch",
+      "inset": "Byddwn yn anfon cod diogelwch at:",
+      "para1": "Gallwch ofyn am 5 cod diogelwch. Os gofynnwch am fwy na 5, cewch eich cloi allan am 2 awr.",
+      "para2": "Gallai gymryd ychydig funudau i gyrraedd. Os na fyddwch yn derbyn e-bost, gwiriwch eich ffolder sbam.",
       "getCode": "Cael cod diogelwch"
     },
     "sentPhoneOtp": {
@@ -52,6 +61,15 @@
       "errorSameAsCurrent": "Rhowch gyfeiriad e-bost gwahanol. Mae hwn yr un fath â'ch cyfeiriad e-bost presennol.",
       "errorAlreadyTaken": "Rhowch gyfeiriad e-bost gwahanol. Mae'r cyfeiriad e-bost hwn eisoes yn cael ei ddefnyddio ar gyfer mewngofnodi arall."
     },
+    "newPhone": {
+      "title": "Rhowch eich rhif ffôn symudol newydd",
+      "body": "Os byddwch yn anghofio eich manylion mewngofnodi, byddwn yn anfon cod diogelwch 6 digid i'r rhif hwn.",
+      "label": "Rhif ffôn symudol",
+      "continue": "Parhau",
+      "errorRequired": "Rhowch rif ffôn symudol",
+      "errorFormat": "Rhowch rif ffôn symudol yn y fformat cywir",
+      "errorSameAsCurrent": "Rhowch rif ffôn symudol gwahanol. Mae hwn yr un fath â'ch rhif ffôn symudol presennol."
+    },
     "sentEmailOtp": {
       "title": "Gwiriwch eich e-bost",
       "resendNotificationTitleText": "Llwyddiant",
@@ -74,8 +92,10 @@
       "continue": "Cael cod diogelwch"
     },
     "updateError": {
-      "title": "Ni chafodd eich cyfeiriad e-bost ei ddiweddaru",
-      "body": "Bydd angen i chi <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/enter-email\">ddewis cyfeiriad e-bost gwahanol</a> neu <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">ganslo</a>."
+      "titleEmail": "Ni chafodd eich cyfeiriad e-bost ei ddiweddaru",
+      "titlePhone": "Ni chafodd eich rhif ffôn symudol ei ddiweddaru",
+      "bodyEmail": "Bydd angen i chi <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/change-email/enter-email\">ddewis cyfeiriad e-bost gwahanol</a> neu <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">ganslo</a>.",
+      "bodyPhone": "Bydd angen i chi <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/change-phone/enter-phone\">ddewis rhif ffôn symudol gwahanol</a> neu <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">ganslo</a>."
     }
   },
   "layout": {

@@ -18,16 +18,25 @@
     "email": "Email address",
     "phone": "Mobile phone number",
     "changeEmail": "Change email address",
+    "changePhone": "Change mobile phone number",
     "change": "Change",
     "emailAddress": "email address",
-    "mobileNumber": "mobile number",
+    "mobileNumber": "mobile phone number",
     "successNotificationTitleText": "Success",
-    "successChangedEmailNotificationText": "Your email address has been changed.",
+    "successChangedEmailNotificationText": "Your email address has been changed",
+    "successChangedPhoneNotificationText": "Your mobile phone number has been changed",
     "requestPhoneOtp": {
       "title": "Get security code",
       "inset": "We will send a security code to your mobile phone number ending with",
       "para1": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
       "para2": "It might take a few minutes to arrive.",
+      "getCode": "Get security code"
+    },
+    "requestEmailOtp": {
+      "title": "Get security code",
+      "inset": "We will send a security code to:",
+      "para1": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
+      "para2": "It might take a few minutes to arrive. If you do not get an email, check your spam folder",
       "getCode": "Get security code"
     },
     "sentPhoneOtp": {
@@ -52,6 +61,15 @@
       "errorSameAsCurrent": "Enter a different email address. This is the same as your current email address.",
       "errorAlreadyTaken": "Enter a different email address. This email address is already used for another sign-in."
     },
+    "newPhone": {
+      "title": "Enter your new mobile phone number",
+      "body": "If you forget your sign-in details, we will send a 6 digit security code to this number.",
+      "label": "Mobile phone number",
+      "continue": "Continue",
+      "errorRequired": "Enter a mobile phone number",
+      "errorFormat": "Enter a mobile phone number in the correct format",
+      "errorSameAsCurrent": "Enter a different mobile phone number. This is the same as your current mobile phone number."
+    },
     "sentEmailOtp": {
       "title": "Check your email",
       "resendNotificationTitleText": "Success",
@@ -74,8 +92,11 @@
       "continue": "Get security code"
     },
     "updateError": {
-      "title": "Your email address was not updated",
-      "body": "You will need to <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/enter-email\">choose a different email address</a> or <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">cancel</a>."
+      "titleEmail": "Your email address was not updated",
+      "titlePhone": "Your mobile phone number was not updated",
+      "bodyEmail": "You will need to <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/change-email/enter-email\">choose a different email address</a> or <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">cancel</a>.",
+      "bodyPhone": "You will need to <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/change-phone/enter-phone\">choose a different mobile phone number</a> or <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">cancel</a>.",
+      "errorGeneral": "An error occurred. Please try again."
     }
   },
   "layout": {

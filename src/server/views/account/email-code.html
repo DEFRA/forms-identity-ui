@@ -6,7 +6,8 @@
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
-{% set pageTitle = t('account.changeEmail') + " : " + t('account.sentEmailOtp.title') %}
+{% set journeyTitle = t('account.changePhone') if accountAction === 'change-phone' else t('account.changeEmail') %}
+{% set pageTitle = journeyTitle + " : " + t('account.sentEmailOtp.title') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
 {% block content %}
@@ -28,7 +29,7 @@
         }) }}
       {% endif %}
 
-      <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
+      {% include "account/partials/span.html" %}
       <h1 class="govuk-heading-l">{{ t('account.sentEmailOtp.title') }}</h1>
 
       <div class="govuk-inset-text">
@@ -37,7 +38,7 @@
 
       <p class="govuk-body">{{ t('account.sentEmailOtp.para1') }}</p>
 
-      <form method="post" action="/account/email-code" novalidate>
+      <form method="post" action="/account/{{ accountAction }}/email-code" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
         {{ govukInput({

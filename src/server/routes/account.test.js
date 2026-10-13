@@ -155,7 +155,7 @@ describe('/account', () => {
 
     const { container, response } = await renderResponse(server, {
       method: 'POST',
-      url: '/account/phone-code',
+      url: '/account/change-email/phone-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth
@@ -182,7 +182,7 @@ describe('/account', () => {
 
     const { response } = await renderResponse(server, {
       method: 'POST',
-      url: '/account/enter-email',
+      url: '/account/change-email/enter-email',
       payload: { crumb, email: 'new-email@test.com' },
       headers: { cookie },
       auth
@@ -205,7 +205,7 @@ describe('/account', () => {
 
     const { response } = await renderResponse(server, {
       method: 'GET',
-      url: '/account/email-code',
+      url: '/account/change-email/email-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth
@@ -233,7 +233,7 @@ describe('/account', () => {
 
     const { response } = await renderResponse(server, {
       method: 'GET',
-      url: '/account/email-code',
+      url: '/account/change-email/email-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth
@@ -256,7 +256,7 @@ describe('/account', () => {
 
     const { response } = await renderResponse(server, {
       method: 'POST',
-      url: '/account/email-code',
+      url: '/account/change-email/email-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth

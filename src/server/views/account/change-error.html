@@ -16,11 +16,15 @@
       }) }}
     {% endif %}
 
-    <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
-    <h1 class="govuk-heading-l">{{ t('account.updateError.title') }}</h1>
+    {% include "account/partials/span.html" %}
 
-    <p class="govuk-body">{{ t('account.updateError.body') | safe }}</p>
-
+    {% if accountAction === 'change-phone' %}
+      <h1 class="govuk-heading-l">{{ t('account.updateError.titlePhone') }}</h1>
+      <p class="govuk-body">{{ t('account.updateError.bodyPhone') | safe }}</p>
+    {% else %}
+      <h1 class="govuk-heading-l">{{ t('account.updateError.titleEmail') }}</h1>
+      <p class="govuk-body">{{ t('account.updateError.bodyEmail') | safe }}</p>
+    {% endif %}
   </div>
     </div>
   </div>
