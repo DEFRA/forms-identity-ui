@@ -75,6 +75,15 @@ export async function changeEmailAddress(uid, accountId) {
 }
 
 /**
+ * Deletes the account based on the email that was verified from the OTP
+ * @param {string} uid
+ * @param {string} accountId
+ */
+export async function deleteAccount(uid, accountId) {
+  return identityApi.deleteAccount({ uid, accountId }, await getServiceToken())
+}
+
+/**
  * @import { CodeOutcome } from '~/src/server/services/outcomes.js'
  * @import { PurposeType } from '~/src/server/common/constants/purposes.js'
  */

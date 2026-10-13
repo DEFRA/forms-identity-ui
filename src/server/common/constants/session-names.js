@@ -1,4 +1,9 @@
 export const sessionNames = {
+  validationFailure: {
+    deleteAccountValidationFailure: /** @type {const} */ (
+      'deleteAccountValidationFailure'
+    )
+  },
   codeResendSuccessNotification: /** @type {const} */ (
     'codeResendSuccessNotification'
   ),

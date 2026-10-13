@@ -3,6 +3,7 @@ import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { TRANSPORT } from '~/src/server/common/constants/transport.js'
 import {
   bearerHeaders,
+  delJson,
   getJson,
   isNotFoundError,
   patchJson,
@@ -182,6 +183,22 @@ export async function getOtp(uid, token, purpose) {
 export async function updateEmail({ uid, accountId }, token) {
   const { body } = await patchJson(
     new URL(`/accounts/${hashId(uid)}/${accountId}/email`, baseUrl),
+    {
+      headers: bearerHeaders(token)
+    }
+  )
+  return /** @type {CompleteResult} */ (body)
+}
+
+/**
+ * Deletes the account based on the email that was verified from the OTP
+ * @param {{ uid: string, accountId: string }} input
+ * @param {string} token
+ * @returns {Promise<CompleteResult>}
+ */
+export async function deleteAccount({ uid, accountId }, token) {
+  const { body } = await delJson(
+    new URL(`/accounts/${hashId(uid)}/${accountId}`, baseUrl),
     {
       headers: bearerHeaders(token)
     }

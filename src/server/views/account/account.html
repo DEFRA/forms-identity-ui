@@ -60,11 +60,7 @@
       <h2 class="govuk-heading-m">{{ t('account.deleteSignInTitle') }}</h2>
       <p class="govuk-body">{{ t('account.deleteSignInInfo') }}</p>
       <p class="govuk-body">
-        <form method="post">
-          <button class="govuk-button govuk-button--warning">
-            {{ t('account.deleteSignInLinkText') }}
-          </button>
-        </form>
+        <a class="govuk-link govuk-link--no-visited-state" href="/account/delete-account/send-code">{{ t('account.deleteSignInLinkText') }}</a>
       </p>
     </div>
   </div>

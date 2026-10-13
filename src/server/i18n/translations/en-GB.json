@@ -65,6 +65,28 @@
         "summaryText": "Problems with the security code?",
         "body": "We can <a class=\"govuk-link\" href=\"./code-resend\">send the security code again</a> or you can <a class=\"govuk-link\" href=\"./enter-email\">use a different email address</a>."
       }
+    },
+    "deleteAccount": {
+      "pageTitle": "Delete your sign-in",
+      "title": "Enter the security code",
+      "para1": "We need to make sure it’s you before you can delete your sign-in.",
+      "para2": "We have sent an email to:",
+      "para3": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
+      "enterCodeLabel": "Enter the 6 digit security code",
+      "continue": "Continue",
+      "cancelLinkText": "Cancel and go back",
+      "errorRequired": "Enter the 6 digit security code",
+      "errorInvalid": "The code you entered is not correct – enter it again or request a new code",
+      "problemsDetails": {
+        "summaryText": "Problems with the security code?",
+        "body": "We can <a class=\"govuk-link\" href=\"./delete-account/send-code?resend=true\">send the security code again</a> if the security code is not working or you did not receive it."
+      },
+      "successPanel": {
+        "titleText": "Your sign-in has been deleted",
+        "body": "You can no longer access any forms you have started or submitted using this sign-in.",
+        "info": "If you need to use this form again, you will need to create a new sign-in.",
+        "continueButtonText": "Continue"
+      }
     }
   },
   "layout": {

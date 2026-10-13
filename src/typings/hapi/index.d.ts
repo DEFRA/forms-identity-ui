@@ -54,6 +54,7 @@ declare module '@hapi/yar' {
 
   interface YarFlashes {
     // String flash types using actual constants
+    [sessionNames.validationFailure.deleteAccountValidationFailure]: string
     [sessionNames.codeResendSuccessNotification]: string
     [sessionNames.accountSuccessNotification]: string
   }
