@@ -356,7 +356,7 @@ export default /** @type {ServerRoute[]} */ (
         await identityApi.requestOtpViaEmail(
           {
             uid,
-            email,
+            email: trimmed,
             accountId: account.id,
             purpose: PURPOSE.ACCOUNT_VERIFY_EMAIL
           },
