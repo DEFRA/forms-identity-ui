@@ -44,7 +44,7 @@ const JOURNEY_ENTER_PHONE = `${PATH_PREFIX}/enter-phone`
 const JOURNEY_CHANGE_PHONE_ERROR = `${PATH_PREFIX}/change-phone-error`
 
 // Error mapping
-const errorsLookup = /** @type {Record<string, string>} */ ({
+const errorsLookup = /** @type {Partial<Record<string, string>>} */ ({
   [INVALID_PHONE]: 'account.newPhone.errorFormat',
   [SAME_AS_CURRENT]: 'account.newPhone.errorSameAsCurrent'
 })
@@ -136,7 +136,7 @@ export default /** @type {ServerRoute[]} */ (
           .flash(sessionNames.codeResendSuccessNotification)
           .at(0)
 
-        return h.view('account/email-code-sent', {
+        return h.view('account/email-code', {
           email: emailOtp?.target,
           showResendNotification,
           accountAction

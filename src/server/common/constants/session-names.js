@@ -9,7 +9,3 @@ export const sessionNames = {
 }
 
 export const SESSION_KEY_BACK_LINK = 'session-back-link'
-
-export const validationSessionKeys = {
-  emailChangeValidation: /** @type {const} */ ('emailChangeValidation')
-}
