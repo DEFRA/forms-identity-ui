@@ -111,7 +111,7 @@
       "errorInvalid": "Nid yw'r cod a roesoch yn gywir – rhowch gynnig arall arni neu gofynnwch am god newydd",
       "problemsDetails": {
         "summaryText": "Problemau gyda'r cod diogelwch?",
-        "body": "Gallwn <a class=\"govuk-link\" href=\"/account/delete-account\">anfon y cod diogelwch eto</a> os nad yw'r cod diogelwch yn gweithio neu os na chawsoch ef."
+        "body": "Gallwn <a class=\"govuk-link\" href=\"./code/resend\">anfon y cod diogelwch eto</a> os nad yw'r cod diogelwch yn gweithio neu os na chawsoch ef."
       },
       "successPanel": {
         "titleText": "Mae eich manylion mewngofnodi wedi'u dileu",

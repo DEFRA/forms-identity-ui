@@ -110,7 +110,7 @@
       "errorInvalid": "The code you entered is not correct – enter it again or request a new code",
       "problemsDetails": {
         "summaryText": "Problems with the security code?",
-        "body": "We can <a class=\"govuk-link\" href=\"/account/delete-account\">send the security code again</a> if the security code is not working or you did not receive it."
+        "body": "We can <a class=\"govuk-link\" href=\"./code/resend\">send the security code again</a> if the security code is not working or you did not receive it."
       },
       "successPanel": {
         "titleText": "Your sign-in has been deleted",

@@ -28,6 +28,7 @@ export const ACCOUNT_PATH = '/account'
 const JOURNEY_DELETE_ACCOUNT_START = '/account/delete-account'
 const JOURNEY_DELETE_ACCOUNT_CODE = '/account/delete-account/email-code'
 const JOURNEY_DELETE_ACCOUNT_SEND_CODE = '/account/delete-account/send-code'
+const JOURNEY_DELETE_ACCOUNT_RESEND_CODE = '/account/delete-account/code/resend'
 
 // Paths - change email
 export const EMAIL_JOURNEY_START_PATH = '/account/change-email'
@@ -59,6 +60,35 @@ const queryParamsSchema = Joi.object({
  */
 export function getSessionUid(request) {
   return /** @type {string} */ (request.auth.artifacts.sessionUid)
+}
+
+/**
+ * @param {Request<any>} request
+ * @param {string} uid
+ */
+async function logoutAndRevokeGrants(request, uid) {
+  const provider = request.server.app.oidcProvider
+  const session = await provider.Session.findByUid(uid)
+
+  if (!session) {
+    return
+  }
+
+  const grantIds = new Set(
+    Object.values(session.authorizations ?? {})
+      .map(({ grantId }) => grantId)
+      .filter(Boolean)
+  )
+
+  try {
+    await Promise.all(
+      [...grantIds].map((grantId) =>
+        provider.AccessToken.revokeByGrantId(grantId)
+      )
+    )
+  } finally {
+    await session.destroy()
+  }
 }
 
 /**
@@ -230,6 +260,24 @@ export default /** @type {ServerRoute[]} */ (
         return h.redirect(JOURNEY_DELETE_ACCOUNT_CODE)
       }
     }),
+    /** @satisfies {ServerRoute<{ Query: { language?: string, transport?: string } }>} */
+    ({
+      method: 'GET',
+      path: JOURNEY_DELETE_ACCOUNT_RESEND_CODE,
+      options: {
+        auth,
+        pre: [preHandler]
+      },
+      handler(request, h) {
+        const account = request.auth.credentials
+        return h.view('account/code-resend', {
+          isSms: false,
+          target: account.email,
+          email: account.email,
+          accountAction
+        })
+      }
+    }),
     /** @satisfies {ServerRoute<{ Payload: { code?: string } }>} */
     ({
       method: 'GET',
@@ -300,10 +348,10 @@ export default /** @type {ServerRoute[]} */ (
 
         if (result.outcome === VALID) {
           // Delete the account
-          // await accountService.deleteAccount(uid, account.id)
+          await accountService.deleteAccount(uid, account.id)
 
-          // TODO: Logout the user
-          // TODO: what url does 'continue' go to?
+          await logoutAndRevokeGrants(request, uid)
+
           return h.view(DELETE_ACCOUNT_SUCCESS_VIEW)
         }
 

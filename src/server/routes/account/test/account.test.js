@@ -17,7 +17,8 @@ jest.mock('~/src/server/lib/identity-api.js', () => ({
   completeSignup: jest.fn(),
   getAccount: jest.fn(),
   getOtpTarget: jest.fn(),
-  getOtp: jest.fn()
+  getOtp: jest.fn(),
+  deleteAccount: jest.fn()
 }))
 
 jest.mock('~/src/server/lib/service-token.js', () => ({
@@ -267,6 +268,57 @@ describe('/account', () => {
 
     expect(response.statusCode).toBe(302)
     expect(response.headers.location).toBe('/account/change-email')
+  })
+
+  test('deletes the account, revokes its grants and destroys the session', async () => {
+    jest.mocked(identityApi.getOtp).mockResolvedValue({
+      consumed: false,
+      verified: true,
+      target: 'email@test.com'
+    })
+    jest
+      .mocked(identityApi.verifyOtp)
+      .mockResolvedValue(/** @type {never} */ ({ status: 'valid' }))
+    jest
+      .mocked(identityApi.deleteAccount)
+      .mockResolvedValue(/** @type {never} */ ({ outcome: 'complete' }))
+
+    const session = {
+      authorizations: {
+        client1: { grantId: 'grant-1' },
+        client2: { grantId: 'grant-2' },
+        client3: {}
+      },
+      destroy: jest.fn()
+    }
+    const findByUidSpy = jest
+      .spyOn(server.app.oidcProvider.Session, 'findByUid')
+      .mockResolvedValue(/** @type {never} */ (session))
+    const revokeByGrantIdSpy = jest
+      .spyOn(server.app.oidcProvider.AccessToken, 'revokeByGrantId')
+      .mockResolvedValue()
+
+    const { crumb, cookie } = await getWithCrumb('/account/delete-account')
+    const { response } = await renderResponse(server, {
+      method: 'POST',
+      url: '/account/delete-account/email-code',
+      payload: { crumb, code: '123456' },
+      headers: { cookie },
+      auth
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(identityApi.deleteAccount).toHaveBeenCalledWith(
+      { uid: 'sess-id-1', accountId: 'acc-id' },
+      'token-1'
+    )
+    expect(revokeByGrantIdSpy).toHaveBeenCalledTimes(2)
+    expect(revokeByGrantIdSpy).toHaveBeenCalledWith('grant-1')
+    expect(revokeByGrantIdSpy).toHaveBeenCalledWith('grant-2')
+    expect(session.destroy).toHaveBeenCalled()
+
+    findByUidSpy.mockRestore()
+    revokeByGrantIdSpy.mockRestore()
   })
 
   describe('runnerHomepageReturnPath', () => {
