@@ -58,6 +58,22 @@ async function isEmailVerified(uid) {
   )
 }
 
+/**
+ * The error for a new phone the route can refuse without the API, which owns
+ * the format rule
+ * @param {string} phone - trimmed
+ * @param {string} currentPhone
+ */
+function mapPhoneInputToErrorKey(phone, currentPhone) {
+  if (!phone) {
+    return 'account.newPhone.errorRequired'
+  }
+  if (phone === currentPhone) {
+    return 'account.newPhone.errorSameAsCurrent'
+  }
+  return undefined
+}
+
 export default /** @type {ServerRoute[]} */ (
   /** @type {unknown[]} */ ([
     /** @type {ServerRoute} */
@@ -237,13 +253,7 @@ export default /** @type {ServerRoute[]} */ (
         }
 
         const trimmed = phone.trim()
-
-        let errorKey
-        if (!trimmed) {
-          errorKey = 'account.newPhone.errorRequired'
-        } else if (account.phone === trimmed) {
-          errorKey = 'account.newPhone.errorSameAsCurrent'
-        }
+        const errorKey = mapPhoneInputToErrorKey(trimmed, account.phone)
 
         if (errorKey) {
           return h.view(ENTER_PHONE_VIEW, {
