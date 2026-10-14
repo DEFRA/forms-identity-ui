@@ -4,6 +4,7 @@ import { TRANSPORT } from '~/src/server/common/constants/transport.js'
 import {
   bearerHeaders,
   getJson,
+  isBadRequestError,
   isNotFoundError,
   patchJson,
   postJson
@@ -95,11 +96,18 @@ export async function verifyOtp(
  * @returns {Promise<CompleteResult>}
  */
 export async function completeSignup({ uid, phone }, token) {
-  const { body } = await postJson(new URL('/accounts', baseUrl), {
-    payload: { uid: hashId(uid), phone },
-    headers: bearerHeaders(token)
-  })
-  return /** @type {CompleteResult} */ (body)
+  try {
+    const { body } = await postJson(new URL('/accounts', baseUrl), {
+      payload: { uid: hashId(uid), phone },
+      headers: bearerHeaders(token)
+    })
+    return /** @type {CompleteResult} */ (body)
+  } catch (err) {
+    if (isBadRequestError(err)) {
+      return { status: 'invalid-phone' }
+    }
+    throw err
+  }
 }
 
 /**

@@ -663,20 +663,23 @@ describe('interaction pages', () => {
     )
   })
 
-  it('POST a non-number phone re-renders without calling the API', async () => {
+  it('POST an empty phone re-renders without calling the API', async () => {
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
 
     const { container, response } = await renderResponse(server, {
       method: 'POST',
       url: '/interaction/uid-1/phone',
       headers: { cookie },
-      payload: { crumb, phone: 'not a number' }
+      payload: { crumb, phone: '  ' }
     })
 
     expect(response.statusCode).toBe(200)
     expect(container.getByRole('alert')).toContainElement(
       container.getByRole('heading', { name: 'There is a problem' })
     )
+    expect(
+      container.getByRole('link', { name: 'Enter your mobile phone number' })
+    ).toHaveAttribute('href', '#phone')
     expect(identityApi.completeSignup).not.toHaveBeenCalled()
   })
 
