@@ -1,3 +1,4 @@
+import { runnerHomepageReturnPath } from '~/src/server/common/helpers/validation.js'
 import { createServer } from '~/src/server/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
@@ -102,14 +103,16 @@ describe('/account', () => {
 
     const { container, response } = await renderResponse(server, {
       method: 'GET',
-      url: '/account?returnUrl=http://localhost:3009/return-page'
+      url: '/account?returnUrl=http://localhost:3009/homepage/preview/draft/form-slug'
     })
 
     expect(response.statusCode).toBe(200)
     expect(container.getByText('a@b.com')).toBeInTheDocument()
     expect(container.getByText('07911 123456')).toBeInTheDocument()
     const $link = container.getByRole('link', { name: 'Back' })
-    expect($link.getAttribute('href')).toBe('http://localhost:3009/return-page')
+    expect($link.getAttribute('href')).toBe(
+      'http://localhost:3009/homepage/preview/draft/form-slug'
+    )
   })
 
   test('is unauthorized when there is no signed-in session', async () => {
@@ -264,6 +267,59 @@ describe('/account', () => {
 
     expect(response.statusCode).toBe(302)
     expect(response.headers.location).toBe('/account/change-email')
+  })
+
+  describe('runnerHomepageReturnPath', () => {
+    it('should accept a URL which is in the list of redirect URIs and has a valid homepage path - local', () => {
+      expect(
+        runnerHomepageReturnPath('http://localhost:3009/homepage/123')
+      ).toBe('http://localhost:3009/homepage/123')
+    })
+
+    it('should accept a URL which is in the list of redirect URIs and has a valid homepage path - non-local', () => {
+      expect(
+        runnerHomepageReturnPath(
+          'https://forms-runner.dev-env.cloud/homepage/123'
+        )
+      ).toBe('https://forms-runner.dev-env.cloud/homepage/123')
+    })
+
+    it('should reject an invalid URL', () => {
+      expect(runnerHomepageReturnPath('/invalid/host')).toBeNull()
+    })
+
+    it('should reject an invalid URL datatype', () => {
+      // @ts-expect-error - force invalid datatype
+      expect(runnerHomepageReturnPath({})).toBeNull()
+    })
+
+    it('should reject a host which is not in the list of redirect URIs - local', () => {
+      expect(
+        runnerHomepageReturnPath('http://invalid.host/homepage/123')
+      ).toBeNull()
+    })
+
+    it('should reject a host which is not in the list of redirect URIs - non-local', () => {
+      expect(
+        runnerHomepageReturnPath(
+          'https://forms-runner.dev-env.bad/homepage/123'
+        )
+      ).toBeNull()
+    })
+
+    it('should reject a host which is not in the list of redirect URIs', () => {
+      expect(
+        runnerHomepageReturnPath('http://invalid.host/homepage/123')
+      ).toBeNull()
+    })
+
+    it('should reject a URL which is not within the homepage routes', () => {
+      expect(
+        runnerHomepageReturnPath(
+          'https://forms-runner.dev-env.cloud/account/123'
+        )
+      ).toBeNull()
+    })
   })
 })
 
