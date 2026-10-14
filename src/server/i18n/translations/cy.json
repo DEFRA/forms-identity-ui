@@ -25,6 +25,9 @@
     "successNotificationTitleText": "Llwyddiant",
     "successChangedEmailNotificationText": "Mae eich cyfeiriad e-bost wedi'i newid",
     "successChangedPhoneNotificationText": "Mae eich rhif ffôn symudol wedi'i newid",
+    "deleteSignInTitle": "Dileu eich manylion mewngofnodi",
+    "deleteSignInInfo": "Bydd hyn yn dileu eich manylion mewngofnodi yn barhaol. Ni fyddwch bellach yn gallu cael mynediad at y ffurflenni rydych wedi'u defnyddio gyda nhw.",
+    "deleteSignInLinkText": "Dileu eich manylion mewngofnodi",
     "requestPhoneOtp": {
       "title": "Cael cod diogelwch",
       "inset": "Byddwn yn anfon cod diogelwch at eich rhif ffôn symudol sy'n gorffen â",
@@ -96,6 +99,28 @@
       "titlePhone": "Ni chafodd eich rhif ffôn symudol ei ddiweddaru",
       "bodyEmail": "Bydd angen i chi <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/change-email/enter-email\">ddewis cyfeiriad e-bost gwahanol</a> neu <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">ganslo</a>.",
       "bodyPhone": "Bydd angen i chi <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/change-phone/enter-phone\">ddewis rhif ffôn symudol gwahanol</a> neu <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">ganslo</a>."
+    },
+    "deleteAccount": {
+      "pageTitle": "Dileu eich manylion mewngofnodi",
+      "title": "Rhowch y cod diogelwch",
+      "para1": "Mae angen i ni sicrhau mai chi ydyw cyn y gallwch ddileu eich manylion mewngofnodi.",
+      "para2": "Rydym wedi anfon e-bost at:",
+      "para3": "Gall gymryd ychydig funudau i gyrraedd. Bydd y cod diogelwch yn dod i ben ar ôl 15 munud.",
+      "enterCodeLabel": "Rhowch y cod diogelwch 6 digid",
+      "continue": "Parhau",
+      "cancelLinkText": "Canslo a mynd yn ôl",
+      "errorRequired": "Rhowch y cod diogelwch 6 digid",
+      "errorInvalid": "Nid yw'r cod a roesoch yn gywir – rhowch gynnig arall arni neu gofynnwch am god newydd",
+      "problemsDetails": {
+        "summaryText": "Problemau gyda'r cod diogelwch?",
+        "body": "Gallwn <a class=\"govuk-link\" href=\"./delete-account/send-code?resend=true\">anfon y cod diogelwch eto</a> os nad yw'r cod diogelwch yn gweithio neu os na chawsoch ef."
+      },
+      "successPanel": {
+        "titleText": "Mae eich manylion mewngofnodi wedi'u dileu",
+        "body": "Ni allwch bellach gael mynediad at unrhyw ffurflenni rydych wedi'u dechrau neu eu cyflwyno gan ddefnyddio'r manylion mewngofnodi hyn.",
+        "info": "Os bydd angen i chi ddefnyddio'r ffurflen hon eto, bydd angen i chi greu manylion mewngofnodi newydd.",
+        "continueButtonText": "Parhau"
+      }
     }
   },
   "layout": {

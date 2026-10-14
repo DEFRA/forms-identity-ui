@@ -1,10 +1,15 @@
 import Boom from '@hapi/boom'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
-import { getJson, postJson } from '~/src/server/common/helpers/fetch.js'
+import {
+  delJson,
+  getJson,
+  postJson
+} from '~/src/server/common/helpers/fetch.js'
 import { hashId } from '~/src/server/common/helpers/hash-id.js'
 import {
   completeSignup,
+  deleteAccount,
   getAccount,
   getOtpTarget,
   requestOtpViaEmail,
@@ -207,5 +212,29 @@ describe('identity-api client', () => {
     const notFound = Boom.notFound()
     jest.mocked(getJson).mockRejectedValue(notFound)
     await expect(getOtpTarget('uid-none', 'token-1')).resolves.toBeNull()
+  })
+
+  it('deleteAccount returns the account or 404', async () => {
+    const accountId = 'acc-1'
+    const result = {
+      ok: true,
+      message: `Account ${accountId} deleted successfully`
+    }
+
+    jest.mocked(delJson).mockResolvedValue(
+      /** @type {never} */ ({
+        body: result
+      })
+    )
+
+    await expect(
+      deleteAccount({ uid: 'uid-1', accountId }, 'token-1')
+    ).resolves.toEqual(result)
+
+    const notFound = Boom.notFound()
+    jest.mocked(delJson).mockRejectedValue(notFound)
+    await expect(
+      deleteAccount({ uid: 'uid-1', accountId }, 'token-1')
+    ).rejects.toBe(notFound)
   })
 })

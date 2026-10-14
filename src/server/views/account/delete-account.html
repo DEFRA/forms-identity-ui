@@ -1,0 +1,69 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% set pageTitle = t('account.deleteAccount.pageTitle') %}
+{% set errorText = t(errorKey) %}
+{% set errorMessage = { text: errorText } if errorKey else undefined %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      {% if showResendNotification %}
+        {{ govukNotificationBanner({
+          type: "success",
+          titleText: t('account.sentEmailOtp.resendNotificationTitleText'),
+          text: t('account.sentEmailOtp.resendNotificationText')
+        }) }}
+      {% endif %}
+
+      {% if errorKey %}
+        {{ govukErrorSummary({
+          titleText: t('errors.errorSummaryTitle'),
+          errorList: [{ text: errorText, href: "#code" }]
+        }) }}
+      {% endif %}
+
+      <h1 class="govuk-heading-l">{{ t('account.deleteAccount.title') }}</h1>
+
+      <p class="govuk-body">{{ t('account.deleteAccount.para1') }}</p>
+
+      <div class="govuk-inset-text">
+        {{ t('account.deleteAccount.para2') }} <strong>{{ email }}</strong>
+      </div>
+
+      <p class="govuk-body">{{ t('account.deleteAccount.para3') }}</p>
+
+      <form method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        {{ govukInput({
+          label: { text: t('account.deleteAccount.enterCodeLabel') },
+          classes: "govuk-input--width-10 govuk-input--extra-letter-spacing",
+          id: "code",
+          name: "code",
+          type: "text",
+          inputmode: "numeric",
+          autocomplete: "one-time-code",
+          spellcheck: false,
+          errorMessage: errorMessage
+        }) }}
+
+        {{ govukButton({ text: t('account.deleteAccount.continue') }) }}
+      </form>
+
+      <p class="govuk-body">
+        <a href="." class="govuk-link govuk-link--no-visited-state">{{ t('account.deleteAccount.cancelLinkText') }}</a>
+      </p>
+
+      {{ govukDetails({
+        summaryText: t('account.deleteAccount.problemsDetails.summaryText'),
+        html: t('account.deleteAccount.problemsDetails.body')
+      }) }}
+    </div>
+  </div>
+{% endblock %}
