@@ -226,7 +226,7 @@ export default /** @type {ServerRoute[]} */ (
         validate: {
           payload: Joi.object({
             crumb: Joi.string().optional(),
-            phone: Joi.string().allow('')
+            phone: Joi.string().allow('').required()
           })
         },
         auth

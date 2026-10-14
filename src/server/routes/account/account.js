@@ -1,6 +1,9 @@
 import Joi from 'joi'
 
-import { sessionNames } from '~/src/server/common/constants/session-names.js'
+import {
+  SESSION_KEY_BACK_LINK,
+  sessionNames
+} from '~/src/server/common/constants/session-names.js'
 import { setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
@@ -9,8 +12,6 @@ import {
   INVALID_CODE,
   INVALID_CODE_CONSUMED_OR_EXPIRED
 } from '~/src/server/services/outcomes.js'
-
-const SESSION_KEY_BACK_LINK = 'session-back-link'
 
 // Paths - account
 export const ACCOUNT_PATH = '/account'
