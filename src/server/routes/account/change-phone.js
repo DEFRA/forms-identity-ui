@@ -3,7 +3,6 @@ import Joi from 'joi'
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { getBackLink } from '~/src/server/common/helpers/navigation.js'
-import { joi as telephoneJoi } from '~/src/server/common/helpers/telephone.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import {
@@ -48,10 +47,6 @@ const errorsLookup = /** @type {Partial<Record<string, string>>} */ ({
   [INVALID_PHONE]: 'account.newPhone.errorFormat',
   [SAME_AS_CURRENT]: 'account.newPhone.errorSameAsCurrent'
 })
-
-const phoneSchema = /** @type {TelephoneSchema} */ (telephoneJoi.string())
-  .phoneNumber()
-  .required()
 
 /**
  * Whether the email was previously verified on this journey
@@ -242,17 +237,11 @@ export default /** @type {ServerRoute[]} */ (
         }
 
         const trimmed = phone.trim()
-        const { error } = phoneSchema.validate(trimmed)
 
         let errorKey
-        if (error) {
-          if (!trimmed) {
-            errorKey = 'account.newPhone.errorRequired'
-          } else {
-            errorKey = 'account.newPhone.errorFormat'
-          }
-        }
-        if (!errorKey && account.phone === trimmed) {
+        if (!trimmed) {
+          errorKey = 'account.newPhone.errorRequired'
+        } else if (account.phone === trimmed) {
           errorKey = 'account.newPhone.errorSameAsCurrent'
         }
 
@@ -317,5 +306,4 @@ export default /** @type {ServerRoute[]} */ (
 /**
  * @import { ServerRoute } from '@hapi/hapi'
  * @import { Account } from '~/src/server/types.js'
- * @import { TelephoneSchema } from '~/src/server/common/helpers/telephone.js'
  */

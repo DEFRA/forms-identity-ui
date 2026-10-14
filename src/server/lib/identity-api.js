@@ -204,14 +204,21 @@ export async function updateEmail({ uid, accountId }, token) {
  * @returns {Promise<CompleteResult>}
  */
 export async function updatePhone({ uid, accountId, phone }, token) {
-  const { body } = await patchJson(
-    new URL(`/accounts/${hashId(uid)}/${accountId}/phone`, baseUrl),
-    {
-      payload: { phone },
-      headers: bearerHeaders(token)
+  try {
+    const { body } = await patchJson(
+      new URL(`/accounts/${hashId(uid)}/${accountId}/phone`, baseUrl),
+      {
+        payload: { phone },
+        headers: bearerHeaders(token)
+      }
+    )
+    return /** @type {CompleteResult} */ (body)
+  } catch (err) {
+    if (isBadRequestError(err)) {
+      return { status: 'invalid-phone' }
     }
-  )
-  return /** @type {CompleteResult} */ (body)
+    throw err
+  }
 }
 
 /**
