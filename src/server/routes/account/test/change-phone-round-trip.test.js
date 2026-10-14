@@ -249,6 +249,15 @@ function accountsEndpoints(method, segments, body) {
       return NOT_FOUND
     }
 
+    // the API's route validation answers 400 for anything that is not a
+    // telephone number at all
+    if (!/^\+?[\d ]+$/.test(body.phone)) {
+      return {
+        status: 400,
+        body: { message: '"phone" must be a telephone number' }
+      }
+    }
+
     if (body.phone === API_REJECTED_PHONE) {
       return { status: 200, body: { status: 'invalid-phone' } }
     }

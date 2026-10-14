@@ -4,6 +4,7 @@ import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import {
   delJson,
   getJson,
+  patchJson,
   postJson
 } from '~/src/server/common/helpers/fetch.js'
 import { hashId } from '~/src/server/common/helpers/hash-id.js'
@@ -13,6 +14,7 @@ import {
   getAccount,
   getOtpTarget,
   requestOtpViaEmail,
+  updatePhone,
   verifyOtp
 } from '~/src/server/lib/identity-api.js'
 
@@ -20,6 +22,7 @@ jest.mock('~/src/server/common/helpers/fetch.js', () => ({
   ...jest.requireActual('~/src/server/common/helpers/fetch.js'),
   delJson: jest.fn(),
   getJson: jest.fn(),
+  patchJson: jest.fn(),
   postJson: jest.fn()
 }))
 
@@ -125,6 +128,50 @@ describe('identity-api client', () => {
       uid: hashId('uid-1'),
       phone: '07911 123456'
     })
+  })
+
+  it('completeSignup turns a 400 from the API into the invalid-phone verdict', async () => {
+    jest
+      .mocked(postJson)
+      .mockRejectedValue(
+        Boom.badRequest('"phone" must be a mobile phone number')
+      )
+
+    await expect(
+      completeSignup({ uid: 'uid-1', phone: 'not a number' }, 'token-1')
+    ).resolves.toEqual({ status: 'invalid-phone' })
+  })
+
+  it('completeSignup passes other API failures on', async () => {
+    jest.mocked(postJson).mockRejectedValue(Boom.badGateway())
+
+    await expect(
+      completeSignup({ uid: 'uid-1', phone: '07911 123456' }, 'token-1')
+    ).rejects.toMatchObject({ output: { statusCode: 502 } })
+  })
+
+  it('updatePhone turns a 400 from the API into the invalid-phone verdict', async () => {
+    jest
+      .mocked(patchJson)
+      .mockRejectedValue(Boom.badRequest('"phone" must be a telephone number'))
+
+    await expect(
+      updatePhone(
+        { uid: 'uid-1', accountId: 'account-1', phone: 'not a number' },
+        'token-1'
+      )
+    ).resolves.toEqual({ status: 'invalid-phone' })
+  })
+
+  it('updatePhone passes other API failures on', async () => {
+    jest.mocked(patchJson).mockRejectedValue(Boom.badGateway())
+
+    await expect(
+      updatePhone(
+        { uid: 'uid-1', accountId: 'account-1', phone: '07911 123456' },
+        'token-1'
+      )
+    ).rejects.toMatchObject({ output: { statusCode: 502 } })
   })
 
   it('keys the OTP record the same way at all four call sites', async () => {
