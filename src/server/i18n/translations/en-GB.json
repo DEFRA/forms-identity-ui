@@ -3,7 +3,8 @@
     "name": "Sign in to Defra Forms"
   },
   "common": {
-    "back": "Back"
+    "back": "Back",
+    "continue": "Continue"
   },
   "home": {
     "title": "You cannot sign in from this page",
@@ -50,7 +51,6 @@
       "inset": "We have sent a security code to your mobile phone number ending with",
       "para2": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
       "enterCode": "Enter the 6 digit security code",
-      "continue": "Continue",
       "problemsDetails": {
         "summaryText": "Problems with the security code?",
         "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend?transport=sms\">send the security code again</a> if the security code is not working or you did not receive it."
@@ -58,7 +58,6 @@
     },
     "newEmail": {
       "title": "Enter your new email address",
-      "continue": "Continue",
       "errorRequired": "Enter an email address",
       "errorFormat": "Enter an email address in the correct format, like name@example.com",
       "errorSameAsCurrent": "Enter a different email address. This is the same as your current email address.",
@@ -68,7 +67,6 @@
       "title": "Enter your new mobile phone number",
       "body": "If you forget your sign-in details, we will send a 6 digit security code to this number.",
       "label": "Mobile phone number",
-      "continue": "Continue",
       "errorRequired": "Enter a mobile phone number",
       "errorFormat": "Enter a mobile phone number in the correct format",
       "errorSameAsCurrent": "Enter a different mobile phone number. This is the same as your current mobile phone number."
@@ -80,7 +78,6 @@
       "inset": "We have sent an email to: ",
       "para1": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
       "enterCode": "Enter the 6 digit security code",
-      "continue": "Continue",
       "problemsDetails": {
         "summaryText": "Problems with the security code?",
         "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend?transport=email\">send the security code again</a> or you can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./enter-email\">use a different email address</a>."
@@ -92,7 +89,7 @@
       "sentToPhone": "We will send a security code to your mobile phone number ending with",
       "lockoutInfo": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
       "emailInfo": "Your email might take a few minutes to arrive. If you do not get an email, check your spam folder.",
-      "continue": "Get security code"
+      "getCode": "Get security code"
     },
     "updateError": {
       "titleEmail": "Your email address was not updated",
@@ -108,19 +105,17 @@
       "para2": "We have sent an email to:",
       "para3": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
       "enterCodeLabel": "Enter the 6 digit security code",
-      "continue": "Continue",
       "cancelLinkText": "Cancel and go back",
       "errorRequired": "Enter the 6 digit security code",
       "errorInvalid": "The code you entered is not correct – enter it again or request a new code",
       "problemsDetails": {
         "summaryText": "Problems with the security code?",
-        "body": "We can <a class=\"govuk-link\" href=\"./delete-account/send-code?resend=true\">send the security code again</a> if the security code is not working or you did not receive it."
+        "body": "We can <a class=\"govuk-link\" href=\"/account/delete-account\">send the security code again</a> if the security code is not working or you did not receive it."
       },
       "successPanel": {
         "titleText": "Your sign-in has been deleted",
         "body": "You can no longer access any forms you have started or submitted using this sign-in.",
-        "info": "If you need to use this form again, you will need to create a new sign-in.",
-        "continueButtonText": "Continue"
+        "info": "If you need to use this form again, you will need to create a new sign-in."
       }
     }
   },
@@ -133,7 +128,6 @@
   "signin": {
     "email": {
       "title": "Enter your email address",
-      "continue": "Continue",
       "errorRequired": "Enter an email address",
       "errorFormat": "Enter an email address in the correct format, like name@example.com"
     },
@@ -144,7 +138,6 @@
       "sentTo": "We have sent an email to: [[email]]",
       "body": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
       "label": "Enter the 6 digit security code",
-      "continue": "Continue",
       "errorRequired": "Enter the 6 digit security code",
       "errorInvalidFormat": "Enter the security code using only 6 digits",
       "errorInvalid": "The code you entered is not correct or has expired – enter it again or request a new code",
@@ -157,7 +150,6 @@
       "title": "Enter your mobile phone number",
       "body": "If you forget your sign-in details, we will send a 6 digit security code to the number you give us. This will allow you to get back into your form.",
       "label": "Mobile phone number",
-      "continue": "Continue",
       "errorRequired": "Enter your mobile phone number",
       "errorInvalid": "Enter a mobile phone number in the correct format"
     },
@@ -166,14 +158,14 @@
       "sentTo": "The security code was sent to: [[email]]",
       "expiryInfo": "Security codes expire after 15 minutes.",
       "resendInfo": "Ask us to send a new code, then enter it on the next page.",
-      "continue": "Send a new security code"
+      "getCode": "Send a new security code"
     },
     "codeResend": {
       "title": "Get security code",
       "sentTo": "We will send a security code to: [[email]]",
       "lockoutInfo": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
       "emailInfo": "Your email might take a few minutes to arrive. If you do not get an email, check your spam folder.",
-      "continue": "Get security code"
+      "getCode": "Get security code"
     },
     "lockedOut": {
       "title": "Too many security codes requested",

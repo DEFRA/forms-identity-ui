@@ -28,7 +28,8 @@
         }) }}
       {% endif %}
 
-      <h1 class="govuk-heading-l">{{ t('account.deleteAccount.title') }}</h1>
+      <span class="govuk-caption-l">{{ t('account.deleteAccount.pageTitle') }}</span>
+      <h1 class="govuk-heading-l">{{ t('account.requestEmailOtp.title') }}</h1>
 
       <p class="govuk-body">{{ t('account.deleteAccount.para1') }}</p>
 
@@ -38,32 +39,15 @@
 
       <p class="govuk-body">{{ t('account.deleteAccount.para3') }}</p>
 
-      <form method="post" novalidate>
+      <form method="post" action="/account/delete-account/send-code" novalidate="">
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
-        {{ govukInput({
-          label: { text: t('account.deleteAccount.enterCodeLabel') },
-          classes: "govuk-input--width-10 govuk-input--extra-letter-spacing",
-          id: "code",
-          name: "code",
-          type: "text",
-          inputmode: "numeric",
-          autocomplete: "one-time-code",
-          spellcheck: false,
-          errorMessage: errorMessage
-        }) }}
-
-        {{ govukButton({ text: t('account.deleteAccount.continue') }) }}
+        {{ govukButton({ text: t('common.continue') }) }}
       </form>
-
       <p class="govuk-body">
-        <a href="." class="govuk-link govuk-link--no-visited-state">{{ t('account.deleteAccount.cancelLinkText') }}</a>
+        <a href="/account" class="govuk-link govuk-link--no-visited-state">{{ t('account.deleteAccount.cancelLinkText') }}</a>
       </p>
 
-      {{ govukDetails({
-        summaryText: t('account.deleteAccount.problemsDetails.summaryText'),
-        html: t('account.deleteAccount.problemsDetails.body')
-      }) }}
     </div>
   </div>
 {% endblock %}

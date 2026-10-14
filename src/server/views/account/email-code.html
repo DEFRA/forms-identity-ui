@@ -54,13 +54,23 @@
           errorMessage: errorMessage
         }) }}
 
-        {{ govukButton({ text: t('account.sentEmailOtp.continue') }) }}
+        {{ govukButton({ text: t('common.continue') }) }}
       </form>
 
-      {{ govukDetails({
-        summaryText: t('account.sentEmailOtp.problemsDetails.summaryText'),
-        html: t('account.sentEmailOtp.problemsDetails.body')
-      }) }}
+      {% if accountAction === 'delete-account' %}
+        <p class="govuk-body">
+          <a href="/account" class="govuk-link govuk-link--no-visited-state">{{ t('account.deleteAccount.cancelLinkText') }}</a>
+        </p>
+        {{ govukDetails({
+          summaryText: t('account.sentEmailOtp.problemsDetails.summaryText'),
+          html: t('account.deleteAccount.problemsDetails.body')
+        }) }}
+      {% else %}
+        {{ govukDetails({
+          summaryText: t('account.sentEmailOtp.problemsDetails.summaryText'),
+          html: t('account.sentEmailOtp.problemsDetails.body')
+        }) }}
+      {% endif %}
     </div>
   </div>
 {% endblock %}

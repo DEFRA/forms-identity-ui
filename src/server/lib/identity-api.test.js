@@ -18,6 +18,7 @@ import {
 
 jest.mock('~/src/server/common/helpers/fetch.js', () => ({
   ...jest.requireActual('~/src/server/common/helpers/fetch.js'),
+  delJson: jest.fn(),
   getJson: jest.fn(),
   postJson: jest.fn()
 }))

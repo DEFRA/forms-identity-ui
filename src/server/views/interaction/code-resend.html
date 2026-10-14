@@ -21,7 +21,7 @@
       <form method="POST" action="../email?resend=true">
         <input type="hidden" name="crumb" value="{{ crumb }}">
         {{ govukButton({
-          text: t('signin.codeResend.continue'),
+          text: t('signin.codeResend.getCode'),
           name: "email",
           value: email
         }) }}

@@ -23,7 +23,7 @@
         <form method="POST" action="/account/{{ accountAction }}/send-code?resend=true">
           <input type="hidden" name="crumb" value="{{ crumb }}">
           {{ govukButton({
-            text: t('account.codeResend.continue')
+            text: t('common.continue')
           }) }}
         </form>
       {% elif accountAction === 'change-email' %}
@@ -33,14 +33,14 @@
           <input type="hidden" name="crumb" value="{{ crumb }}">
           <input type="hidden" name="email" value="{{ email }}">
           {{ govukButton({
-            text: t('account.codeResend.continue')
+            text: t('common.continue')
           }) }}
         </form>
       {% else %}
         <form method="POST" action="/account/{{ accountAction }}/send-code?resend=true">
           <input type="hidden" name="crumb" value="{{ crumb }}">
           {{ govukButton({
-            text: t('account.codeResend.continue')
+            text: t('common.continue')
           }) }}
         </form>
       {% endif %}

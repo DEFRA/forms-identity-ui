@@ -20,22 +20,22 @@ import {
 
 // Views
 const DELETE_ACCOUNT_VIEW = 'account/delete-account'
+const DELETE_ACCOUNT_EMAIL_CODE = 'account/email-code'
 const DELETE_ACCOUNT_SUCCESS_VIEW = 'account/delete-account-success'
-const DELETE_ACCOUNT_CODE_EXPIRED_VIEW = 'account/delete-account-code-expired'
 
 // Paths - account
 export const ACCOUNT_PATH = '/account'
-const EMAIL_JOURNEY_DELETE_ACCOUNT_SEND_CODE =
-  '/account/delete-account/send-code'
-const EMAIL_JOURNEY_DELETE_ACCOUNT_CODE = '/account/delete-account'
-const EMAIL_JOURNEY_DELETE_ACCOUNT_CODE_EXPIRED =
-  '/account/delete-account/code-expired'
+const JOURNEY_DELETE_ACCOUNT_START = '/account/delete-account'
+const JOURNEY_DELETE_ACCOUNT_CODE = '/account/delete-account/email-code'
+const JOURNEY_DELETE_ACCOUNT_SEND_CODE = '/account/delete-account/send-code'
 
 // Paths - change email
 export const EMAIL_JOURNEY_START_PATH = '/account/change-email'
 
 // Paths - change phone number
 export const PHONE_JOURNEY_START_PATH = '/account/change-phone'
+
+const accountAction = 'delete-account'
 
 const queryParamsSchema = Joi.object({
   returnUrl: Joi.string()
@@ -177,10 +177,31 @@ export default /** @type {ServerRoute[]} */ (
         })
       }
     }),
-    /** @satisfies {ServerRoute<{ Query: { resend?: boolean} }>} */
+    /** @type {ServerRoute} */
     ({
       method: 'GET',
-      path: EMAIL_JOURNEY_DELETE_ACCOUNT_SEND_CODE,
+      path: JOURNEY_DELETE_ACCOUNT_START,
+      options: {
+        auth,
+        pre: [preHandler]
+      },
+      handler(request, h) {
+        const account = /** @type {Account} */ (request.auth.credentials)
+
+        const backLink = {
+          href: ACCOUNT_PATH
+        }
+
+        return h.view(DELETE_ACCOUNT_VIEW, {
+          backLink,
+          email: account.email
+        })
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Query: { resend?: boolean} }>} */
+    ({
+      method: 'POST',
+      path: JOURNEY_DELETE_ACCOUNT_SEND_CODE,
       options: {
         auth: { mode: 'required', strategy: CITIZEN_SESSION },
         validate: {
@@ -206,13 +227,13 @@ export default /** @type {ServerRoute[]} */ (
           request.yar.flash(sessionNames.codeResendSuccessNotification, true)
         }
 
-        return h.redirect(EMAIL_JOURNEY_DELETE_ACCOUNT_CODE)
+        return h.redirect(JOURNEY_DELETE_ACCOUNT_CODE)
       }
     }),
     /** @satisfies {ServerRoute<{ Payload: { code?: string } }>} */
     ({
       method: 'GET',
-      path: EMAIL_JOURNEY_DELETE_ACCOUNT_CODE,
+      path: JOURNEY_DELETE_ACCOUNT_CODE,
       options: {
         auth: { mode: 'required', strategy: CITIZEN_SESSION }
       },
@@ -226,8 +247,8 @@ export default /** @type {ServerRoute[]} */ (
           await getServiceToken(),
           PURPOSE.ACCOUNT_DELETE_ACCOUNT_VERIFY_EMAIL
         )
-        if (!otp || otpVerified(otp)) {
-          return h.redirect(ACCOUNT_PATH)
+        if (otpMissing(otp)) {
+          return h.redirect(JOURNEY_DELETE_ACCOUNT_START)
         }
 
         const showResendNotification = request.yar
@@ -238,9 +259,10 @@ export default /** @type {ServerRoute[]} */ (
           .flash(sessionNames.validationFailure.deleteAccountValidationFailure)
           .at(0)
 
-        return h.view(DELETE_ACCOUNT_VIEW, {
-          backLink: { href: ACCOUNT_PATH },
+        return h.view(DELETE_ACCOUNT_EMAIL_CODE, {
+          backLink: { href: JOURNEY_DELETE_ACCOUNT_START },
           email: account.email,
+          accountAction,
           showResendNotification,
           errorKey
         })
@@ -249,7 +271,7 @@ export default /** @type {ServerRoute[]} */ (
     /** @satisfies {ServerRoute<{ Payload: { code?: string } }>} */
     ({
       method: 'POST',
-      path: EMAIL_JOURNEY_DELETE_ACCOUNT_CODE,
+      path: JOURNEY_DELETE_ACCOUNT_CODE,
       options: {
         validate: { payload: formPayload('code') },
         auth: { mode: 'required', strategy: CITIZEN_SESSION }
@@ -265,8 +287,8 @@ export default /** @type {ServerRoute[]} */ (
           await getServiceToken(),
           PURPOSE.ACCOUNT_DELETE_ACCOUNT_VERIFY_EMAIL
         )
-        if (!otp || otpVerified(otp)) {
-          return h.redirect(ACCOUNT_PATH)
+        if (otpMissing(otp)) {
+          return h.redirect(JOURNEY_DELETE_ACCOUNT_START)
         }
 
         const result = await accountService.submitCode(
@@ -278,42 +300,22 @@ export default /** @type {ServerRoute[]} */ (
 
         if (result.outcome === VALID) {
           // Delete the account
-          await accountService.deleteAccount(uid, account.id)
+          // await accountService.deleteAccount(uid, account.id)
 
           // TODO: Logout the user
-
+          // TODO: what url does 'continue' go to?
           return h.view(DELETE_ACCOUNT_SUCCESS_VIEW)
         }
 
-        if (result.outcome === INVALID_CODE) {
+        if (isInvalidCode(result)) {
           request.yar.flash(
             sessionNames.validationFailure.deleteAccountValidationFailure,
-            result.errorKey
+            codeErrorKey(result)
           )
-          return h.redirect(EMAIL_JOURNEY_DELETE_ACCOUNT_CODE)
+          return h.redirect(JOURNEY_DELETE_ACCOUNT_CODE)
         }
 
-        if (result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED) {
-          return h.redirect(EMAIL_JOURNEY_DELETE_ACCOUNT_CODE_EXPIRED)
-        }
-
-        return h.redirect(EMAIL_JOURNEY_DELETE_ACCOUNT_CODE)
-      }
-    }),
-    /** @satisfies {ServerRoute<{ Payload: { code?: string } }>} */
-    ({
-      method: 'GET',
-      path: EMAIL_JOURNEY_DELETE_ACCOUNT_CODE_EXPIRED,
-      options: {
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
-      },
-      handler(request, h) {
-        const account = /** @type {Account} */ (request.auth.credentials)
-
-        return h.view(DELETE_ACCOUNT_CODE_EXPIRED_VIEW, {
-          backLink: { href: ACCOUNT_PATH },
-          email: account.email
-        })
+        return h.redirect(JOURNEY_DELETE_ACCOUNT_CODE)
       }
     })
   ])
