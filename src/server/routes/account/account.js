@@ -5,6 +5,7 @@ import {
   SESSION_KEY_BACK_LINK,
   sessionNames
 } from '~/src/server/common/constants/session-names.js'
+import { runnerHomepageReturnPath } from '~/src/server/common/helpers/validation.js'
 import { setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
@@ -37,7 +38,15 @@ export const EMAIL_JOURNEY_START_PATH = '/account/change-email'
 export const PHONE_JOURNEY_START_PATH = '/account/change-phone'
 
 const queryParamsSchema = Joi.object({
-  returnUrl: Joi.string(),
+  returnUrl: Joi.string()
+    .custom(
+      (value, helpers) =>
+        runnerHomepageReturnPath(value) ?? helpers.error('any.invalid')
+    )
+    .messages({
+      'any.invalid':
+        '"returnUrl" must be a homepage path within the runner service'
+    }),
   language: Joi.string().valid('en-GB', 'cy')
 })
 
