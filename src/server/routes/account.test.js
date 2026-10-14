@@ -138,7 +138,7 @@ describe('/account', () => {
     expect(response.statusCode).toBe(401)
   })
 
-  test('redirects to an error page that explains that the code has expired or is invalid', async () => {
+  test('displays error on page that explains that the code has expired or is invalid', async () => {
     sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'acc-1' }))
     jest.mocked(identityApi.getAccount).mockResolvedValue({
       id: 'acc-1',
@@ -153,16 +153,20 @@ describe('/account', () => {
 
     const { crumb, cookie } = await getWithCrumb('/account/change-email')
 
-    const { response } = await renderResponse(server, {
+    const { container, response } = await renderResponse(server, {
       method: 'POST',
-      url: '/account/phone-code',
+      url: '/account/change-email/phone-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth
     })
 
-    expect(response.statusCode).toBe(302)
-    expect(response.headers.location).toBe('/account/code/expired')
+    expect(response.statusCode).toBe(200)
+    expect(
+      container.getByRole('link', {
+        name: 'The code you entered is not correct or has expired – enter it again or request a new code'
+      })
+    ).toBeInTheDocument()
   })
 
   test('redirects to the first page when no phone OTP but the user has hit a later page (new email)', async () => {
@@ -178,7 +182,7 @@ describe('/account', () => {
 
     const { response } = await renderResponse(server, {
       method: 'POST',
-      url: '/account/enter-email',
+      url: '/account/change-email/enter-email',
       payload: { crumb, email: 'new-email@test.com' },
       headers: { cookie },
       auth
@@ -201,7 +205,7 @@ describe('/account', () => {
 
     const { response } = await renderResponse(server, {
       method: 'GET',
-      url: '/account/email-code',
+      url: '/account/change-email/email-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth
@@ -229,7 +233,7 @@ describe('/account', () => {
 
     const { response } = await renderResponse(server, {
       method: 'GET',
-      url: '/account/email-code',
+      url: '/account/change-email/email-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth
@@ -252,7 +256,7 @@ describe('/account', () => {
 
     const { response } = await renderResponse(server, {
       method: 'POST',
-      url: '/account/email-code',
+      url: '/account/change-email/email-code',
       payload: { crumb, code: '123456' },
       headers: { cookie },
       auth

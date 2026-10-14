@@ -241,21 +241,38 @@ function accountsEndpoints(method, segments, body) {
   if (method === 'PATCH' && segments[2] === 'email') {
     const hashedUid = segments[0]
     const account = accounts.get(segments[1])
-    const record = otps.get(`${hashedUid}:${PURPOSE.ACCOUNT_VERIFY_EMAIL}`)
+    const record = otps.get(
+      `${hashedUid}:${PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_EMAIL}`
+    )
 
-    if (account && record) {
-      account.email = record.target
+    if (!account || !record) {
+      return NOT_FOUND
     }
 
-    // account.js no longer calls cleanupOtps itself — this endpoint now
-    // cascades the cleanup of every OTP tied to the interaction (phone and
-    // email) once the change lands
+    const target = record.target.trim().toLowerCase()
+
+    if (account.email.toLowerCase() === target) {
+      return { status: 200, body: { status: 'same-as-current' } }
+    }
+    if (
+      [...accounts.values()].some(
+        (other) =>
+          other.id !== account.id && other.email.toLowerCase() === target
+      )
+    ) {
+      return { status: 200, body: { status: 'already-in-use' } }
+    }
+
+    account.email = record.target
+
+    // this endpoint cascades the cleanup of every OTP tied to the
+    // interaction (phone and email) once the change lands
     for (const key of [...otps.keys()]) {
       if (key.startsWith(`${hashedUid}:`)) {
         otps.delete(key)
       }
     }
-    return NO_CONTENT
+    return { status: 200, body: { status: 'valid' } }
   }
 
   if (method === 'GET' && segments.length === 1) {
@@ -469,13 +486,43 @@ describe('change-email round trip', () => {
     return browse('/account/change-email')
   }
 
-  it('is unauthorized without a signed-in session', async () => {
-    const res = await browse('/account/change-email')
+  /** Requests the phone code and submits the right one */
+  async function verifyPhone() {
+    await startChangeEmail()
+    await browse('/account/change-email/send-code', crumb())
+    await browse('/account/change-email/phone-code', {
+      ...crumb(),
+      code: KNOWN_CODE
+    })
+  }
 
-    expect(res.statusCode).toBe(401)
-  })
+  /** Verifies the phone, then requests a code for the new email address */
+  async function requestEmailCode(/** @type {string} */ email) {
+    await verifyPhone()
+    return browse('/account/change-email/enter-email', { ...crumb(), email })
+  }
 
-  it('starts a fresh interaction showing the phone last 4 digits', async () => {
+  it.each([
+    ['GET', '/account/change-email'],
+    ['POST', '/account/change-email/send-code'],
+    ['GET', '/account/change-email/phone-sent-code'],
+    ['POST', '/account/change-email/phone-code'],
+    ['GET', '/account/change-email/enter-email'],
+    ['POST', '/account/change-email/enter-email'],
+    ['GET', '/account/change-email/email-code'],
+    ['POST', '/account/change-email/email-code'],
+    ['GET', '/account/change-email/code/resend'],
+    ['GET', '/account/change-email/change-email-error']
+  ])(
+    '%s %s is unauthorized without a signed-in session',
+    async (method, url) => {
+      const res = await server.inject({ method, url })
+
+      expect(res.statusCode).toBe(401)
+    }
+  )
+
+  it('starts the journey showing the phone last 4 digits', async () => {
     const account = await signIn('start@example.com', PHONE)
 
     const page = await startChangeEmail()
@@ -487,33 +534,228 @@ describe('change-email round trip', () => {
     await signIn('no-code-yet@example.com', PHONE)
     await startChangeEmail()
 
-    const res = await browse('/account/phone-sent-code')
+    const res = await browse('/account/change-email/phone-sent-code')
 
     expect(res.statusCode).toBe(302)
     expect(res.headers.location).toBe('/account/change-email')
+  })
+
+  it('shows the resend notification on the phone code page after a resend', async () => {
+    await signIn('resend-phone@example.com', PHONE)
+    await startChangeEmail()
+
+    const resent = await browse(
+      '/account/change-email/send-code?resend=true',
+      crumb()
+    )
+    expect(resent.headers.location).toBe(
+      '/account/change-email/phone-sent-code'
+    )
+
+    const page = await browse('/account/change-email/phone-sent-code')
+    expect(page.statusCode).toBe(200)
+    expect(page.payload).toContain('We’ve sent you a new security code.')
+
+    // the notification is flashed, so it only shows once
+    const again = await browse('/account/change-email/phone-sent-code')
+    expect(again.payload).not.toContain('We’ve sent you a new security code.')
+  })
+
+  it.each([
+    ['a wrong code', '000000', 'The code you entered is not correct'],
+    ['no code', '', 'Enter the 6 digit security code']
+  ])(
+    're-renders the phone code page with an error and does not advance on %s',
+    async (_name, code, message) => {
+      await signIn(`phone-${code || 'empty'}@example.com`, PHONE)
+      await startChangeEmail()
+      await browse('/account/change-email/send-code', crumb())
+
+      const res = await browse('/account/change-email/phone-code', {
+        ...crumb(),
+        code
+      })
+
+      expect(res.statusCode).toBe(200)
+      expect(res.payload).toContain(message)
+
+      const enterEmail = await browse('/account/change-email/enter-email')
+      expect(enterEmail.statusCode).toBe(302)
+      expect(enterEmail.headers.location).toBe('/account/change-email')
+    }
+  )
+
+  it('re-renders the phone code page when the phone code has expired or was never requested', async () => {
+    await signIn('phone-expired@example.com', PHONE)
+    await startChangeEmail()
+
+    const res = await browse('/account/change-email/phone-code', {
+      ...crumb(),
+      code: KNOWN_CODE
+    })
+
+    expect(res.statusCode).toBe(200)
   })
 
   it('redirects to change-email if entering a new email is attempted before the phone is verified', async () => {
     await signIn('phone-not-verified@example.com', PHONE)
     await startChangeEmail()
 
-    const res = await browse('/account/enter-email')
+    const get = await browse('/account/change-email/enter-email')
+    expect(get.statusCode).toBe(302)
+    expect(get.headers.location).toBe('/account/change-email')
+
+    const post = await browse('/account/change-email/enter-email', {
+      ...crumb(),
+      email: 'new@example.com'
+    })
+    expect(post.statusCode).toBe(302)
+    expect(post.headers.location).toBe('/account/change-email')
+  })
+
+  it.each([
+    ['empty', '', 'Enter an email address'],
+    ['badly formatted', 'not-an-email', 'in the correct format']
+  ])(
+    're-renders the enter email page with an error for a(n) %s email',
+    async (_name, email, message) => {
+      await signIn(`invalid-${_name.replace(/\s/g, '-')}@example.com`, PHONE)
+      await verifyPhone()
+
+      const res = await browse('/account/change-email/enter-email', {
+        ...crumb(),
+        email
+      })
+
+      expect(res.statusCode).toBe(200)
+      expect(res.payload).toContain(message)
+    }
+  )
+
+  it('rejects the account’s current email address', async () => {
+    await signIn('same@example.com', PHONE)
+    await verifyPhone()
+
+    const res = await browse('/account/change-email/enter-email', {
+      ...crumb(),
+      email: ' SAME@example.com '
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.payload).toContain('This is the same as your current email')
+  })
+
+  it('redirects to change-email if the email code page is opened before the phone is verified', async () => {
+    await signIn('email-code-no-phone@example.com', PHONE)
+    await startChangeEmail()
+
+    const get = await browse('/account/change-email/email-code')
+    expect(get.headers.location).toBe('/account/change-email')
+
+    const post = await browse('/account/change-email/email-code', {
+      ...crumb(),
+      code: KNOWN_CODE
+    })
+    expect(post.headers.location).toBe('/account/change-email')
+  })
+
+  it('redirects to change-email if the email code page is opened before an email code was requested', async () => {
+    await signIn('no-email-code@example.com', PHONE)
+    await verifyPhone()
+
+    const res = await browse('/account/change-email/email-code')
 
     expect(res.statusCode).toBe(302)
     expect(res.headers.location).toBe('/account/change-email')
   })
 
-  it('re-renders with an error and does not advance on a wrong phone code', async () => {
-    await signIn('wrong-phone-code@example.com', PHONE)
-    await startChangeEmail()
-    await browse('/account/send-code', crumb())
+  it('re-renders the email code page with the new email on a wrong email code', async () => {
+    await signIn('wrong-email-code@example.com', PHONE)
+    const requested = await requestEmailCode('wrong-new@example.com')
+    expect(requested.headers.location).toBe('/account/change-email/email-code')
 
-    const res = await browse('/account/phone-code', {
+    const res = await browse('/account/change-email/email-code', {
       ...crumb(),
       code: '000000'
     })
 
     expect(res.statusCode).toBe(200)
+    expect(res.payload).toContain('The code you entered is not correct')
+    expect(res.payload).toContain('wrong-new@example.com')
+  })
+
+  it('shows the resend notification on the email code page after a resend', async () => {
+    await signIn('resend-email@example.com', PHONE)
+    await verifyPhone()
+
+    const resent = await browse(
+      '/account/change-email/enter-email?resend=true',
+      {
+        ...crumb(),
+        email: 'resent@example.com'
+      }
+    )
+    expect(resent.headers.location).toBe('/account/change-email/email-code')
+
+    const page = await browse('/account/change-email/email-code')
+    expect(page.statusCode).toBe(200)
+    expect(page.payload).toContain('We’ve sent you a new security code.')
+  })
+
+  describe('code resend page', () => {
+    it('shows the phone last 4 digits for a phone resend', async () => {
+      await signIn('resend-page-sms@example.com', PHONE)
+
+      const res = await browse(
+        '/account/change-email/code/resend?transport=sms'
+      )
+
+      expect(res.statusCode).toBe(200)
+      expect(res.payload).toContain(PHONE.slice(-4))
+      expect(res.payload).toContain(
+        '/account/change-email/send-code?resend=true'
+      )
+    })
+
+    it('shows the new email address for an email resend', async () => {
+      await signIn('resend-page-email@example.com', PHONE)
+      await requestEmailCode('resend-target@example.com')
+      await browse('/account/change-email/email-code')
+
+      const res = await browse(
+        '/account/change-email/code/resend?transport=email'
+      )
+
+      expect(res.statusCode).toBe(200)
+      expect(res.payload).toContain('resend-target@example.com')
+      expect(res.payload).toContain(
+        '/account/change-email/enter-email?resend=true'
+      )
+    })
+  })
+
+  it('shows the error page if the new email is already used by another account', async () => {
+    await signIn('taken@example.com', PHONE)
+    jar.clear()
+    await signIn('wants-taken@example.com', PHONE)
+    await requestEmailCode('taken@example.com')
+
+    const verified = await browse('/account/change-email/email-code', {
+      ...crumb(),
+      code: KNOWN_CODE
+    })
+    expect(verified.headers.location).toBe(
+      '/account/change-email/change-email-error'
+    )
+
+    const page = await browse('/account/change-email/change-email-error')
+    expect(page.statusCode).toBe(200)
+    expect(page.payload).toContain('Your email address was not updated')
+    expect(page.payload).toContain('already used for another sign-in')
+
+    // the error is flashed, so it only shows once
+    const again = await browse('/account/change-email/change-email-error')
+    expect(again.payload).not.toContain('already used for another sign-in')
   })
 
   it('changes the signed-in account email end to end', async () => {
@@ -524,29 +766,39 @@ describe('change-email round trip', () => {
     const originalEmail = account.email
     await startChangeEmail()
 
-    const sentCode = await browse('/account/send-code', crumb())
-    expect(sentCode.headers.location).toBe('/account/phone-sent-code')
-    expect((await browse('/account/phone-sent-code')).statusCode).toBe(200)
+    const sentCode = await browse('/account/change-email/send-code', crumb())
+    expect(sentCode.headers.location).toBe(
+      '/account/change-email/phone-sent-code'
+    )
+    expect(
+      (await browse('/account/change-email/phone-sent-code')).statusCode
+    ).toBe(200)
 
-    const verifiedPhone = await browse('/account/phone-code', {
+    const verifiedPhone = await browse('/account/change-email/phone-code', {
       ...crumb(),
       code: KNOWN_CODE
     })
-    expect(verifiedPhone.headers.location).toBe('/account/enter-email')
-    expect((await browse('/account/enter-email')).statusCode).toBe(200)
+    expect(verifiedPhone.headers.location).toBe(
+      '/account/change-email/enter-email'
+    )
+    expect((await browse('/account/change-email/enter-email')).statusCode).toBe(
+      200
+    )
 
     const newEmail = 'after@example.com'
-    const emailRequested = await browse('/account/enter-email', {
+    const emailRequested = await browse('/account/change-email/enter-email', {
       ...crumb(),
       email: newEmail
     })
-    expect(emailRequested.headers.location).toBe('/account/email-code')
+    expect(emailRequested.headers.location).toBe(
+      '/account/change-email/email-code'
+    )
 
-    const codePage = await browse('/account/email-code')
+    const codePage = await browse('/account/change-email/email-code')
     expect(codePage.statusCode).toBe(200)
     expect(codePage.payload).toContain(newEmail)
 
-    const verifiedEmail = await browse('/account/email-code', {
+    const verifiedEmail = await browse('/account/change-email/email-code', {
       ...crumb(),
       code: KNOWN_CODE
     })
@@ -556,10 +808,11 @@ describe('change-email round trip', () => {
     expect(updated.statusCode).toBe(200)
     expect(updated.payload).toContain(newEmail)
     expect(updated.payload).not.toContain(originalEmail)
+    expect(updated.payload).toContain('Your email address has been changed')
 
     // both OTPs (phone and email) are cleaned up once the change lands, so
     // revisiting the phone step now finds nothing and restarts the journey
-    const afterCleanup = await browse('/account/phone-sent-code')
+    const afterCleanup = await browse('/account/change-email/phone-sent-code')
     expect(afterCleanup.headers.location).toBe('/account/change-email')
   })
 })
