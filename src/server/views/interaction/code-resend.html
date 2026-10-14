@@ -6,22 +6,24 @@
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 
-{% set pageTitle = t('signin.codeResend.title') %}
+{% set pageTitle = t('otp.getCode') %}
 
 {% block content %}
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-      <h1 class="govuk-heading-l">{{ t('signin.codeResend.title') }}</h1>
+      <h1 class="govuk-heading-l">{{ t('otp.getCode') }}</h1>
 
-      {{ govukInsetText({ text: t('signin.codeResend.sentTo', { email: email }) }) }}
+      <div class="govuk-inset-text">
+        {{ t('otp.sendToEmail') }} <strong>{{ email }}</strong>
+      </div>
 
-      <p class="govuk-body">{{ t('signin.codeResend.lockoutInfo') }}</p>
-      <p class="govuk-body">{{ t('signin.codeResend.emailInfo') }}</p>
+      <p class="govuk-body">{{ t('otp.requestLimitInfo') }}</p>
+      <p class="govuk-body">{{ t('otp.emailArrivalInfo') }}</p>
 
       <form method="POST" action="../email?resend=true">
         <input type="hidden" name="crumb" value="{{ crumb }}">
         {{ govukButton({
-          text: t('signin.codeResend.getCode'),
+          text: t('otp.getCode'),
           name: "email",
           value: email
         }) }}

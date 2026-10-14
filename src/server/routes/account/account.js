@@ -241,6 +241,7 @@ export default /** @type {ServerRoute[]} */ (
       async handler(request, h) {
         const uid = getSessionUid(request)
         const account = /** @type {Account} */ (request.auth.credentials)
+        // const result =
         await identityApi.requestOtpViaEmail(
           {
             uid,
@@ -250,6 +251,18 @@ export default /** @type {ServerRoute[]} */ (
           },
           await getServiceToken()
         )
+
+        // if ()
+        // switch (result.status) {
+        //   case OTP_ISSUED:
+        //     return { outcome: CODE_SENT, email: trimmed }
+        //   case LOCKED_OUT:
+        //     return { outcome: LOCKED_OUT, lockedUntil: new Date(result.lockedUntil) }
+        //   default:
+        //     throw Boom.badImplementation(
+        //       `Unexpected code request status: ${String(/** @type {{ status?: unknown }} */ (result).status)}`
+        //     )
+        // }
 
         const { resend = false } = request.query
 

@@ -21,7 +21,7 @@ export async function submitCode(uid, code, purpose, accountId) {
   const trimmed = (code ?? '').trim()
 
   if (!trimmed) {
-    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorRequired' }
+    return { outcome: INVALID_CODE, errorKey: 'otp.enterCode' }
   }
 
   const result = await identityApi.verifyOtp(
@@ -33,7 +33,7 @@ export async function submitCode(uid, code, purpose, accountId) {
     return { outcome: VALID }
   }
   if (result.status === INVALID_CODE_FORMAT) {
-    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalidFormat' }
+    return { outcome: INVALID_CODE, errorKey: 'otp.codeFormatError' }
   }
   if (result.status === INVALID_CODE_CONSUMED_OR_EXPIRED) {
     return { outcome: INVALID_CODE_CONSUMED_OR_EXPIRED }

@@ -6,18 +6,18 @@
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 
-{% set pageTitle = t('signin.codeResend.title') %}
+{% set pageTitle = t('otp.getCode') %}
 
 {% block content %}
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
-      <h1 class="govuk-heading-l">{{ t('account.codeResend.title') }}</h1>
+      <h1 class="govuk-heading-l">{{ t('otp.getCode') }}</h1>
 
       <div class="govuk-inset-text">
-        {{ t('account.codeResend.sentToPhone') if isSms else t('account.codeResend.sentToEmail')}} <strong>{{ target }}</strong>
+        {{ t('otp.sendToPhone') if isSms else t('otp.sendToEmail') }} <strong>{{ target }}</strong>
       </div>
 
-      <p class="govuk-body">{{ t('account.codeResend.lockoutInfo') }}</p>
+      <p class="govuk-body">{{ t('otp.requestLimitInfo') }}</p>
 
       {% if isSms %}
         <form method="POST" action="/account/{{ accountAction }}/send-code?resend=true">
@@ -27,7 +27,7 @@
           }) }}
         </form>
       {% elif accountAction === 'change-email' %}
-        <p class="govuk-body">{{ t('account.codeResend.emailInfo') }}</p>
+        <p class="govuk-body">{{ t('otp.emailArrivalInfo') }}</p>
 
         <form method="POST" action="/account/{{ accountAction }}/enter-email?resend=true">
           <input type="hidden" name="crumb" value="{{ crumb }}">

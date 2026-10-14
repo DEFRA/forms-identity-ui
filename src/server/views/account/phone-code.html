@@ -16,8 +16,8 @@
       {% if showResendNotification %}
         {{ govukNotificationBanner({
           type: "success",
-          titleText: t('account.sentPhoneOtp.resendNotificationTitleText'),
-          text: t('account.sentPhoneOtp.resendNotificationText')
+          titleText: t('common.success'),
+          text: t('otp.resendNotificationText')
         }) }}
       {% endif %}
 
@@ -37,13 +37,13 @@
         {{ t('account.sentPhoneOtp.inset') }} <strong>{{ phoneEndDigits }}</strong>
       </div>
 
-      <p class="govuk-body">{{ t('account.sentPhoneOtp.para2') }}</p>
+      <p class="govuk-body">{{ t('otp.expiryInfo') }}</p>
 
       <form method="post" action="/account/change-email/phone-code" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
         {{ govukInput({
-          label: { text: t('account.sentPhoneOtp.enterCode') },
+          label: { text: t('otp.enterCode') },
           classes: "govuk-input--width-10 govuk-input--extra-letter-spacing",
           id: "code",
           name: "code",
@@ -59,7 +59,7 @@
       </form>
 
       {{ govukDetails({
-        summaryText: t('account.sentPhoneOtp.problemsDetails.summaryText'),
+        summaryText: t('otp.problemsSummary'),
         html: t('account.sentPhoneOtp.problemsDetails.body')
       }) }}
     </div>

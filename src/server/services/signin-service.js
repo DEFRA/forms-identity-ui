@@ -65,8 +65,8 @@ export async function submitEmail(uid, email) {
       outcome: INVALID_EMAIL,
       email: trimmed,
       errorKey: trimmed
-        ? 'signin.email.errorFormat'
-        : 'signin.email.errorRequired'
+        ? 'common.emailAddressFormatError'
+        : 'common.emailAddressRequired'
     }
   }
 
@@ -99,7 +99,7 @@ export async function submitCode(uid, code) {
   const trimmed = (code ?? '').trim()
 
   if (!trimmed) {
-    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorRequired' }
+    return { outcome: INVALID_CODE, errorKey: 'otp.enterCode' }
   }
 
   const result = await identityApi.verifyOtp(
@@ -114,7 +114,7 @@ export async function submitCode(uid, code) {
     return { outcome: PHONE_REQUIRED }
   }
   if (result.status === INVALID_CODE_FORMAT) {
-    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalidFormat' }
+    return { outcome: INVALID_CODE, errorKey: 'otp.codeFormatError' }
   }
   if (result.status === INVALID_CODE_CONSUMED_OR_EXPIRED) {
     return { outcome: INVALID_CODE_CONSUMED_OR_EXPIRED }
@@ -138,7 +138,7 @@ export async function submitPhone(uid, phone) {
     return {
       outcome: INVALID_PHONE,
       phone: trimmed,
-      errorKey: 'signin.phone.errorRequired'
+      errorKey: 'common.phoneNumberRequired'
     }
   }
 
@@ -154,7 +154,7 @@ export async function submitPhone(uid, phone) {
     return {
       outcome: INVALID_PHONE,
       phone: trimmed,
-      errorKey: 'signin.phone.errorInvalid'
+      errorKey: 'common.phoneNumberFormatError'
     }
   }
   return { outcome: RESTART }

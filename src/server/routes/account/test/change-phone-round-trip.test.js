@@ -630,7 +630,7 @@ describe('change-phone round trip', () => {
   })
 
   it.each([
-    ['empty', '', 'Enter a mobile phone number'],
+    ['empty', '', 'Enter your mobile phone number'],
     [
       'badly formatted',
       'not-a-number',

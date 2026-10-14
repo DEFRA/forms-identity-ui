@@ -226,8 +226,8 @@ export default /** @type {ServerRoute[]} */ (
         const trimmed = email.trim().toLowerCase()
         const { error } = emailSchema.validate(trimmed)
         const entryErrorKey = trimmed
-          ? 'account.newEmail.errorFormat'
-          : 'account.newEmail.errorRequired'
+          ? 'common.emailAddressFormatError'
+          : 'common.emailAddressRequired'
         const sameEmailErrorKey =
           account.email === trimmed
             ? 'account.newEmail.errorSameAsCurrent'

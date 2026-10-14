@@ -7,7 +7,7 @@
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
-{% set pageTitle = t('signin.code.title') %}
+{% set pageTitle = t('otp.checkEmail') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
 {% block content %}
@@ -17,8 +17,8 @@
       {% if showResendNotification %}
         {{ govukNotificationBanner({
           type: "success",
-          titleText: t('signin.code.resendNotificationTitleText'),
-          text: t('signin.code.resendNotificationText')
+          titleText: t('common.success'),
+          text: t('otp.resendNotificationText')
         }) }}
       {% endif %}
 
@@ -29,17 +29,19 @@
         }) }}
       {% endif %}
 
-      <h1 class="govuk-heading-l">{{ t('signin.code.title') }}</h1>
+      <h1 class="govuk-heading-l">{{ t('otp.checkEmail') }}</h1>
 
-      {{ govukInsetText({ text: t('signin.code.sentTo', { email: email }) }) }}
+      <div class="govuk-inset-text">
+        {{ t('otp.emailSentLabel') }} <strong>{{ email }}</strong>
+      </div>
 
-      <p class="govuk-body">{{ t('signin.code.body') }}</p>
+      <p class="govuk-body">{{ t('otp.expiryInfo') }}</p>
 
       <form method="post" action="/interaction/{{ uid }}/code" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
         {{ govukInput({
-          label: { text: t('signin.code.label') },
+          label: { text: t('otp.enterCode') },
           classes: "govuk-input--width-10 govuk-input--extra-letter-spacing",
           id: "code",
           name: "code",
@@ -54,7 +56,7 @@
       </form>
 
       {{ govukDetails({
-        summaryText: t('signin.code.problemsDetails.summaryText'),
+        summaryText: t('otp.problemsSummary'),
         html: t('signin.code.problemsDetails.body')
       }) }}
     </div>

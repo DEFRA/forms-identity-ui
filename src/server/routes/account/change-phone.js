@@ -44,7 +44,7 @@ const JOURNEY_CHANGE_PHONE_ERROR = `${PATH_PREFIX}/change-phone-error`
 
 // Error mapping
 const errorsLookup = /** @type {Partial<Record<string, string>>} */ ({
-  [INVALID_PHONE]: 'account.newPhone.errorFormat',
+  [INVALID_PHONE]: 'common.phoneNumberFormatError',
   [SAME_AS_CURRENT]: 'account.newPhone.errorSameAsCurrent'
 })
 
@@ -66,7 +66,7 @@ async function isEmailVerified(uid) {
  */
 function mapPhoneInputToErrorKey(phone, currentPhone) {
   if (!phone) {
-    return 'account.newPhone.errorRequired'
+    return 'common.phoneNumberRequired'
   }
   if (phone === currentPhone) {
     return 'account.newPhone.errorSameAsCurrent'

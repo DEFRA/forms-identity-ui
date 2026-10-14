@@ -6,7 +6,7 @@
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
-{% set pageTitle = t('account.deleteAccount.pageTitle') %}
+{% set pageTitle = t('account.deleteSignInTitle') %}
 {% set errorText = t(errorKey) %}
 {% set errorMessage = { text: errorText } if errorKey else undefined %}
 
@@ -16,8 +16,8 @@
       {% if showResendNotification %}
         {{ govukNotificationBanner({
           type: "success",
-          titleText: t('account.sentEmailOtp.resendNotificationTitleText'),
-          text: t('account.sentEmailOtp.resendNotificationText')
+          titleText: t('common.success'),
+          text: t('otp.resendNotificationText')
         }) }}
       {% endif %}
 
@@ -28,16 +28,16 @@
         }) }}
       {% endif %}
 
-      <span class="govuk-caption-l">{{ t('account.deleteAccount.pageTitle') }}</span>
-      <h1 class="govuk-heading-l">{{ t('account.requestEmailOtp.title') }}</h1>
+      <span class="govuk-caption-l">{{ t('account.deleteSignInTitle') }}</span>
+      <h1 class="govuk-heading-l">{{ t('otp.getCode') }}</h1>
 
       <p class="govuk-body">{{ t('account.deleteAccount.para1') }}</p>
 
       <div class="govuk-inset-text">
-        {{ t('account.deleteAccount.para2') }} <strong>{{ email }}</strong>
+        {{ t('otp.emailSentLabel') }} <strong>{{ email }}</strong>
       </div>
 
-      <p class="govuk-body">{{ t('account.deleteAccount.para3') }}</p>
+      <p class="govuk-body">{{ t('otp.expiryInfo') }}</p>
 
       <form method="post" action="/account/delete-account/send-code" novalidate="">
         <input type="hidden" name="crumb" value="{{ crumb }}">

@@ -12,7 +12,7 @@
       {% if notificationSuccessKey %}
         {{ govukNotificationBanner({
           type: "success",
-          titleText: t('account.successNotificationTitleText'),
+          titleText: t('common.success'),
           text: t(notificationSuccessKey)
         }) }}
       {% endif %}
@@ -41,7 +41,7 @@
             }
           },
           {
-            key: { text: t('account.phone') },
+            key: { text: t('common.phoneNumber') },
             value: { text: account.phone },
             actions: {
               items: [
@@ -60,7 +60,7 @@
       <h2 class="govuk-heading-m">{{ t('account.deleteSignInTitle') }}</h2>
       <p class="govuk-body">{{ t('account.deleteSignInInfo') }}</p>
       <p class="govuk-body">
-        <a class="govuk-link govuk-link--no-visited-state" href="/account/delete-account">{{ t('account.deleteSignInLinkText') }}</a>
+        <a class="govuk-link govuk-link--no-visited-state" href="/account/delete-account">{{ t('account.deleteSignInTitle') }}</a>
       </p>
     </div>
   </div>
