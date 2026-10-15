@@ -5,16 +5,19 @@ import {
   SESSION_KEY_BACK_LINK,
   sessionNames
 } from '~/src/server/common/constants/session-names.js'
+import { formatHoursUntil } from '~/src/server/common/helpers/duration.js'
 import { runnerHomepageReturnPath } from '~/src/server/common/helpers/validation.js'
-import { setLanguage } from '~/src/server/i18n/index.js'
+import { getLanguage, setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
+import { requestOtpViaEmail } from '~/src/server/services/otp-service.js'
 import {
   INVALID_CODE,
   INVALID_CODE_CONSUMED_OR_EXPIRED,
+  LOCKED_OUT,
   VALID
 } from '~/src/server/services/outcomes.js'
 
@@ -241,28 +244,21 @@ export default /** @type {ServerRoute[]} */ (
       async handler(request, h) {
         const uid = getSessionUid(request)
         const account = /** @type {Account} */ (request.auth.credentials)
-        // const result =
-        await identityApi.requestOtpViaEmail(
-          {
-            uid,
-            email: account.email,
-            accountId: account.id,
-            purpose: PURPOSE.ACCOUNT_DELETE_ACCOUNT_VERIFY_EMAIL
-          },
-          await getServiceToken()
+        const result = await requestOtpViaEmail(
+          uid,
+          account.email,
+          PURPOSE.ACCOUNT_DELETE_ACCOUNT_VERIFY_EMAIL,
+          account.id
         )
 
-        // if ()
-        // switch (result.status) {
-        //   case OTP_ISSUED:
-        //     return { outcome: CODE_SENT, email: trimmed }
-        //   case LOCKED_OUT:
-        //     return { outcome: LOCKED_OUT, lockedUntil: new Date(result.lockedUntil) }
-        //   default:
-        //     throw Boom.badImplementation(
-        //       `Unexpected code request status: ${String(/** @type {{ status?: unknown }} */ (result).status)}`
-        //     )
-        // }
+        if (result.outcome === LOCKED_OUT) {
+          return h.view('account/locked-out', {
+            retryAfter: formatHoursUntil(
+              result.lockedUntil,
+              getLanguage(request.query, request.yar)
+            )
+          })
+        }
 
         const { resend = false } = request.query
 

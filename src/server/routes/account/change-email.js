@@ -2,9 +2,9 @@ import Joi from 'joi'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
+import { formatHoursUntil } from '~/src/server/common/helpers/duration.js'
 import { getBackLink } from '~/src/server/common/helpers/navigation.js'
-import * as identityApi from '~/src/server/lib/identity-api.js'
-import { getServiceToken } from '~/src/server/lib/service-token.js'
+import { getLanguage } from '~/src/server/i18n/index.js'
 import {
   ACCOUNT_PATH,
   EMAIL_JOURNEY_START_PATH,
@@ -22,7 +22,12 @@ import {
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
 import {
+  requestOtpViaEmail,
+  requestOtpViaSms
+} from '~/src/server/services/otp-service.js'
+import {
   ALREADY_IN_USE,
+  LOCKED_OUT,
   SAME_AS_CURRENT,
   VALID
 } from '~/src/server/services/outcomes.js'
@@ -97,14 +102,20 @@ export default /** @type {ServerRoute[]} */ (
       async handler(request, h) {
         const uid = getSessionUid(request)
         const account = /** @type {Account} */ (request.auth.credentials)
-        await identityApi.requestOtpViaSms(
-          {
-            uid,
-            accountId: account.id,
-            purpose: PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_PHONE
-          },
-          await getServiceToken()
+        const result = await requestOtpViaSms(
+          uid,
+          PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_PHONE,
+          account.id
         )
+
+        if (result.outcome === LOCKED_OUT) {
+          return h.view('account/locked-out', {
+            retryAfter: formatHoursUntil(
+              new Date(result.lockedUntil),
+              getLanguage(request.query, request.yar)
+            )
+          })
+        }
 
         flashResendIfRequested(request)
 
@@ -241,15 +252,21 @@ export default /** @type {ServerRoute[]} */ (
           })
         }
 
-        await identityApi.requestOtpViaEmail(
-          {
-            uid,
-            email: trimmed,
-            accountId: account.id,
-            purpose: PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_EMAIL
-          },
-          await getServiceToken()
+        const result = await requestOtpViaEmail(
+          uid,
+          trimmed,
+          PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_EMAIL,
+          account.id
         )
+
+        if (result.outcome === LOCKED_OUT) {
+          return h.view('account/locked-out', {
+            retryAfter: formatHoursUntil(
+              result.lockedUntil,
+              getLanguage(request.query, request.yar)
+            )
+          })
+        }
 
         flashResendIfRequested(request)
 

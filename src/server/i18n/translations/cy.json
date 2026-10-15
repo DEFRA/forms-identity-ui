@@ -92,6 +92,13 @@
         "body": "Ni allwch bellach gael mynediad at unrhyw ffurflenni rydych wedi'u dechrau neu eu cyflwyno gan ddefnyddio'r manylion mewngofnodi hyn.",
         "info": "Os bydd angen i chi ddefnyddio'r ffurflen hon eto, bydd angen i chi greu manylion mewngofnodi newydd."
       }
+    },
+    "lockedOut": {
+      "title": "Gofynnwyd am ormod o godau diogelwch",
+      "body": [
+        "Rydych wedi gofyn am ormod o godau diogelwch.",
+        "Rhowch gynnig arall arni ymhen [[duration]]."
+      ]
     }
   },
   "layout": {

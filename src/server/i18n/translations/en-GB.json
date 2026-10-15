@@ -92,6 +92,13 @@
         "body": "You can no longer access any forms you have started or submitted using this sign-in.",
         "info": "If you need to use this form again, you will need to create a new sign-in."
       }
+    },
+    "lockedOut": {
+      "title": "Too many security codes requested",
+      "body": [
+        "You have requested too many security codes.",
+        "Try again in [[duration]]."
+      ]
     }
   },
   "layout": {

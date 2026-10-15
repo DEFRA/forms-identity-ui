@@ -5,6 +5,7 @@
  */
 export const INVALID_EMAIL = 'invalid-email'
 export const CODE_SENT = 'code-sent'
+export const LOCKED_OUT = 'locked-out'
 export const INVALID_CODE = 'invalid-code'
 export const INVALID_CODE_FORMAT = 'invalid-code-format'
 export const INVALID_CODE_CONSUMED_OR_EXPIRED =
@@ -16,6 +17,9 @@ export const SAME_AS_CURRENT = 'same-as-current'
 export const VALID = 'valid'
 export const SIGNED_IN = 'signed-in'
 export const RESTART = 'restart'
+// the API's verdict on a code request; `code-sent` above is the journey
+// outcome the UI turns it into
+export const OTP_ISSUED = 'otp-issued'
 
 /**
  * Journey outcomes: plain data the route handlers translate into
