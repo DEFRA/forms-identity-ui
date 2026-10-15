@@ -50,6 +50,7 @@ describe('otp service', () => {
     })
 
     it('throws on an unexpected status', async () => {
+      // @ts-expect-error - invalid property for testing
       api().mockResolvedValue({ status: 'surprise' })
 
       await expect(call()).rejects.toThrow(
