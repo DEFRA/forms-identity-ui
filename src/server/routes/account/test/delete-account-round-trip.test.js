@@ -37,6 +37,8 @@ const artifacts = new Map()
 const otps = new Map()
 // when active, the fake API refuses every code request as locked out
 const lockout = { active: false }
+// when active, the fake store fails every grant revocation
+const grantRevocation = { failing: false }
 /** @type {Map<string, { id: string, email: string, phone: string }>} */
 const accounts = new Map()
 /** @type {string[]} */
@@ -74,6 +76,10 @@ function oidcStore(method, segments, body) {
   const [model, id, action] = segments
 
   if (model === 'grants') {
+    if (grantRevocation.failing) {
+      return { status: 500, body: { message: 'revocation failed' } }
+    }
+
     for (const [key, artifact] of artifacts) {
       if (artifact.grantId === id) {
         artifacts.delete(key)
@@ -313,6 +319,7 @@ describe('delete-account round trip', () => {
     artifacts.clear()
     otps.clear()
     lockout.active = false
+    grantRevocation.failing = false
     accounts.clear()
     seenPaths.length = 0
     mockStsSend.mockResolvedValue({ WebIdentityToken: 'stub-service-token' })
@@ -519,6 +526,27 @@ describe('delete-account round trip', () => {
       '/account/delete-account/send-code?resend=true'
     )
     expect(accounts.has(account.id)).toBe(true)
+  })
+
+  it('still shows the success page and ends the session when revoking grants fails', async () => {
+    const account = await signIn('delete-revoke-fails@example.com')
+    grantRevocation.failing = true
+
+    await browse('/account/delete-account/send-code', crumb())
+    const deleted = await browse('/account/delete-account/email-code', {
+      ...crumb(),
+      code: KNOWN_CODE
+    })
+
+    expect(deleted.statusCode).toBe(200)
+    expect(deleted.payload).toContain('Your sign-in has been deleted')
+    expect(accounts.has(account.id)).toBe(false)
+    expect(
+      seenPaths.some((path) => path.startsWith('DELETE /oidc/grants/'))
+    ).toBe(true)
+
+    const accountPage = await browse('/account')
+    expect(accountPage.statusCode).toBe(404)
   })
 
   it.each([

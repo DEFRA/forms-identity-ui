@@ -72,27 +72,36 @@ export function getSessionUid(request) {
  * @param {string} uid
  */
 async function logoutAndRevokeGrants(request, uid) {
-  const provider = request.server.app.oidcProvider
-  const session = await provider.Session.findByUid(uid)
-
-  if (!session) {
-    return
-  }
-
-  const grantIds = new Set(
-    Object.values(session.authorizations ?? {})
-      .map(({ grantId }) => grantId)
-      .filter(Boolean)
-  )
-
+  // The account is already deleted when this runs, so a failure here is
+  // logged rather than thrown: the user must still see the deletion succeed
   try {
-    await Promise.all(
-      [...grantIds].map((grantId) =>
-        provider.AccessToken.revokeByGrantId(grantId)
-      )
+    const provider = request.server.app.oidcProvider
+    const session = await provider.Session.findByUid(uid)
+
+    if (!session) {
+      return
+    }
+
+    const grantIds = new Set(
+      Object.values(session.authorizations ?? {})
+        .map(({ grantId }) => grantId)
+        .filter(Boolean)
     )
-  } finally {
-    await session.destroy()
+
+    try {
+      await Promise.all(
+        [...grantIds].map((grantId) =>
+          provider.AccessToken.revokeByGrantId(grantId)
+        )
+      )
+    } finally {
+      await session.destroy()
+    }
+  } catch (error) {
+    request.logger.error(
+      error,
+      'Failed to revoke grants or end the session after account deletion'
+    )
   }
 }
 

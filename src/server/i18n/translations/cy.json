@@ -54,7 +54,7 @@
       "para1": "Mae angen i ni wirio mai chi ydyw cyn y gallwch newid eich cyfeiriad e-bost.",
       "inset": "Rydym wedi anfon cod diogelwch at eich rhif ffôn symudol sy'n gorffen â",
       "problemsDetails": {
-        "body": "Gallwn <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code-resend\">anfon y cod diogelwch eto</a> os nad yw'r cod diogelwch yn gweithio neu os na chawsoch ef."
+        "body": "Gallwn <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend?transport=sms\">anfon y cod diogelwch eto</a> os nad yw'r cod diogelwch yn gweithio neu os na chawsoch ef."
       }
     },
     "newEmail": {
@@ -69,7 +69,7 @@
     },
     "sentEmailOtp": {
       "problemsDetails": {
-        "body": "Gallwn <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code-resend\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./enter-email\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
+        "body": "Gallwn <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend?transport=email\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./enter-email\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
       }
     },
     "updateError": {
