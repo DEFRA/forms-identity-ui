@@ -59,7 +59,12 @@ export async function submitEmail(uid, email) {
     }
   }
 
-  return await requestOtpViaEmail(uid, trimmed, PURPOSE.SIGNIN_VERIFY_EMAIL)
+  const result = await requestOtpViaEmail(
+    uid,
+    trimmed,
+    PURPOSE.SIGNIN_VERIFY_EMAIL
+  )
+  return result
 }
 
 /**
