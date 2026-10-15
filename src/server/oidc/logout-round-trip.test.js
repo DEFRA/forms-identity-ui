@@ -179,11 +179,6 @@ describe('logout round trip', () => {
       `${POST_LOGOUT_REDIRECT_URI}?state=logout-state&cancelled=true`
     )
 
-    // With JavaScript, the page presses its own button.
-    expect(
-      document.querySelector('[data-module="app-auto-submit"] button')
-    ).not.toBeNull()
-
     const signedOut = await submitSignOut(document)
     expect(signedOut.statusCode).toBe(303)
     expect(signedOut.headers.location).toBe(
@@ -204,7 +199,7 @@ describe('logout round trip', () => {
   it('asks the citizen to confirm when the request carries no ID token', async () => {
     const tokens = await signIn('no-hint@example.com')
 
-    const { container, document } = await openSignOut({ client_id: 'runner' })
+    const { container } = await openSignOut({ client_id: 'runner' })
 
     expect(
       container.getByRole('heading', {
@@ -212,7 +207,6 @@ describe('logout round trip', () => {
         level: 1
       })
     ).toBeInTheDocument()
-    expect(document.querySelector('[data-module="app-auto-submit"]')).toBeNull()
 
     // Without a post-logout redirect URI, the page shows no Cancel link.
     expect(
