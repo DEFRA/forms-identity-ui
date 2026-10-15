@@ -35,6 +35,8 @@ const PHONE = '07911 123456'
 const artifacts = new Map()
 /** @type {Map<string, { target: string, verified: boolean }>} */
 const otps = new Map()
+// when active, the fake API refuses every code request as locked out
+const lockout = { active: false }
 /** @type {Map<string, { id: string, email: string, phone: string }>} */
 const accounts = new Map()
 /** @type {string[]} */
@@ -121,11 +123,21 @@ function otpEndpoints(method, segments, body) {
   const [first, second] = segments
 
   if (method === 'POST' && first === 'request') {
+    if (lockout.active) {
+      return {
+        status: 200,
+        body: {
+          status: 'locked-out',
+          lockedUntil: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+        }
+      }
+    }
+
     otps.set(`${body.uid}:${body.purpose}`, {
       target: body.target,
       verified: false
     })
-    return NO_CONTENT
+    return { status: 200, body: { status: 'otp-issued' } }
   }
 
   if (method === 'POST' && first === 'verify') {
@@ -297,6 +309,7 @@ describe('delete-account round trip', () => {
     jar.clear()
     artifacts.clear()
     otps.clear()
+    lockout.active = false
     accounts.clear()
     seenPaths.length = 0
     mockStsSend.mockResolvedValue({ WebIdentityToken: 'stub-service-token' })
@@ -481,6 +494,27 @@ describe('delete-account round trip', () => {
       const codePage = await browse('/account/delete-account/email-code')
       expect(codePage.statusCode).toBe(200)
       expect(codePage.payload).toContain(message)
+      expect(accounts.has(account.id)).toBe(true)
+    }
+  )
+
+  it.each([
+    ['requesting', '/account/delete-account/send-code'],
+    ['resending', '/account/delete-account/send-code?resend=true']
+  ])(
+    'shows the locked out page and keeps the account when %s a code is refused',
+    async (_name, url) => {
+      const account = await signIn(`delete-locked-${url.length}@example.com`)
+      lockout.active = true
+
+      const res = await browse(url, crumb())
+
+      expect(res.statusCode).toBe(200)
+      expect(res.payload).toContain('Too many security codes requested')
+      expect(res.payload).toContain('Try again in 2 hours.')
+
+      const codePage = await browse('/account/delete-account/email-code')
+      expect(codePage.statusCode).toBe(302)
       expect(accounts.has(account.id)).toBe(true)
     }
   )

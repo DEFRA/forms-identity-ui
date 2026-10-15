@@ -49,6 +49,8 @@ const artifacts = new Map()
  * @type {Map<string, { target: string, verified: boolean }>}
  */
 const otps = new Map()
+// when active, the fake API refuses every code request as locked out
+const lockout = { active: false }
 /**
  * Accounts by id
  * @type {Map<string, { id: string, email: string, phone: string }>}
@@ -144,11 +146,21 @@ function otpEndpoints(method, segments, body) {
   const [first, second] = segments
 
   if (method === 'POST' && first === 'request') {
+    if (lockout.active) {
+      return {
+        status: 200,
+        body: {
+          status: 'locked-out',
+          lockedUntil: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+        }
+      }
+    }
+
     otps.set(`${body.uid}:${body.purpose}`, {
       target: body.target,
       verified: false
     })
-    return NO_CONTENT
+    return { status: 200, body: { status: 'otp-issued' } }
   }
 
   if (method === 'POST' && first === 'verify') {
@@ -344,6 +356,7 @@ describe('change-email round trip', () => {
 
   beforeEach(() => {
     jar.clear()
+    lockout.active = false
     mockStsSend.mockResolvedValue({ WebIdentityToken: 'stub-service-token' })
   })
 
@@ -700,6 +713,48 @@ describe('change-email round trip', () => {
     const page = await browse('/account/change-email/email-code')
     expect(page.statusCode).toBe(200)
     expect(page.payload).toContain('We’ve sent you a new security code.')
+  })
+
+  describe('when too many codes have been requested', () => {
+    it.each([
+      ['requesting the phone code', '/account/change-email/send-code'],
+      [
+        'resending the phone code',
+        '/account/change-email/send-code?resend=true'
+      ]
+    ])('shows the locked out page on %s', async (_name, url) => {
+      await signIn(`locked-phone-${url.length}@example.com`, PHONE)
+      await startChangeEmail()
+      lockout.active = true
+
+      const res = await browse(url, crumb())
+
+      expect(res.statusCode).toBe(200)
+      expect(res.payload).toContain('Too many security codes requested')
+      expect(res.payload).toContain('Try again in 2 hours.')
+
+      const codePage = await browse('/account/change-email/phone-sent-code')
+      expect(codePage.statusCode).toBe(302)
+      expect(codePage.headers.location).toBe('/account/change-email')
+    })
+
+    it('shows the locked out page when requesting the new email code', async () => {
+      await signIn('locked-email@example.com', PHONE)
+      await verifyPhone()
+      lockout.active = true
+
+      const res = await browse('/account/change-email/enter-email', {
+        ...crumb(),
+        email: 'locked-new@example.com'
+      })
+
+      expect(res.statusCode).toBe(200)
+      expect(res.payload).toContain('Too many security codes requested')
+      expect(res.payload).toContain('Try again in 2 hours.')
+
+      const codePage = await browse('/account/change-email/email-code')
+      expect(codePage.statusCode).not.toBe(200)
+    })
   })
 
   describe('code resend page', () => {
