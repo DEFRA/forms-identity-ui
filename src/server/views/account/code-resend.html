@@ -20,7 +20,7 @@
       <p class="govuk-body">{{ t('otp.requestLimitInfo') }}</p>
 
       {% if isSms %}
-        <form method="POST" action="/account/{{ accountAction }}/send-code?resend=true">
+        <form method="POST" action="/account/{{ accountAction }}/send-code?resend=true&transport=sms">
           <input type="hidden" name="crumb" value="{{ crumb }}">
           {{ govukButton({
             text: t('common.continue')

@@ -99,6 +99,12 @@
         "Rydych wedi gofyn am ormod o godau diogelwch.",
         "Rhowch gynnig arall arni ymhen [[duration]]."
       ]
+    },
+    "codeExpired": {
+      "title": "Mae eich cod diogelwch wedi dod i ben",
+      "para1": "Mae codau diogelwch yn dod i ben ar ôl 15 munud.",
+      "para2": "Gofynnwch i ni anfon cod newydd, yna rhowch ef ar y dudalen nesaf.",
+      "getCode": "Anfon cod diogelwch newydd"
     }
   },
   "layout": {

@@ -502,7 +502,7 @@ describe('change-email round trip', () => {
   /** Requests the phone code and submits the right one */
   async function verifyPhone() {
     await startChangeEmail()
-    await browse('/account/change-email/send-code', crumb())
+    await browse('/account/change-email/send-code?transport=sms', crumb())
     await browse('/account/change-email/phone-code', {
       ...crumb(),
       code: KNOWN_CODE
@@ -558,7 +558,7 @@ describe('change-email round trip', () => {
     await startChangeEmail()
 
     const resent = await browse(
-      '/account/change-email/send-code?resend=true',
+      '/account/change-email/send-code?transport=sms&resend=true',
       crumb()
     )
     expect(resent.headers.location).toBe(
@@ -582,7 +582,7 @@ describe('change-email round trip', () => {
     async (_name, code, message) => {
       await signIn(`phone-${code || 'empty'}@example.com`, PHONE)
       await startChangeEmail()
-      await browse('/account/change-email/send-code', crumb())
+      await browse('/account/change-email/send-code?transport=sms', crumb())
 
       const res = await browse('/account/change-email/phone-code', {
         ...crumb(),
@@ -598,7 +598,7 @@ describe('change-email round trip', () => {
     }
   )
 
-  it('re-renders the phone code page when the phone code has expired or was never requested', async () => {
+  it('redirects to the expired phone code page when the phone code has expired or was never requested', async () => {
     await signIn('phone-expired@example.com', PHONE)
     await startChangeEmail()
 
@@ -607,7 +607,45 @@ describe('change-email round trip', () => {
       code: KNOWN_CODE
     })
 
-    expect(res.statusCode).toBe(200)
+    expect(res.statusCode).toBe(302)
+    expect(res.headers.location).toBe('/account/change-email/code/expired/sms')
+
+    const page = await browse('/account/change-email/code/expired/sms')
+    expect(page.statusCode).toBe(200)
+    expect(page.payload).toContain('Your security code has expired')
+    expect(page.payload).toContain(PHONE.slice(-4))
+    expect(page.payload).toContain(
+      '/account/change-email/send-code?resend=true&amp;transport=sms'
+    )
+  })
+
+  it('redirects to the expired email code page when the email code has expired', async () => {
+    await signIn('email-expired@example.com', PHONE)
+    await verifyPhone()
+    await browse('/account/change-email/enter-email', {
+      ...crumb(),
+      email: 'expired-new@example.com'
+    })
+    otps.delete(
+      `${[...otps.keys()].find((key) => key.endsWith(PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_EMAIL))}`
+    )
+
+    const res = await browse('/account/change-email/email-code', {
+      ...crumb(),
+      code: KNOWN_CODE
+    })
+
+    expect(res.statusCode).toBe(302)
+    expect(res.headers.location).toBe(
+      '/account/change-email/code/expired/email'
+    )
+
+    const page = await browse('/account/change-email/code/expired/email')
+    expect(page.statusCode).toBe(200)
+    expect(page.payload).toContain('Your security code has expired')
+    expect(page.payload).toContain(
+      '/account/change-email/send-code?resend=true&amp;transport=email'
+    )
   })
 
   it('redirects to change-email if entering a new email is attempted before the phone is verified', async () => {
@@ -717,10 +755,13 @@ describe('change-email round trip', () => {
 
   describe('when too many codes have been requested', () => {
     it.each([
-      ['requesting the phone code', '/account/change-email/send-code'],
+      [
+        'requesting the phone code',
+        '/account/change-email/send-code?transport=sms'
+      ],
       [
         'resending the phone code',
-        '/account/change-email/send-code?resend=true'
+        '/account/change-email/send-code?transport=sms&resend=true'
       ]
     ])('shows the locked out page on %s', async (_name, url) => {
       await signIn(`locked-phone-${url.length}@example.com`, PHONE)
@@ -768,7 +809,7 @@ describe('change-email round trip', () => {
       expect(res.statusCode).toBe(200)
       expect(res.payload).toContain(PHONE.slice(-4))
       expect(res.payload).toContain(
-        '/account/change-email/send-code?resend=true'
+        '/account/change-email/send-code?resend=true&transport=sms'
       )
     })
 
@@ -821,7 +862,10 @@ describe('change-email round trip', () => {
     const originalEmail = account.email
     await startChangeEmail()
 
-    const sentCode = await browse('/account/change-email/send-code', crumb())
+    const sentCode = await browse(
+      '/account/change-email/send-code?transport=sms',
+      crumb()
+    )
     expect(sentCode.headers.location).toBe(
       '/account/change-email/phone-sent-code'
     )

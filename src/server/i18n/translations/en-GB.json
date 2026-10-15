@@ -99,6 +99,12 @@
         "You have requested too many security codes.",
         "Try again in [[duration]]."
       ]
+    },
+    "codeExpired": {
+      "title": "Your security code has expired",
+      "para1": "Security codes expire after 15 minutes.",
+      "para2": "Ask us to send a new code, then enter it on the next page.",
+      "getCode": "Send a new security code"
     }
   },
   "layout": {

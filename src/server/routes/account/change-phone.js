@@ -14,7 +14,6 @@ import {
   getOtp,
   getPhoneEndDigits,
   getSessionUid,
-  isInvalidCode,
   otpMissing,
   otpVerified,
   preHandler
@@ -23,6 +22,8 @@ import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
 import { requestOtpViaEmail } from '~/src/server/services/otp-service.js'
 import {
+  INVALID_CODE,
+  INVALID_CODE_CONSUMED_OR_EXPIRED,
   INVALID_PHONE,
   LOCKED_OUT,
   SAME_AS_CURRENT,
@@ -186,7 +187,11 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(JOURNEY_ENTER_PHONE)
         }
 
-        if (isInvalidCode(result)) {
+        if (result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED) {
+          return h.redirect('/account/change-phone/code/expired')
+        }
+
+        if (result.outcome === INVALID_CODE) {
           return h.view('account/email-code', {
             errorKey: codeErrorKey(result),
             email: account.email,
@@ -314,6 +319,23 @@ export default /** @type {ServerRoute[]} */ (
         const errorKey = request.yar.flash(sessionNames.changeEmailError).at(0)
         return h.view('account/change-error', {
           errorKey,
+          accountAction
+        })
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Params: { transport: string }}>} */
+    ({
+      method: 'GET',
+      path: '/account/change-phone/code/expired',
+      options: {
+        auth,
+        pre: [preHandler]
+      },
+      handler(request, h) {
+        const account = request.auth.credentials
+        return h.view('account/code-expired', {
+          isSms: false,
+          target: account.email,
           accountAction
         })
       }

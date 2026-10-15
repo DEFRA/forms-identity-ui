@@ -32,6 +32,8 @@ const JOURNEY_DELETE_ACCOUNT_START = '/account/delete-account'
 const JOURNEY_DELETE_ACCOUNT_CODE = '/account/delete-account/email-code'
 const JOURNEY_DELETE_ACCOUNT_SEND_CODE = '/account/delete-account/send-code'
 const JOURNEY_DELETE_ACCOUNT_RESEND_CODE = '/account/delete-account/code/resend'
+const JOURNEY_DELETE_ACCOUNT_CODE_EXPIRED =
+  '/account/delete-account/code/expired'
 
 // Paths - change email
 export const EMAIL_JOURNEY_START_PATH = '/account/change-email'
@@ -143,16 +145,6 @@ export const auth = /** @type {const} */ ({
  */
 export async function getOtp(uid, purpose) {
   return identityApi.getOtp(uid, await getServiceToken(), purpose)
-}
-
-/**
- * @param {{ outcome: string }} result
- */
-export function isInvalidCode(result) {
-  return (
-    result.outcome === INVALID_CODE ||
-    result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED
-  )
 }
 
 /**
@@ -364,15 +356,37 @@ export default /** @type {ServerRoute[]} */ (
           return h.view(DELETE_ACCOUNT_SUCCESS_VIEW)
         }
 
-        if (isInvalidCode(result)) {
-          request.yar.flash(
-            sessionNames.validationFailure.deleteAccountValidationFailure,
-            codeErrorKey(result)
-          )
-          return h.redirect(JOURNEY_DELETE_ACCOUNT_CODE)
+        if (result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED) {
+          return h.redirect(JOURNEY_DELETE_ACCOUNT_CODE_EXPIRED)
+        }
+
+        if (result.outcome === INVALID_CODE) {
+          return h.view('account/email-code', {
+            errorKey: codeErrorKey(result),
+            email: account.email,
+            accountAction,
+            code: code ?? ''
+          })
         }
 
         return h.redirect(JOURNEY_DELETE_ACCOUNT_CODE)
+      }
+    }),
+    /** @satisfies {ServerRoute} */
+    ({
+      method: 'GET',
+      path: JOURNEY_DELETE_ACCOUNT_CODE_EXPIRED,
+      options: {
+        auth,
+        pre: [preHandler]
+      },
+      handler(request, h) {
+        const account = request.auth.credentials
+        return h.view('account/code-expired', {
+          isSms: false,
+          target: account.email,
+          accountAction
+        })
       }
     })
   ])

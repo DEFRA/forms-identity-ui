@@ -33,7 +33,7 @@ const PHONE = '07911 123456'
 
 /** @type {Map<string, Record<string, unknown>>} */
 const artifacts = new Map()
-/** @type {Map<string, { target: string, verified: boolean }>} */
+/** @type {Map<string, { target: string, verified: boolean, expired?: boolean }>} */
 const otps = new Map()
 // when active, the fake API refuses every code request as locked out
 const lockout = { active: false }
@@ -142,11 +142,14 @@ function otpEndpoints(method, segments, body) {
 
   if (method === 'POST' && first === 'verify') {
     const record = otps.get(`${body.uid}:${body.purpose}`)
-    if (!record || body.code !== KNOWN_CODE) {
+    if (!record || record.expired || body.code !== KNOWN_CODE) {
       return {
         status: 200,
         body: {
-          status: record ? 'invalid' : 'invalid-code-consumed-or-expired'
+          status:
+            record && !record.expired
+              ? 'invalid'
+              : 'invalid-code-consumed-or-expired'
         }
       }
     }
@@ -486,17 +489,37 @@ describe('delete-account round trip', () => {
         ...crumb(),
         code
       })
-      expect(response.statusCode).toBe(302)
-      expect(response.headers.location).toBe(
-        '/account/delete-account/email-code'
-      )
-
-      const codePage = await browse('/account/delete-account/email-code')
-      expect(codePage.statusCode).toBe(200)
-      expect(codePage.payload).toContain(message)
+      expect(response.statusCode).toBe(200)
+      expect(response.payload).toContain(message)
       expect(accounts.has(account.id)).toBe(true)
     }
   )
+
+  it('redirects to the expired code page and keeps the account when the code has expired', async () => {
+    const account = await signIn('delete-expired@example.com')
+    await browse('/account/delete-account/send-code', crumb())
+    for (const record of otps.values()) {
+      record.expired = true
+    }
+
+    const response = await browse('/account/delete-account/email-code', {
+      ...crumb(),
+      code: KNOWN_CODE
+    })
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe(
+      '/account/delete-account/code/expired'
+    )
+
+    const expired = await browse('/account/delete-account/code/expired')
+    expect(expired.statusCode).toBe(200)
+    expect(expired.payload).toContain('Your security code has expired')
+    expect(expired.payload).toContain(account.email)
+    expect(expired.payload).toContain(
+      '/account/delete-account/send-code?resend=true'
+    )
+    expect(accounts.has(account.id)).toBe(true)
+  })
 
   it.each([
     ['requesting', '/account/delete-account/send-code'],

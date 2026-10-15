@@ -1,0 +1,35 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+
+{% set pageTitle = t('signin.codeExpired.title') %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      {% include "account/partials/heading-caption.html" %}
+      <h1 class="govuk-heading-l">{{ t('account.codeExpired.title') }}</h1>
+
+      <div class="govuk-inset-text">
+        {% if isSms %}
+          {{ t('account.sentPhoneOtp.inset') }} <strong>{{ target }}</strong>
+        {% else %}
+          {{ t('otp.emailSentLabel') }} <strong>{{ target }}</strong>
+        {% endif %}
+      </div>
+
+      <p class="govuk-body">{{ t('account.codeExpired.para1') }}</p>
+      <p class="govuk-body">{{ t('account.codeExpired.para2') }}</p>
+
+      {% set extraParam = "&transport=" + transport if transport else "" %}
+
+      <form method="POST" action="/account/{{ accountAction }}/send-code?resend=true{{ extraParam }}" />
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+        {{ govukButton({
+          text: t('account.codeExpired.getCode')
+        }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

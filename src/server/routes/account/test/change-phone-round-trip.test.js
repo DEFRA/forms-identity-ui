@@ -604,7 +604,7 @@ describe('change-phone round trip', () => {
     }
   )
 
-  it('re-renders the email code page when no code was ever requested', async () => {
+  it('redirects to the expired code page when no code was ever requested', async () => {
     await signIn('never-requested@example.com', PHONE)
     await startChangePhone()
 
@@ -613,7 +613,18 @@ describe('change-phone round trip', () => {
       code: KNOWN_CODE
     })
 
-    expect(res.statusCode).toBe(200)
+    expect(res.statusCode).toBe(302)
+    expect(res.headers.location).toBe('/account/change-phone/code/expired')
+
+    const page = await browse('/account/change-phone/code/expired')
+    expect(page.statusCode).toBe(200)
+    expect(page.payload).toContain('Your security code has expired')
+    expect(page.payload).toContain('We have sent an email to:')
+    expect(page.payload).toContain('never-requested@example.com')
+    expect(page.payload).not.toContain('mobile phone number ending')
+    expect(page.payload).toContain(
+      '/account/change-phone/send-code?resend=true'
+    )
   })
 
   it('redirects to change-phone if entering a new phone is attempted before the email is verified', async () => {

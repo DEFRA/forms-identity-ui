@@ -44,7 +44,7 @@ export async function requestOtpViaEmail(
     payload: {
       uid: hashId(uid),
       target: email,
-      transport: TRANSPORT.EMAIL,
+      transport: TRANSPORT.EMAIL.toUpperCase(),
       purpose,
       accountId
     },
@@ -65,7 +65,7 @@ export async function requestOtpViaSms({ uid, accountId, purpose }, token) {
     payload: {
       uid: hashId(uid),
       accountId,
-      transport: TRANSPORT.SMS,
+      transport: TRANSPORT.SMS.toUpperCase(),
       purpose
     },
     headers: bearerHeaders(token)
