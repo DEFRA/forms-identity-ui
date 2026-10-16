@@ -68,6 +68,45 @@ export function getSessionUid(request) {
 }
 
 /**
+ * Destroying a session directly, as account deletion does, skips the
+ * provider's own sign-out, so the clients that keep a session of their own
+ * are told here. A client that cannot be reached is logged and skipped, so it
+ * cannot stop the grants being revoked.
+ * @param {Request<any>} request
+ * @param {Provider} provider
+ * @param {Session} session
+ */
+async function notifyClientsOfLogout(request, provider, session) {
+  const { accountId } = session
+
+  if (!accountId) {
+    return
+  }
+
+  await Promise.all(
+    Object.keys(session.authorizations ?? {}).map(async (clientId) => {
+      try {
+        // `backchannelLogout` is on the client but missing from its types
+        const client = /** @type {BackchannelClient | undefined} */ (
+          await provider.Client.find(clientId)
+        )
+
+        const sid = session.sidFor(clientId)
+
+        if (client?.backchannelLogoutUri && sid) {
+          await client.backchannelLogout(accountId, sid)
+        }
+      } catch (error) {
+        request.logger.error(
+          error,
+          `Failed to send back-channel logout to ${clientId} after account deletion`
+        )
+      }
+    })
+  )
+}
+
+/**
  * @param {Request<any>} request
  * @param {string} uid
  */
@@ -81,6 +120,8 @@ async function logoutAndRevokeGrants(request, uid) {
     if (!session) {
       return
     }
+
+    await notifyClientsOfLogout(request, provider, session)
 
     const grantIds = new Set(
       Object.values(session.authorizations ?? {})
@@ -405,4 +446,7 @@ export default /** @type {ServerRoute[]} */ (
  * @import { Request, ResponseToolkit, ServerRoute } from '@hapi/hapi'
  * @import { PurposeType } from '~/src/server/common/constants/purposes.js'
  * @import { Account } from '~/src/server/types.js'
+ * @import { Provider } from 'oidc-provider'
+ * @typedef {{ backchannelLogoutUri?: string, backchannelLogout: (sub: string, sid: string) => Promise<void> }} BackchannelClient
+ * @typedef {NonNullable<Awaited<ReturnType<Provider['Session']['findByUid']>>>} Session
  */

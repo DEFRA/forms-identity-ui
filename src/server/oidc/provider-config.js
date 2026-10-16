@@ -21,6 +21,9 @@ const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris')
 const RUNNER_POST_LOGOUT_REDIRECT_URIS = config.get(
   'oidc.runnerPostLogoutRedirectUris'
 )
+const RUNNER_BACKCHANNEL_LOGOUT_URI = config.get(
+  'oidc.runnerBackchannelLogoutUri'
+)
 
 /**
  * The APIs this provider issues access tokens for.
@@ -80,6 +83,10 @@ export function buildProviderConfig(adapter) {
         client_id: 'runner',
         redirect_uris: RUNNER_REDIRECT_URIS,
         post_logout_redirect_uris: RUNNER_POST_LOGOUT_REDIRECT_URIS,
+        // The runner holds its own session, so the provider tells it when
+        // the citizen's session ends. `sid` lets it end just that session.
+        backchannel_logout_uri: RUNNER_BACKCHANNEL_LOGOUT_URI,
+        backchannel_logout_session_required: true,
         response_types: ['code'],
         grant_types: ['authorization_code', 'refresh_token'],
         // The client proves itself by signing a short-lived assertion with a
@@ -119,6 +126,22 @@ export function buildProviderConfig(adapter) {
       revocation_endpoint_auth_methods_supported: [CLIENT_AUTH_METHOD],
       revocation_endpoint_auth_signing_alg_values_supported: [SIGNING_ALG]
     },
+    // oidc-provider blocks outgoing requests (such as back-channel logout) to
+    // loopback and private addresses. Locally the runner is on localhost, so
+    // the protection is only lifted outside production.
+    ...(config.get('isProduction')
+      ? {}
+      : {
+          fetch: (
+            /** @type {string | URL | Request} */ url,
+            /** @type {RequestInit | undefined} */ options
+          ) =>
+            globalThis.fetch(url, {
+              ...options,
+              // @ts-expect-error undici option not in the DOM types
+              dispatcher: undefined
+            })
+        }),
     features: {
       rpInitiatedLogout: {
         enabled: true,
@@ -147,6 +170,7 @@ export function buildProviderConfig(adapter) {
           return Promise.resolve()
         }
       },
+      backchannelLogout: { enabled: true },
       revocation: { enabled: true },
       devInteractions: { enabled: false },
       // On by default, and its endpoint is deliberately not mounted

@@ -528,6 +528,68 @@ describe('delete-account round trip', () => {
     expect(accounts.has(account.id)).toBe(true)
   })
 
+  it('sends the runner a back-channel logout for the deleted account', async () => {
+    const runner = /** @type {{ backchannelLogout: () => Promise<void> }} */ (
+      /** @type {unknown} */ (
+        await server.app.oidcProvider.Client.find('runner')
+      )
+    )
+    const backchannelLogout = jest
+      .spyOn(runner, 'backchannelLogout')
+      .mockResolvedValue(undefined)
+
+    try {
+      const account = await signIn('delete-backchannel@example.com')
+
+      await browse('/account/delete-account/send-code', crumb())
+      const deleted = await browse('/account/delete-account/email-code', {
+        ...crumb(),
+        code: KNOWN_CODE
+      })
+
+      expect(deleted.statusCode).toBe(200)
+      expect(backchannelLogout).toHaveBeenCalledTimes(1)
+      expect(backchannelLogout).toHaveBeenCalledWith(
+        account.id,
+        expect.any(String)
+      )
+    } finally {
+      backchannelLogout.mockRestore()
+    }
+  })
+
+  it('still revokes grants and shows the success page when the runner cannot be told', async () => {
+    const runner = /** @type {{ backchannelLogout: () => Promise<void> }} */ (
+      /** @type {unknown} */ (
+        await server.app.oidcProvider.Client.find('runner')
+      )
+    )
+    const backchannelLogout = jest
+      .spyOn(runner, 'backchannelLogout')
+      .mockRejectedValue(new Error('runner unreachable'))
+
+    try {
+      const account = await signIn('delete-backchannel-down@example.com')
+
+      await browse('/account/delete-account/send-code', crumb())
+      const deleted = await browse('/account/delete-account/email-code', {
+        ...crumb(),
+        code: KNOWN_CODE
+      })
+
+      expect(deleted.statusCode).toBe(200)
+      expect(deleted.payload).toContain('Your sign-in has been deleted')
+      expect(accounts.has(account.id)).toBe(false)
+      expect(backchannelLogout).toHaveBeenCalledTimes(1)
+      expect(
+        seenPaths.some((path) => path.startsWith('DELETE /oidc/grants/'))
+      ).toBe(true)
+      expect((await browse('/account')).statusCode).toBe(404)
+    } finally {
+      backchannelLogout.mockRestore()
+    }
+  })
+
   it('still shows the success page and ends the session when revoking grants fails', async () => {
     const account = await signIn('delete-revoke-fails@example.com')
     grantRevocation.failing = true
