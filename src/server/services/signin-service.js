@@ -1,30 +1,19 @@
-import Boom from '@hapi/boom'
 import Joi from 'joi'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-
-/**
- * Outcomes named once, so a typo cannot silently change a journey. Exported
- * because the route handlers branch on the same names, and the API returns
- * these same verdicts as its `status`.
- */
-export const INVALID_EMAIL = 'invalid-email'
-export const CODE_SENT = 'code-sent'
-export const LOCKED_OUT = 'locked-out'
-export const INVALID_CODE = 'invalid-code'
-export const INVALID_CODE_FORMAT = 'invalid-code-format'
-export const INVALID_CODE_CONSUMED_OR_EXPIRED =
-  'invalid-code-consumed-or-expired'
-export const PHONE_REQUIRED = 'phone-required'
-export const INVALID_PHONE = 'invalid-phone'
-export const SIGNED_IN = 'signed-in'
-export const RESTART = 'restart'
-
-// the API's verdict on a code request; `code-sent` above is the journey
-// outcome the UI turns it into
-const OTP_ISSUED = 'otp-issued'
+import { requestOtpViaEmail } from '~/src/server/services/otp-service.js'
+import {
+  INVALID_CODE,
+  INVALID_CODE_CONSUMED_OR_EXPIRED,
+  INVALID_CODE_FORMAT,
+  INVALID_EMAIL,
+  INVALID_PHONE,
+  PHONE_REQUIRED,
+  RESTART,
+  SIGNED_IN
+} from '~/src/server/services/outcomes.js'
 
 const emailSchema = Joi.string().email().required()
 
@@ -65,26 +54,17 @@ export async function submitEmail(uid, email) {
       outcome: INVALID_EMAIL,
       email: trimmed,
       errorKey: trimmed
-        ? 'signin.email.errorFormat'
-        : 'signin.email.errorRequired'
+        ? 'common.emailAddressFormatError'
+        : 'common.emailAddressRequired'
     }
   }
 
-  const result = await identityApi.requestOtpViaEmail(
-    { uid, email: trimmed, purpose: PURPOSE.SIGNIN_VERIFY_EMAIL },
-    await getServiceToken()
+  const result = await requestOtpViaEmail(
+    uid,
+    trimmed,
+    PURPOSE.SIGNIN_VERIFY_EMAIL
   )
-
-  switch (result.status) {
-    case OTP_ISSUED:
-      return { outcome: CODE_SENT, email: trimmed }
-    case LOCKED_OUT:
-      return { outcome: LOCKED_OUT, lockedUntil: new Date(result.lockedUntil) }
-    default:
-      throw Boom.badImplementation(
-        `Unexpected code request status: ${String(/** @type {{ status?: unknown }} */ (result).status)}`
-      )
-  }
+  return result
 }
 
 /**
@@ -99,7 +79,7 @@ export async function submitCode(uid, code) {
   const trimmed = (code ?? '').trim()
 
   if (!trimmed) {
-    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorRequired' }
+    return { outcome: INVALID_CODE, errorKey: 'otp.enterCode' }
   }
 
   const result = await identityApi.verifyOtp(
@@ -114,7 +94,7 @@ export async function submitCode(uid, code) {
     return { outcome: PHONE_REQUIRED }
   }
   if (result.status === INVALID_CODE_FORMAT) {
-    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalidFormat' }
+    return { outcome: INVALID_CODE, errorKey: 'otp.codeFormatError' }
   }
   if (result.status === INVALID_CODE_CONSUMED_OR_EXPIRED) {
     return { outcome: INVALID_CODE_CONSUMED_OR_EXPIRED }
@@ -138,7 +118,7 @@ export async function submitPhone(uid, phone) {
     return {
       outcome: INVALID_PHONE,
       phone: trimmed,
-      errorKey: 'signin.phone.errorRequired'
+      errorKey: 'common.phoneNumberRequired'
     }
   }
 
@@ -154,7 +134,7 @@ export async function submitPhone(uid, phone) {
     return {
       outcome: INVALID_PHONE,
       phone: trimmed,
-      errorKey: 'signin.phone.errorInvalid'
+      errorKey: 'common.phoneNumberFormatError'
     }
   }
   return { outcome: RESTART }

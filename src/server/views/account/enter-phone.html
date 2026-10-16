@@ -28,18 +28,18 @@
 
         {{ govukInput({
           label: {
-            text: t('account.newPhone.label')
+            text: t('common.phoneNumber')
           },
           id: "phone",
           name: "phone",
-          type: "phone",
-          autocomplete: "phone",
+          type: "tel",
+          autocomplete: "tel",
           spellcheck: false,
           value: phone,
           errorMessage: errorMessage
         }) }}
 
-        {{ govukButton({ text: t('account.newPhone.continue') }) }}
+        {{ govukButton({ text: t('common.continue') }) }}
       </form>
 
     </div>

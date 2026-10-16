@@ -1,5 +1,7 @@
 {% if accountAction === 'change-phone' %}
   <span class="govuk-caption-l">{{ t('account.changePhone') }}</span>
+{% elif accountAction === 'delete-account' %}
+  <span class="govuk-caption-l">{{ t('account.deleteSignInTitle') }}</span>
 {% else %}
   <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
 {% endif %}

@@ -28,7 +28,7 @@ describe('account service', () => {
       )
       expect(res).toEqual({
         outcome: 'invalid-code',
-        errorKey: 'signin.code.errorRequired'
+        errorKey: 'otp.enterCode'
       })
     })
 
@@ -40,7 +40,7 @@ describe('account service', () => {
       )
       expect(res).toEqual({
         outcome: 'invalid-code',
-        errorKey: 'signin.code.errorRequired'
+        errorKey: 'otp.enterCode'
       })
     })
 
@@ -55,7 +55,7 @@ describe('account service', () => {
       )
       expect(res).toEqual({
         outcome: 'invalid-code',
-        errorKey: 'signin.code.errorInvalidFormat'
+        errorKey: 'otp.codeFormatError'
       })
     })
   })

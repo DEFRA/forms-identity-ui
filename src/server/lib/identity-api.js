@@ -3,6 +3,7 @@ import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { TRANSPORT } from '~/src/server/common/constants/transport.js'
 import {
   bearerHeaders,
+  delJson,
   getJson,
   isBadRequestError,
   isNotFoundError,
@@ -43,7 +44,7 @@ export async function requestOtpViaEmail(
     payload: {
       uid: hashId(uid),
       target: email,
-      transport: TRANSPORT.EMAIL,
+      transport: TRANSPORT.EMAIL.toUpperCase(),
       purpose,
       accountId
     },
@@ -64,7 +65,7 @@ export async function requestOtpViaSms({ uid, accountId, purpose }, token) {
     payload: {
       uid: hashId(uid),
       accountId,
-      transport: TRANSPORT.SMS,
+      transport: TRANSPORT.SMS.toUpperCase(),
       purpose
     },
     headers: bearerHeaders(token)
@@ -219,6 +220,22 @@ export async function updatePhone({ uid, accountId, phone }, token) {
     }
     throw err
   }
+}
+
+/**
+ * Deletes the account based on the email that was verified from the OTP
+ * @param {{ uid: string, accountId: string }} input
+ * @param {string} token
+ * @returns {Promise<CompleteResult>}
+ */
+export async function deleteAccount({ uid, accountId }, token) {
+  const { body } = await delJson(
+    new URL(`/accounts/${hashId(uid)}/${accountId}`, baseUrl),
+    {
+      headers: bearerHeaders(token)
+    }
+  )
+  return /** @type {CompleteResult} */ (body)
 }
 
 /**

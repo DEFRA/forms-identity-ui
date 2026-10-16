@@ -2,29 +2,29 @@
 
 {% extends "layouts/page.html" %}
 
-{% set pageTitle = t('account.changePhone') + " : " + t('account.requestEmailOtp.title') %}
+{% set pageTitle = t('account.changePhone') + " : " + t('otp.getCode') %}
 
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
 
     <span class="govuk-caption-l">{{ t('account.changePhone') }}</span>
-    <h1 class="govuk-heading-l">{{ t('account.requestEmailOtp.title') }}</h1>
+    <h1 class="govuk-heading-l">{{ t('otp.getCode') }}</h1>
 
     <div class="govuk-inset-text">
-      {{ t('account.requestEmailOtp.inset') }}
+      {{ t('otp.sendToEmail') }}
       <strong>{{ email }}</strong>
     </div>
 
-    <p class="govuk-body">{{ t('account.requestEmailOtp.para1') }}</p>
+    <p class="govuk-body">{{ t('otp.requestLimitInfo') }}</p>
 
-    <p class="govuk-body">{{ t('account.requestEmailOtp.para2') }}</p>
+    <p class="govuk-body">{{ t('otp.emailArrivalInfo') }}</p>
 
     <form method="post" action="/account/change-phone/send-code" novalidate="">
       <input type="hidden" name="crumb" value="{{ crumb }}">
 
       {{ govukButton({
-        text: t('account.requestEmailOtp.getCode')
+        text: t('otp.getCode')
       }) }}
     </form>
 

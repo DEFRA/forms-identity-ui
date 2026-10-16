@@ -17,7 +17,8 @@ jest.mock('~/src/server/lib/identity-api.js', () => ({
   completeSignup: jest.fn(),
   getAccount: jest.fn(),
   getOtpTarget: jest.fn(),
-  getOtp: jest.fn()
+  getOtp: jest.fn(),
+  deleteAccount: jest.fn()
 }))
 
 jest.mock('~/src/server/lib/service-token.js', () => ({
@@ -141,7 +142,7 @@ describe('/account', () => {
     expect(response.statusCode).toBe(401)
   })
 
-  test('displays error on page that explains that the code has expired or is invalid', async () => {
+  test('redirects to the expired code page when the phone code has expired or is invalid', async () => {
     sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'acc-1' }))
     jest.mocked(identityApi.getAccount).mockResolvedValue({
       id: 'acc-1',
@@ -156,7 +157,7 @@ describe('/account', () => {
 
     const { crumb, cookie } = await getWithCrumb('/account/change-email')
 
-    const { container, response } = await renderResponse(server, {
+    const { response } = await renderResponse(server, {
       method: 'POST',
       url: '/account/change-email/phone-code',
       payload: { crumb, code: '123456' },
@@ -164,12 +165,10 @@ describe('/account', () => {
       auth
     })
 
-    expect(response.statusCode).toBe(200)
-    expect(
-      container.getByRole('link', {
-        name: 'The code you entered is not correct or has expired – enter it again or request a new code'
-      })
-    ).toBeInTheDocument()
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe(
+      '/account/change-email/code/expired/sms'
+    )
   })
 
   test('redirects to the first page when no phone OTP but the user has hit a later page (new email)', async () => {
@@ -267,6 +266,57 @@ describe('/account', () => {
 
     expect(response.statusCode).toBe(302)
     expect(response.headers.location).toBe('/account/change-email')
+  })
+
+  test('deletes the account, revokes its grants and destroys the session', async () => {
+    jest.mocked(identityApi.getOtp).mockResolvedValue({
+      consumed: false,
+      verified: true,
+      target: 'email@test.com'
+    })
+    jest
+      .mocked(identityApi.verifyOtp)
+      .mockResolvedValue(/** @type {never} */ ({ status: 'valid' }))
+    jest
+      .mocked(identityApi.deleteAccount)
+      .mockResolvedValue(/** @type {never} */ ({ outcome: 'complete' }))
+
+    const session = {
+      authorizations: {
+        client1: { grantId: 'grant-1' },
+        client2: { grantId: 'grant-2' },
+        client3: {}
+      },
+      destroy: jest.fn()
+    }
+    const findByUidSpy = jest
+      .spyOn(server.app.oidcProvider.Session, 'findByUid')
+      .mockResolvedValue(/** @type {never} */ (session))
+    const revokeByGrantIdSpy = jest
+      .spyOn(server.app.oidcProvider.AccessToken, 'revokeByGrantId')
+      .mockResolvedValue()
+
+    const { crumb, cookie } = await getWithCrumb('/account/delete-account')
+    const { response } = await renderResponse(server, {
+      method: 'POST',
+      url: '/account/delete-account/email-code',
+      payload: { crumb, code: '123456' },
+      headers: { cookie },
+      auth
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(identityApi.deleteAccount).toHaveBeenCalledWith(
+      { uid: 'sess-id-1', accountId: 'acc-id' },
+      'token-1'
+    )
+    expect(revokeByGrantIdSpy).toHaveBeenCalledTimes(2)
+    expect(revokeByGrantIdSpy).toHaveBeenCalledWith('grant-1')
+    expect(revokeByGrantIdSpy).toHaveBeenCalledWith('grant-2')
+    expect(session.destroy).toHaveBeenCalled()
+
+    findByUidSpy.mockRestore()
+    revokeByGrantIdSpy.mockRestore()
   })
 
   describe('runnerHomepageReturnPath', () => {

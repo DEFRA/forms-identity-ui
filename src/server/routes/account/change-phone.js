@@ -2,9 +2,9 @@ import Joi from 'joi'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
+import { formatHoursUntil } from '~/src/server/common/helpers/duration.js'
 import { getBackLink } from '~/src/server/common/helpers/navigation.js'
-import * as identityApi from '~/src/server/lib/identity-api.js'
-import { getServiceToken } from '~/src/server/lib/service-token.js'
+import { getLanguage } from '~/src/server/i18n/index.js'
 import {
   ACCOUNT_PATH,
   PHONE_JOURNEY_START_PATH,
@@ -14,15 +14,18 @@ import {
   getOtp,
   getPhoneEndDigits,
   getSessionUid,
-  isInvalidCode,
   otpMissing,
   otpVerified,
   preHandler
 } from '~/src/server/routes/account/account.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
+import { requestOtpViaEmail } from '~/src/server/services/otp-service.js'
 import {
+  INVALID_CODE,
+  INVALID_CODE_CONSUMED_OR_EXPIRED,
   INVALID_PHONE,
+  LOCKED_OUT,
   SAME_AS_CURRENT,
   VALID
 } from '~/src/server/services/outcomes.js'
@@ -44,7 +47,7 @@ const JOURNEY_CHANGE_PHONE_ERROR = `${PATH_PREFIX}/change-phone-error`
 
 // Error mapping
 const errorsLookup = /** @type {Partial<Record<string, string>>} */ ({
-  [INVALID_PHONE]: 'account.newPhone.errorFormat',
+  [INVALID_PHONE]: 'common.phoneNumberFormatError',
   [SAME_AS_CURRENT]: 'account.newPhone.errorSameAsCurrent'
 })
 
@@ -66,7 +69,7 @@ async function isEmailVerified(uid) {
  */
 function mapPhoneInputToErrorKey(phone, currentPhone) {
   if (!phone) {
-    return 'account.newPhone.errorRequired'
+    return 'common.phoneNumberRequired'
   }
   if (phone === currentPhone) {
     return 'account.newPhone.errorSameAsCurrent'
@@ -107,15 +110,21 @@ export default /** @type {ServerRoute[]} */ (
       async handler(request, h) {
         const uid = getSessionUid(request)
         const account = /** @type {Account} */ (request.auth.credentials)
-        await identityApi.requestOtpViaEmail(
-          {
-            uid,
-            email: account.email,
-            purpose: PURPOSE.ACCOUNT_CHANGE_PHONE_VERIFY_EMAIL,
-            accountId: account.id
-          },
-          await getServiceToken()
+        const result = await requestOtpViaEmail(
+          uid,
+          account.email,
+          PURPOSE.ACCOUNT_CHANGE_PHONE_VERIFY_EMAIL,
+          account.id
         )
+
+        if (result.outcome === LOCKED_OUT) {
+          return h.view('account/locked-out', {
+            retryAfter: formatHoursUntil(
+              result.lockedUntil,
+              getLanguage(request.query, request.yar)
+            )
+          })
+        }
 
         flashResendIfRequested(request)
 
@@ -178,7 +187,11 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(JOURNEY_ENTER_PHONE)
         }
 
-        if (isInvalidCode(result)) {
+        if (result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED) {
+          return h.redirect('/account/change-phone/code/expired')
+        }
+
+        if (result.outcome === INVALID_CODE) {
           return h.view('account/email-code', {
             errorKey: codeErrorKey(result),
             email: account.email,
@@ -226,7 +239,7 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(PHONE_JOURNEY_START_PATH)
         }
 
-        return h.view(ENTER_PHONE_VIEW)
+        return h.view(ENTER_PHONE_VIEW, { accountAction })
       }
     }),
     /** @satisfies {ServerRoute<{ Query: { resend?: boolean}, Payload: { phone: string } }>} */
@@ -306,6 +319,23 @@ export default /** @type {ServerRoute[]} */ (
         const errorKey = request.yar.flash(sessionNames.changeEmailError).at(0)
         return h.view('account/change-error', {
           errorKey,
+          accountAction
+        })
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Params: { transport: string }}>} */
+    ({
+      method: 'GET',
+      path: '/account/change-phone/code/expired',
+      options: {
+        auth,
+        pre: [preHandler]
+      },
+      handler(request, h) {
+        const account = request.auth.credentials
+        return h.view('account/code-expired', {
+          isSms: false,
+          target: account.email,
           accountAction
         })
       }

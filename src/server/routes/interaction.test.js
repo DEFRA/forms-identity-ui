@@ -401,8 +401,9 @@ describe('interaction pages', () => {
     })
     expect($heading).toBeInTheDocument()
     expect(
-      container.getByText('We have sent an email to: shown@example.com')
+      container.getByText('We have sent an email to:', { exact: false })
     ).toBeInTheDocument()
+    expect(container.getByText('shown@example.com')).toBeInTheDocument()
     expect(
       container.getByRole('textbox', {
         name: 'Enter the 6 digit security code'
@@ -790,8 +791,9 @@ describe('interaction pages', () => {
     })
     expect($heading).toBeInTheDocument()
     expect(
-      container.getByText('We will send a security code to: shown@example.com')
+      container.getByText('We will send a security code to:', { exact: false })
     ).toBeInTheDocument()
+    expect(container.getByText('shown@example.com')).toBeInTheDocument()
     expect(
       container.getByText(
         'You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.'
