@@ -127,21 +127,13 @@ export function buildProviderConfig(adapter) {
         // ends the session, clears the cookie and redirects to the client.
         // It keeps `offline_access` grants, which the client ends at the
         // revocation endpoint.
-        // When the ID token hint identifies the signed-in user, the page
-        // presses its Sign out button on load. Without JavaScript, the user
-        // presses the button.
         logoutSource(ctx, form) {
-          const accountId = ctx.oidc.session?.accountId
-
           ctx.type = 'html'
           ctx.body = view('signout.html', {
             context: {
               ...context(null),
               form,
-              cancelUri: cancelUriFor(ctx),
-              autoSubmit:
-                accountId !== undefined &&
-                ctx.oidc.entities.IdTokenHint?.payload.sub === accountId
+              cancelUri: cancelUriFor(ctx)
             }
           })
           return Promise.resolve()
