@@ -621,4 +621,20 @@ describe('delete-account round trip', () => {
     expect(accountPage.statusCode).toBe(404)
     expect(accountPage.payload).toContain('Page not found')
   })
+
+  it('shows the resend code page if requested', async () => {
+    const account = await signIn('delete-start@example.com')
+
+    const start = await browse('/account/delete-account')
+    expect(start.statusCode).toBe(200)
+    expect(start.payload).toContain(account.email)
+
+    const sent = await browse('/account/delete-account/send-code', crumb())
+    expect(sent.statusCode).toBe(302)
+    expect(sent.headers.location).toBe('/account/delete-account/email-code')
+
+    const codePage = await browse('/account/delete-account/code/resend')
+    expect(codePage.statusCode).toBe(200)
+    expect(codePage.payload).toContain('Get security code')
+  })
 })
