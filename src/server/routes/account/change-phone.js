@@ -202,7 +202,8 @@ export default /** @type {ServerRoute[]} */ (
 
         return h.view(JOURNEY_START_VIEW, {
           backLink: getBackLink(request.yar),
-          phoneEndDigits: getPhoneEndDigits(account.phone)
+          phoneEndDigits: getPhoneEndDigits(account.phone),
+          accountAction
         })
       }
     }),
@@ -271,7 +272,8 @@ export default /** @type {ServerRoute[]} */ (
         if (errorKey) {
           return h.view(ENTER_PHONE_VIEW, {
             phone: trimmed,
-            errorKey
+            errorKey,
+            accountAction
           })
         }
 
@@ -289,10 +291,14 @@ export default /** @type {ServerRoute[]} */ (
             'account.updateError.errorGeneral'
 
           request.yar.flash(sessionNames.changeEmailError, errorKeyOnChange)
-          if (changeResult.status === INVALID_PHONE) {
+          if (
+            changeResult.status === INVALID_PHONE ||
+            changeResult.status === SAME_AS_CURRENT
+          ) {
             return h.view(ENTER_PHONE_VIEW, {
               phone: trimmed,
-              errorKey: errorKeyOnChange
+              errorKey: errorKeyOnChange,
+              accountAction
             })
           }
           return h.redirect(JOURNEY_CHANGE_PHONE_ERROR)
