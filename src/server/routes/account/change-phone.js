@@ -239,7 +239,7 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(PHONE_JOURNEY_START_PATH)
         }
 
-        return h.view(ENTER_PHONE_VIEW)
+        return h.view(ENTER_PHONE_VIEW, { accountAction })
       }
     }),
     /** @satisfies {ServerRoute<{ Query: { resend?: boolean}, Payload: { phone: string } }>} */
