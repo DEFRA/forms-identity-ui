@@ -13,7 +13,7 @@
 
       {% if errorKey %}
         {{ govukErrorSummary({
-          titleText: t('signin.errorSummaryTitle'),
+          titleText: t('errors.errorSummaryTitle'),
           errorList: [{ text: t(errorKey), href: "#email" }]
         }) }}
       {% endif %}
@@ -36,7 +36,7 @@
           errorMessage: errorMessage
         }) }}
 
-        {{ govukButton({ text: t('signin.email.continue') }) }}
+        {{ govukButton({ text: t('common.continue') }) }}
       </form>
 
     </div>

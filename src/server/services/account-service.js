@@ -1,0 +1,79 @@
+import * as identityApi from '~/src/server/lib/identity-api.js'
+import { getServiceToken } from '~/src/server/lib/service-token.js'
+import {
+  INVALID_CODE,
+  INVALID_CODE_CONSUMED_OR_EXPIRED,
+  INVALID_CODE_FORMAT,
+  VALID
+} from '~/src/server/services/outcomes.js'
+
+/**
+ * Code step: the API owns what a valid code is and returns the verdict that
+ * routes the journey — signed-in (existing account), phone-required (JIT arm),
+ * or invalid (a wrong, expired, or malformed code: one inline error covers all)
+ * @param {string} uid
+ * @param {string | undefined} code
+ * @param {PurposeType} purpose
+ * @param {string} [accountId]
+ * @returns {Promise<CodeOutcome>}
+ */
+export async function submitCode(uid, code, purpose, accountId) {
+  const trimmed = (code ?? '').trim()
+
+  if (!trimmed) {
+    return { outcome: INVALID_CODE, errorKey: 'otp.enterCode' }
+  }
+
+  const result = await identityApi.verifyOtp(
+    { uid, code: trimmed, purpose, id: accountId },
+    await getServiceToken()
+  )
+
+  if (result.status === VALID) {
+    return { outcome: VALID }
+  }
+  if (result.status === INVALID_CODE_FORMAT) {
+    return { outcome: INVALID_CODE, errorKey: 'otp.codeFormatError' }
+  }
+  if (result.status === INVALID_CODE_CONSUMED_OR_EXPIRED) {
+    return { outcome: INVALID_CODE_CONSUMED_OR_EXPIRED }
+  }
+
+  return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalid' }
+}
+
+/**
+ * Changes the email address on the account based on the email that was verified from the OTP
+ * @param {string} uid
+ * @param {string} accountId
+ */
+export async function changeEmailAddress(uid, accountId) {
+  return identityApi.updateEmail({ uid, accountId }, await getServiceToken())
+}
+
+/**
+ * Changes the phone number on the account based on the phone number that was verified from the OTP
+ * @param {string} uid
+ * @param {string} accountId
+ * @param {string} phone
+ */
+export async function changePhone(uid, accountId, phone) {
+  return identityApi.updatePhone(
+    { uid, accountId, phone },
+    await getServiceToken()
+  )
+}
+
+/**
+ * Deletes the account based on the email that was verified from the OTP
+ * @param {string} uid
+ * @param {string} accountId
+ */
+export async function deleteAccount(uid, accountId) {
+  return identityApi.deleteAccount({ uid, accountId }, await getServiceToken())
+}
+
+/**
+ * @import { CodeOutcome } from '~/src/server/services/outcomes.js'
+ * @import { PurposeType } from '~/src/server/common/constants/purposes.js'
+ */

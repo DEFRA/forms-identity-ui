@@ -5,6 +5,7 @@ import { applyLogContextHeaders } from '~/src/server/common/helpers/request-trac
 
 const MIN_OK_STATUS = 200
 const MAX_OK_STATUS = 299
+const BAD_REQUEST = 400
 const NOT_FOUND = 404
 
 /**
@@ -14,6 +15,15 @@ const NOT_FOUND = 404
  */
 export function isNotFoundError(err) {
   return Boom.isBoom(err) && err.output.statusCode === NOT_FOUND
+}
+
+/**
+ * Whether an error is the Boom 400 these helpers throw when a downstream
+ * API refuses the input it was sent
+ * @param {unknown} err
+ */
+export function isBadRequestError(err) {
+  return Boom.isBoom(err) && err.output.statusCode === BAD_REQUEST
 }
 
 /**

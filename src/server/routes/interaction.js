@@ -6,14 +6,25 @@ import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
-import { formatDuration } from '~/src/server/common/helpers/duration.js'
-import { setLanguage } from '~/src/server/i18n/index.js'
+import {
+  formatDuration,
+  formatHoursUntil
+} from '~/src/server/common/helpers/duration.js'
+import { getLanguage, setLanguage } from '~/src/server/i18n/index.js'
 import { signinFormCsp } from '~/src/server/plugins/blankie.js'
+import {
+  INVALID_CODE_CONSUMED_OR_EXPIRED,
+  INVALID_EMAIL,
+  INVALID_PHONE,
+  LOCKED_OUT,
+  PHONE_REQUIRED,
+  SIGNED_IN
+} from '~/src/server/services/outcomes.js'
 import * as signinService from '~/src/server/services/signin-service.js'
 
 // how long the timed-out page tells the user they had, taken from the
 // setting that actually ends the interaction so the two cannot disagree
-const INTERACTION_DURATION = formatDuration(config.get('oidc.ttl.interaction'))
+const INTERACTION_TTL_SECONDS = config.get('oidc.ttl.interaction')
 
 const uidParams = Joi.object({ uid: Joi.string().required() })
 const emailQuery = Joi.object({ resend: Joi.boolean().optional() })
@@ -28,7 +39,7 @@ const querySchema = Joi.object()
  * the handlers and the signin service only ever see a string or nothing.
  * @param {string} field
  */
-function formPayload(field) {
+export function formPayload(field) {
   return Joi.object({
     crumb: Joi.string().optional(),
     [field]: Joi.string().allow('').optional()
@@ -70,7 +81,10 @@ export async function requireInteraction(request, h) {
     if (err instanceof errors.SessionNotFound) {
       return h
         .view('interaction/timed-out', {
-          interactionDuration: INTERACTION_DURATION
+          interactionDuration: formatDuration(
+            INTERACTION_TTL_SECONDS,
+            getLanguage(request.query, request.yar)
+          )
         })
         .code(StatusCodes.GONE)
         .takeover()
@@ -286,18 +300,28 @@ export default /** @type {ServerRoute[]} */ (
           payload: formPayload('email'),
           query: querySchema.concat(emailQuery)
         },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         const details = request.pre.details
         const { email } = request.payload
         const result = await signinService.submitEmail(details.uid, email)
 
-        if (result.outcome === signinService.INVALID_EMAIL) {
+        if (result.outcome === INVALID_EMAIL) {
           return h.view('interaction/email', {
             uid: details.uid,
             email: result.email,
             errorKey: result.errorKey
+          })
+        }
+
+        if (result.outcome === LOCKED_OUT) {
+          return h.view('interaction/locked-out', {
+            retryAfter: formatHoursUntil(
+              result.lockedUntil,
+              getLanguage(request.query, request.yar)
+            )
           })
         }
 
@@ -349,20 +373,21 @@ export default /** @type {ServerRoute[]} */ (
           query: querySchema
         },
         plugins: { blankie: signinFormCsp },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         const details = request.pre.details
         const { code } = request.payload
         const result = await signinService.submitCode(details.uid, code)
 
-        if (result.outcome === signinService.SIGNED_IN) {
+        if (result.outcome === SIGNED_IN) {
           return finishLogin(request, h, result.accountId)
         }
-        if (result.outcome === signinService.PHONE_REQUIRED) {
+        if (result.outcome === PHONE_REQUIRED) {
           return h.redirect(`/interaction/${details.uid}/phone`)
         }
-        if (result.outcome === signinService.INVALID_CODE_CONSUMED_OR_EXPIRED) {
+        if (result.outcome === INVALID_CODE_CONSUMED_OR_EXPIRED) {
           return h.redirect(`/interaction/${details.uid}/code/expired`)
         }
 
@@ -419,7 +444,8 @@ export default /** @type {ServerRoute[]} */ (
           query: querySchema
         },
         plugins: { blankie: signinFormCsp },
-        pre: [GATE]
+        pre: [GATE],
+        auth: false
       },
       async handler(request, h) {
         const details = request.pre.details
@@ -430,10 +456,10 @@ export default /** @type {ServerRoute[]} */ (
         // never reach this page) and returns signed-in with the account id
         const result = await signinService.submitPhone(details.uid, phone)
 
-        if (result.outcome === signinService.SIGNED_IN) {
+        if (result.outcome === SIGNED_IN) {
           return finishLogin(request, h, result.accountId)
         }
-        if (result.outcome === signinService.INVALID_PHONE) {
+        if (result.outcome === INVALID_PHONE) {
           return h.view('interaction/phone', {
             uid: details.uid,
             phone: result.phone,

@@ -1,0 +1,76 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% set journeyTitle = t('account.changePhone') if accountAction === 'change-phone' else t('account.changeEmail') %}
+{% set pageTitle = journeyTitle + " : " + t('otp.checkEmail') %}
+{% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+
+      {% if showResendNotification %}
+        {{ govukNotificationBanner({
+          type: "success",
+          titleText: t('common.success'),
+          text: t('otp.resendNotificationText')
+        }) }}
+      {% endif %}
+
+      {% if errorKey %}
+        {{ govukErrorSummary({
+          titleText: t('errors.errorSummaryTitle'),
+          errorList: [{ text: t(errorKey), href: "#code" }]
+        }) }}
+      {% endif %}
+
+      {% include "account/partials/heading-caption.html" %}
+      <h1 class="govuk-heading-l">{{ t('otp.checkEmail') }}</h1>
+
+      <div class="govuk-inset-text">
+        {{ t('otp.emailSentLabel') }} <strong>{{ email }}</strong>
+      </div>
+
+      <p class="govuk-body">{{ t('otp.expiryInfo') }}</p>
+
+      <form method="post" action="/account/{{ accountAction }}/email-code" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        {{ govukInput({
+          label: { text: t('otp.enterCode') },
+          classes: "govuk-input--width-10 govuk-input--extra-letter-spacing",
+          id: "code",
+          name: "code",
+          type: "text",
+          value: code,
+          inputmode: "numeric",
+          autocomplete: "one-time-code",
+          spellcheck: false,
+          errorMessage: errorMessage
+        }) }}
+
+        {{ govukButton({ text: t('common.continue') }) }}
+      </form>
+
+      {% if accountAction === 'delete-account' %}
+        <p class="govuk-body">
+          <a href="/account" class="govuk-link govuk-link--no-visited-state">{{ t('account.deleteAccount.cancelLinkText') }}</a>
+        </p>
+        {{ govukDetails({
+          summaryText: t('otp.problemsSummary'),
+          html: t('account.deleteAccount.problemsDetails.body')
+        }) }}
+      {% else %}
+        {{ govukDetails({
+          summaryText: t('otp.problemsSummary'),
+          html: t('account.sentEmailOtp.problemsDetails.body')
+        }) }}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

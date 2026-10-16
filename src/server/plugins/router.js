@@ -1,6 +1,9 @@
 import { StatusCodes } from 'http-status-codes'
 
 import {
+  accountChangeEmailRoutes,
+  accountChangePhoneRoutes,
+  accountRoutes,
   healthRoute,
   homeRoute,
   interactionRoutes,
@@ -8,7 +11,15 @@ import {
 } from '~/src/server/routes/index.js'
 import { assertInteractionRoutesGated } from '~/src/server/routes/interaction.js'
 
-const routes = [...publicRoutes, healthRoute, homeRoute, ...interactionRoutes]
+const routes = [
+  ...publicRoutes,
+  healthRoute,
+  homeRoute,
+  ...accountRoutes,
+  ...accountChangeEmailRoutes,
+  ...accountChangePhoneRoutes,
+  ...interactionRoutes
+]
 
 /**
  * Registers the application routes and static asset handling

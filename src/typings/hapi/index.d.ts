@@ -47,12 +47,18 @@ declare module '@hapi/hapi' {
 }
 
 declare module '@hapi/yar' {
-  type SuccessNotification =
+  type CodeResendSuccessNotification =
     (typeof sessionNames)['codeResendSuccessNotification']
+  type AccountSuccessNotification =
+    (typeof sessionNames)['accountSuccessNotification']
+  type ChangeEmailError = (typeof sessionNames)['changeEmailError']
 
   interface YarFlashes {
     // String flash types using actual constants
+    [sessionNames.validationFailure.deleteAccountValidationFailure]: string
     [sessionNames.codeResendSuccessNotification]: string
+    [sessionNames.accountSuccessNotification]: string
+    [sessionNames.changeEmailError]: string
   }
 
   interface YarValues {

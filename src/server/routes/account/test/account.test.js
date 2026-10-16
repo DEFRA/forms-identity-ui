@@ -1,0 +1,379 @@
+import { runnerHomepageReturnPath } from '~/src/server/common/helpers/validation.js'
+import { createServer } from '~/src/server/index.js'
+import * as identityApi from '~/src/server/lib/identity-api.js'
+import { getServiceToken } from '~/src/server/lib/service-token.js'
+import { renderResponse } from '~/test/helpers/component-helpers.js'
+
+const account = {
+  id: 'acc-id',
+  email: 'email@test.com',
+  phone: '+447507123456'
+}
+
+jest.mock('~/src/server/lib/identity-api.js', () => ({
+  requestOtpViaEmail: jest.fn(),
+  requestOtpViaSms: jest.fn(),
+  verifyOtp: jest.fn(),
+  completeSignup: jest.fn(),
+  getAccount: jest.fn(),
+  getOtpTarget: jest.fn(),
+  getOtp: jest.fn(),
+  deleteAccount: jest.fn()
+}))
+
+jest.mock('~/src/server/lib/service-token.js', () => ({
+  ...jest.requireActual('~/src/server/lib/service-token.js'),
+  getServiceToken: jest.fn()
+}))
+
+/**
+ * Request auth for Hapi `server.inject()` — hapi's own credentials type is
+ * a nominal placeholder, so the real (route-defined) shape needs a cast
+ * @satisfies {ServerInjectOptions['auth']}
+ */
+const auth = {
+  strategy: 'citizen-session',
+  artifacts: { sessionUid: 'sess-id-1' },
+  credentials: /** @type {never} */ (account)
+}
+
+describe('/account', () => {
+  /** @type {Server} */
+  let server
+  /** @type {jest.SpyInstance} */
+  let sessionSpy
+
+  beforeAll(async () => {
+    server = await createServer()
+    await server.initialize()
+  })
+
+  afterAll(async () => {
+    await server.stop()
+  })
+
+  beforeEach(() => {
+    jest.mocked(getServiceToken).mockResolvedValue('token-1')
+    sessionSpy = jest.spyOn(server.app.oidcProvider.Session, 'get')
+  })
+
+  /**
+   * Fetches a page as the signed-in account and extracts the crumb from
+   * the form + cookie jar, same as interaction.test.js's helper of the
+   * same name
+   * @param {string} url
+   */
+  async function getWithCrumb(url) {
+    const res = await server.inject({ method: 'GET', url, auth })
+    const crumb = /name="crumb" value="([^"]+)"/.exec(res.payload)?.[1]
+    const setCookies = /** @type {string[] | string | undefined} */ (
+      res.headers['set-cookie']
+    )
+    const cookie = (Array.isArray(setCookies) ? setCookies : [setCookies])
+      .filter(Boolean)
+      .map((c) => String(c).split(';')[0])
+      .join('; ')
+    return { crumb, cookie }
+  }
+
+  test('renders the signed-in account with their email and phone', async () => {
+    sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'acc-1' }))
+    jest.mocked(identityApi.getAccount).mockResolvedValue({
+      id: 'acc-1',
+      email: 'a@b.com',
+      phone: '07911 123456'
+    })
+
+    const { container, response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/account'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(container.getByText('a@b.com')).toBeInTheDocument()
+    expect(container.getByText('07911 123456')).toBeInTheDocument()
+  })
+
+  test('renders the signed-in account and stores the return url', async () => {
+    sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'acc-1' }))
+    jest.mocked(identityApi.getAccount).mockResolvedValue({
+      id: 'acc-1',
+      email: 'a@b.com',
+      phone: '07911 123456'
+    })
+
+    const { container, response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/account?returnUrl=http://localhost:3009/homepage/preview/draft/form-slug'
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(container.getByText('a@b.com')).toBeInTheDocument()
+    expect(container.getByText('07911 123456')).toBeInTheDocument()
+    const $link = container.getByRole('link', { name: 'Back' })
+    expect($link.getAttribute('href')).toBe(
+      'http://localhost:3009/homepage/preview/draft/form-slug'
+    )
+  })
+
+  test('is unauthorized when there is no signed-in session', async () => {
+    sessionSpy.mockResolvedValue(
+      /** @type {never} */ ({ accountId: undefined })
+    )
+
+    const { response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/account'
+    })
+
+    expect(response.statusCode).toBe(401)
+    expect(identityApi.getAccount).not.toHaveBeenCalled()
+  })
+
+  test('is unauthorized when the session account no longer exists', async () => {
+    sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'gone' }))
+    jest.mocked(identityApi.getAccount).mockResolvedValue(null)
+
+    const { response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/account'
+    })
+
+    expect(response.statusCode).toBe(401)
+  })
+
+  test('redirects to the expired code page when the phone code has expired or is invalid', async () => {
+    sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'acc-1' }))
+    jest.mocked(identityApi.getAccount).mockResolvedValue({
+      id: 'acc-1',
+      email: 'a@b.com',
+      phone: '07911 123456'
+    })
+    jest
+      .mocked(identityApi.verifyOtp)
+      .mockResolvedValue(
+        /** @type {never} */ ({ status: 'invalid-code-consumed-or-expired' })
+      )
+
+    const { crumb, cookie } = await getWithCrumb('/account/change-email')
+
+    const { response } = await renderResponse(server, {
+      method: 'POST',
+      url: '/account/change-email/phone-code',
+      payload: { crumb, code: '123456' },
+      headers: { cookie },
+      auth
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe(
+      '/account/change-email/code/expired/sms'
+    )
+  })
+
+  test('redirects to the first page when no phone OTP but the user has hit a later page (new email)', async () => {
+    sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'acc-1' }))
+    jest.mocked(identityApi.getAccount).mockResolvedValue({
+      id: 'acc-1',
+      email: 'a@b.com',
+      phone: '07911 123456'
+    })
+    jest.mocked(identityApi.getOtp).mockResolvedValueOnce(null)
+
+    const { crumb, cookie } = await getWithCrumb('/account/change-email')
+
+    const { response } = await renderResponse(server, {
+      method: 'POST',
+      url: '/account/change-email/enter-email',
+      payload: { crumb, email: 'new-email@test.com' },
+      headers: { cookie },
+      auth
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/account/change-email')
+  })
+
+  test('redirects to the first page when no phone OTP but the user has hit a later page (email code)', async () => {
+    sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'acc-1' }))
+    jest.mocked(identityApi.getAccount).mockResolvedValue({
+      id: 'acc-1',
+      email: 'a@b.com',
+      phone: '07911 123456'
+    })
+    jest.mocked(identityApi.getOtp).mockResolvedValueOnce(null)
+
+    const { crumb, cookie } = await getWithCrumb('/account/change-email')
+
+    const { response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/account/change-email/email-code',
+      payload: { crumb, code: '123456' },
+      headers: { cookie },
+      auth
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/account/change-email')
+  })
+
+  test('redirects to the first page when no email OTP but the user has hit a later page (email code)', async () => {
+    sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'acc-1' }))
+    jest.mocked(identityApi.getAccount).mockResolvedValue({
+      id: 'acc-1',
+      email: 'a@b.com',
+      phone: '07911 123456'
+    })
+    jest.mocked(identityApi.getOtp).mockResolvedValueOnce({
+      consumed: false,
+      verified: true,
+      target: '+447507123456'
+    })
+    jest.mocked(identityApi.getOtp).mockResolvedValueOnce(null)
+
+    const { crumb, cookie } = await getWithCrumb('/account/change-email')
+
+    const { response } = await renderResponse(server, {
+      method: 'GET',
+      url: '/account/change-email/email-code',
+      payload: { crumb, code: '123456' },
+      headers: { cookie },
+      auth
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/account/change-email')
+  })
+
+  test('redirects to the first page when no email OTP but the user POSTs a later page (email code)', async () => {
+    sessionSpy.mockResolvedValue(/** @type {never} */ ({ accountId: 'acc-1' }))
+    jest.mocked(identityApi.getAccount).mockResolvedValue({
+      id: 'acc-1',
+      email: 'a@b.com',
+      phone: '07911 123456'
+    })
+    jest.mocked(identityApi.getOtp).mockResolvedValueOnce(null)
+
+    const { crumb, cookie } = await getWithCrumb('/account/change-email')
+
+    const { response } = await renderResponse(server, {
+      method: 'POST',
+      url: '/account/change-email/email-code',
+      payload: { crumb, code: '123456' },
+      headers: { cookie },
+      auth
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/account/change-email')
+  })
+
+  test('deletes the account, revokes its grants and destroys the session', async () => {
+    jest.mocked(identityApi.getOtp).mockResolvedValue({
+      consumed: false,
+      verified: true,
+      target: 'email@test.com'
+    })
+    jest
+      .mocked(identityApi.verifyOtp)
+      .mockResolvedValue(/** @type {never} */ ({ status: 'valid' }))
+    jest
+      .mocked(identityApi.deleteAccount)
+      .mockResolvedValue(/** @type {never} */ ({ outcome: 'complete' }))
+
+    const session = {
+      authorizations: {
+        client1: { grantId: 'grant-1' },
+        client2: { grantId: 'grant-2' },
+        client3: {}
+      },
+      destroy: jest.fn()
+    }
+    const findByUidSpy = jest
+      .spyOn(server.app.oidcProvider.Session, 'findByUid')
+      .mockResolvedValue(/** @type {never} */ (session))
+    const revokeByGrantIdSpy = jest
+      .spyOn(server.app.oidcProvider.AccessToken, 'revokeByGrantId')
+      .mockResolvedValue()
+
+    const { crumb, cookie } = await getWithCrumb('/account/delete-account')
+    const { response } = await renderResponse(server, {
+      method: 'POST',
+      url: '/account/delete-account/email-code',
+      payload: { crumb, code: '123456' },
+      headers: { cookie },
+      auth
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(identityApi.deleteAccount).toHaveBeenCalledWith(
+      { uid: 'sess-id-1', accountId: 'acc-id' },
+      'token-1'
+    )
+    expect(revokeByGrantIdSpy).toHaveBeenCalledTimes(2)
+    expect(revokeByGrantIdSpy).toHaveBeenCalledWith('grant-1')
+    expect(revokeByGrantIdSpy).toHaveBeenCalledWith('grant-2')
+    expect(session.destroy).toHaveBeenCalled()
+
+    findByUidSpy.mockRestore()
+    revokeByGrantIdSpy.mockRestore()
+  })
+
+  describe('runnerHomepageReturnPath', () => {
+    it('should accept a URL which is in the list of redirect URIs and has a valid homepage path - local', () => {
+      expect(
+        runnerHomepageReturnPath('http://localhost:3009/homepage/123')
+      ).toBe('http://localhost:3009/homepage/123')
+    })
+
+    it('should accept a URL which is in the list of redirect URIs and has a valid homepage path - non-local', () => {
+      expect(
+        runnerHomepageReturnPath(
+          'https://forms-runner.dev-env.cloud/homepage/123'
+        )
+      ).toBe('https://forms-runner.dev-env.cloud/homepage/123')
+    })
+
+    it('should reject an invalid URL', () => {
+      expect(runnerHomepageReturnPath('/invalid/host')).toBeNull()
+    })
+
+    it('should reject an invalid URL datatype', () => {
+      // @ts-expect-error - force invalid datatype
+      expect(runnerHomepageReturnPath({})).toBeNull()
+    })
+
+    it('should reject a host which is not in the list of redirect URIs - local', () => {
+      expect(
+        runnerHomepageReturnPath('http://invalid.host/homepage/123')
+      ).toBeNull()
+    })
+
+    it('should reject a host which is not in the list of redirect URIs - non-local', () => {
+      expect(
+        runnerHomepageReturnPath(
+          'https://forms-runner.dev-env.bad/homepage/123'
+        )
+      ).toBeNull()
+    })
+
+    it('should reject a host which is not in the list of redirect URIs', () => {
+      expect(
+        runnerHomepageReturnPath('http://invalid.host/homepage/123')
+      ).toBeNull()
+    })
+
+    it('should reject a URL which is not within the homepage routes', () => {
+      expect(
+        runnerHomepageReturnPath(
+          'https://forms-runner.dev-env.cloud/account/123'
+        )
+      ).toBeNull()
+    })
+  })
+})
+
+/**
+ * @import { Server } from '@hapi/hapi'
+ * @import { ServerInjectOptions } from '@hapi/hapi'
+ */

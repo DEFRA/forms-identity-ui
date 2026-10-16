@@ -1,0 +1,67 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% set pageTitle = t('account.pageTitle') %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+
+      {% if notificationSuccessKey %}
+        {{ govukNotificationBanner({
+          type: "success",
+          titleText: t('common.success'),
+          text: t(notificationSuccessKey)
+        }) }}
+      {% endif %}
+
+      <h1 class="govuk-heading-l">{{ t('account.pageTitle') }}</h1>
+
+      {{ govukSummaryList({
+        card: {
+          title: {
+            text: t('account.cardTitle')
+          }
+        },
+        rows: [
+          {
+            key: { text: t('account.email') },
+            value: { text: account.email },
+            actions: {
+              items: [
+                {
+                  href: changeEmailLink,
+                  text: t('account.change'),
+                  visuallyHiddenText: t('account.emailAddress'),
+                  classes: "govuk-link--no-visited-state"
+                }
+              ]
+            }
+          },
+          {
+            key: { text: t('common.phoneNumber') },
+            value: { text: account.phone },
+            actions: {
+              items: [
+                {
+                  href: changePhoneLink,
+                  text: t('account.change'),
+                  visuallyHiddenText: t('account.mobileNumber'),
+                  classes: "govuk-link--no-visited-state"
+                }
+              ]
+            }
+          }
+        ]
+      }) }}
+
+      <h2 class="govuk-heading-m">{{ t('account.deleteSignInTitle') }}</h2>
+      <p class="govuk-body">{{ t('account.deleteSignInInfo') }}</p>
+      <p class="govuk-body">
+        <a class="govuk-link govuk-link--no-visited-state" href="/account/delete-account">{{ t('account.deleteSignInTitle') }}</a>
+      </p>
+    </div>
+  </div>
+{% endblock %}

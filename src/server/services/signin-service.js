@@ -1,35 +1,28 @@
 import Joi from 'joi'
 
-import { joi as telephoneJoi } from '~/src/server/common/helpers/telephone.js'
+import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-
-/**
- * Outcomes named once, so a typo cannot silently change a journey. Exported
- * because the route handlers branch on the same names, and the API returns
- * these same verdicts as its `status`.
- */
-export const INVALID_EMAIL = 'invalid-email'
-export const CODE_SENT = 'code-sent'
-export const INVALID_CODE = 'invalid-code'
-export const INVALID_CODE_FORMAT = 'invalid-code-format'
-export const INVALID_CODE_CONSUMED_OR_EXPIRED =
-  'invalid-code-consumed-or-expired'
-export const PHONE_REQUIRED = 'phone-required'
-export const INVALID_PHONE = 'invalid-phone'
-export const SIGNED_IN = 'signed-in'
-export const RESTART = 'restart'
+import { requestOtpViaEmail } from '~/src/server/services/otp-service.js'
+import {
+  INVALID_CODE,
+  INVALID_CODE_CONSUMED_OR_EXPIRED,
+  INVALID_CODE_FORMAT,
+  INVALID_EMAIL,
+  INVALID_PHONE,
+  PHONE_REQUIRED,
+  RESTART,
+  SIGNED_IN
+} from '~/src/server/services/outcomes.js'
 
 const emailSchema = Joi.string().email().required()
-const phoneSchema = /** @type {TelephoneSchema} */ (telephoneJoi.string())
-  .phoneNumber()
-  .required()
 
 /**
  * Journey outcomes: plain data the route handlers translate into
  * responses (views, redirects, or completing the OIDC interaction)
  * @typedef {{ outcome: 'invalid-email', email: string, errorKey: string }
- *   | { outcome: 'code-sent', email: string }} EmailOutcome
+ *   | { outcome: 'code-sent', email: string }
+ *   | { outcome: 'locked-out', lockedUntil: Date }} EmailOutcome
  * @typedef {{ outcome: 'invalid-code', errorKey: string }
  *   | { outcome: 'invalid-code-consumed-or-expired' }
  *   | { outcome: 'signed-in', accountId: string }
@@ -43,6 +36,11 @@ const phoneSchema = /** @type {TelephoneSchema} */ (telephoneJoi.string())
  * Email step: UX validation here, then ask the API to mint and send a
  * code. The API independently re-validates — a UI bug can degrade error
  * messages, never security.
+ *
+ * The API refuses to send a code while the address is locked out for asking
+ * too often, and says when the lockout lifts. Any verdict other than those
+ * two is treated as a fault rather than as a code sent, so the user is never
+ * told to check for an email that is not coming.
  * @param {string} uid
  * @param {string | undefined} email
  * @returns {Promise<EmailOutcome>}
@@ -56,14 +54,17 @@ export async function submitEmail(uid, email) {
       outcome: INVALID_EMAIL,
       email: trimmed,
       errorKey: trimmed
-        ? 'signin.email.errorFormat'
-        : 'signin.email.errorRequired'
+        ? 'common.emailAddressFormatError'
+        : 'common.emailAddressRequired'
     }
   }
 
-  await identityApi.requestOtp({ uid, email: trimmed }, await getServiceToken())
-
-  return { outcome: CODE_SENT, email: trimmed }
+  const result = await requestOtpViaEmail(
+    uid,
+    trimmed,
+    PURPOSE.SIGNIN_VERIFY_EMAIL
+  )
+  return result
 }
 
 /**
@@ -78,7 +79,7 @@ export async function submitCode(uid, code) {
   const trimmed = (code ?? '').trim()
 
   if (!trimmed) {
-    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorRequired' }
+    return { outcome: INVALID_CODE, errorKey: 'otp.enterCode' }
   }
 
   const result = await identityApi.verifyOtp(
@@ -93,7 +94,7 @@ export async function submitCode(uid, code) {
     return { outcome: PHONE_REQUIRED }
   }
   if (result.status === INVALID_CODE_FORMAT) {
-    return { outcome: INVALID_CODE, errorKey: 'signin.code.errorInvalidFormat' }
+    return { outcome: INVALID_CODE, errorKey: 'otp.codeFormatError' }
   }
   if (result.status === INVALID_CODE_CONSUMED_OR_EXPIRED) {
     return { outcome: INVALID_CODE_CONSUMED_OR_EXPIRED }
@@ -117,19 +118,7 @@ export async function submitPhone(uid, phone) {
     return {
       outcome: INVALID_PHONE,
       phone: trimmed,
-      errorKey: 'signin.phone.errorRequired'
-    }
-  }
-
-  // shape check before the downstream call — the API's route validation
-  // applies the same telephone rule and rejects non-numbers as a 400, so
-  // they must never leave this service; whether the number is a MOBILE is
-  // the API's business rule, returned as an invalid-phone verdict
-  if (phoneSchema.validate(trimmed).error) {
-    return {
-      outcome: INVALID_PHONE,
-      phone: trimmed,
-      errorKey: 'signin.phone.errorInvalid'
+      errorKey: 'common.phoneNumberRequired'
     }
   }
 
@@ -145,7 +134,7 @@ export async function submitPhone(uid, phone) {
     return {
       outcome: INVALID_PHONE,
       phone: trimmed,
-      errorKey: 'signin.phone.errorInvalid'
+      errorKey: 'common.phoneNumberFormatError'
     }
   }
   return { outcome: RESTART }
@@ -158,9 +147,5 @@ export async function submitPhone(uid, phone) {
  * @param {string} uid
  */
 export async function getSigninEmail(uid) {
-  return (await identityApi.getOtpEmail(uid, await getServiceToken())) ?? ''
+  return (await identityApi.getOtpTarget(uid, await getServiceToken())) ?? ''
 }
-
-/**
- * @import { TelephoneSchema } from '~/src/server/common/helpers/telephone.js'
- */

@@ -33,7 +33,8 @@ describe('buildProviderConfig', () => {
         client_id: 'runner',
         redirect_uris: [
           'http://localhost:3009/callback',
-          'http://localhost:3000/callback'
+          'http://localhost:3000/callback',
+          'https://forms-runner.dev-env.cloud/auth/callback'
         ],
         post_logout_redirect_uris: [
           'http://localhost:3009/auth/signed-out',
