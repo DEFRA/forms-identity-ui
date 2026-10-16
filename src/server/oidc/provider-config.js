@@ -1,3 +1,4 @@
+import { setUserId } from '@defra/forms-common'
 import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
@@ -179,6 +180,8 @@ export function buildProviderConfig(adapter) {
     ttl: TTL_SECONDS,
     claims: { openid: ['sub'], email: ['email'] },
     async findAccount(_ctx, id) {
+      setUserId(id)
+
       const account = await getAccount(id, await getServiceToken())
 
       if (!account) {
