@@ -38,6 +38,8 @@ describe('buildProviderConfig', () => {
         grant_types: ['authorization_code', 'refresh_token'],
         token_endpoint_auth_method: 'private_key_jwt',
         id_token_signed_response_alg: 'RS256',
+        backchannel_logout_uri: 'http://localhost:3009/auth/backchannel-logout',
+        backchannel_logout_session_required: true,
         jwks: JSON.parse(String(process.env.OIDC_RUNNER_JWKS))
       }
     ])

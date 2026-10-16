@@ -2,6 +2,7 @@ import { runnerHomepageReturnPath } from '~/src/server/common/helpers/validation
 import { createServer } from '~/src/server/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
+import { logoutAndRevokeGrants } from '~/src/server/routes/account/account.js'
 import { renderResponse } from '~/test/helpers/component-helpers.js'
 
 const account = {
@@ -370,6 +371,31 @@ describe('/account', () => {
         )
       ).toBeNull()
     })
+  })
+
+  it('handles revoking grants where there is no session', async () => {
+    const errorLoggerFn = jest.fn()
+    const mockRequest = /** @type {import('@hapi/hapi').Request} */ (
+      /** @type {unknown} */ ({
+        server: {
+          app: {
+            oidcProvider: {
+              Session: {
+                findByUid: () => null
+              }
+            }
+          }
+        },
+        logger: {
+          error: errorLoggerFn
+        }
+      })
+    )
+
+    await expect(
+      logoutAndRevokeGrants(mockRequest, 'uid-1')
+    ).resolves.toBeUndefined()
+    expect(errorLoggerFn).not.toHaveBeenCalled()
   })
 })
 
