@@ -13,6 +13,7 @@ import {
   deleteAccount,
   getAccount,
   getOtpTarget,
+  reportSignOut,
   requestOtpViaEmail,
   updatePhone,
   verifyOtp
@@ -284,5 +285,15 @@ describe('identity-api client', () => {
     await expect(
       deleteAccount({ uid: 'uid-1', accountId }, 'token-1')
     ).rejects.toBe(notFound)
+  })
+
+  it('reportSignOut posts the sign-out for the account', async () => {
+    jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
+
+    await reportSignOut('acc/1', 'token-1')
+
+    const [url, options] = jest.mocked(postJson).mock.calls.at(-1) ?? []
+    expect(String(url)).toBe(`${API}/accounts/acc%2F1/sign-out`)
+    expect(options).toEqual({ headers: { Authorization: 'Bearer token-1' } })
   })
 })
