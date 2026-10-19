@@ -1,0 +1,17 @@
+{% extends "layouts/page.html" %}
+
+{% from "govuk/components/panel/macro.njk" import govukPanel %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% set pageTitle = t('account.deleteAccount.successPanel.titleText') %}
+
+{% block content %}
+  {% call govukPanel({
+    titleText: t('account.deleteAccount.successPanel.titleText')
+  }) %}
+    {{ t('account.deleteAccount.successPanel.body') }}
+  {% endcall %}
+
+  <p class="govuk-body">{{ t('account.deleteAccount.successPanel.info') }}</p>
+
+{% endblock %}

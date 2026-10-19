@@ -3,7 +3,9 @@ import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { TRANSPORT } from '~/src/server/common/constants/transport.js'
 import {
   bearerHeaders,
+  delJson,
   getJson,
+  isBadRequestError,
   isNotFoundError,
   patchJson,
   postJson
@@ -22,29 +24,33 @@ const baseUrl = config.get('identityApi.url')
  * stores and matches the digest with no change of its own. All four sites
  * have to agree: a digest on one side and a plaintext uid on the other gives
  * a 404, not an error.
+ * @typedef {{ status: 'otp-issued' } | { status: 'locked-out', lockedUntil: string }} RequestResult
  * @typedef {{ status: 'invalid' } | { status: 'invalid-code-format' } | { status: 'invalid-code-consumed-or-expired' } | { status: 'phone-required' } | { status: 'signed-in', accountId: string } | { status: 'valid' }} VerifyResult
- * @typedef {{ status: 'invalid' } | { status: 'invalid-phone' } | { status: 'signed-in', accountId: string }} CompleteResult
+ * @typedef {{ status: 'valid' } | { status: 'invalid' } | { status: 'invalid-phone' } | { status: 'signed-in', accountId: string } | { status: 'same-as-current' } | { status: 'already-in-use' }} CompleteResult
  */
 
 /**
- * Mints and emails a security code for the interaction
+ * Mints and emails a security code for the interaction, unless the address
+ * has asked for too many and is locked out
  * @param {{ uid: string, email: string, purpose: PurposeType, accountId?: string }} input
  * @param {string} token
+ * @returns {Promise<RequestResult>}
  */
 export async function requestOtpViaEmail(
   { uid, email, purpose, accountId },
   token
 ) {
-  await postJson(new URL('/otp/request', baseUrl), {
+  const { body } = await postJson(new URL('/otp/request', baseUrl), {
     payload: {
       uid: hashId(uid),
       target: email,
-      transport: TRANSPORT.EMAIL,
+      transport: TRANSPORT.EMAIL.toUpperCase(),
       purpose,
       accountId
     },
     headers: bearerHeaders(token)
   })
+  return /** @type {RequestResult} */ (body)
 }
 
 /**
@@ -52,17 +58,19 @@ export async function requestOtpViaEmail(
  * The phone number is not passed here, but read from the account record in the DB.
  * @param {{ uid: string, accountId: string, purpose: PurposeType }} input
  * @param {string} token
+ * @returns {Promise<RequestResult>}
  */
 export async function requestOtpViaSms({ uid, accountId, purpose }, token) {
-  await postJson(new URL('/otp/request', baseUrl), {
+  const { body } = await postJson(new URL('/otp/request', baseUrl), {
     payload: {
       uid: hashId(uid),
       accountId,
-      transport: TRANSPORT.SMS,
+      transport: TRANSPORT.SMS.toUpperCase(),
       purpose
     },
     headers: bearerHeaders(token)
   })
+  return /** @type {RequestResult} */ (body)
 }
 
 /**
@@ -89,11 +97,18 @@ export async function verifyOtp(
  * @returns {Promise<CompleteResult>}
  */
 export async function completeSignup({ uid, phone }, token) {
-  const { body } = await postJson(new URL('/accounts', baseUrl), {
-    payload: { uid: hashId(uid), phone },
-    headers: bearerHeaders(token)
-  })
-  return /** @type {CompleteResult} */ (body)
+  try {
+    const { body } = await postJson(new URL('/accounts', baseUrl), {
+      payload: { uid: hashId(uid), phone },
+      headers: bearerHeaders(token)
+    })
+    return /** @type {CompleteResult} */ (body)
+  } catch (err) {
+    if (isBadRequestError(err)) {
+      return { status: 'invalid-phone' }
+    }
+    throw err
+  }
 }
 
 /**
@@ -132,6 +147,19 @@ export async function getAccount(id, token) {
     }
     throw err
   }
+}
+
+/**
+ * Reports that a user signed out, so forms-identity-api can audit it
+ * @param {string} id - the account id, which is also the OIDC `sub`
+ * @param {string} token
+ * @returns {Promise<void>}
+ */
+export async function reportSignOut(id, token) {
+  await postJson(
+    new URL(`/accounts/${encodeURIComponent(id)}/sign-out`, baseUrl),
+    { headers: bearerHeaders(token) }
+  )
 }
 
 /**
@@ -176,6 +204,46 @@ export async function getOtp(uid, token, purpose) {
 export async function updateEmail({ uid, accountId }, token) {
   const { body } = await patchJson(
     new URL(`/accounts/${hashId(uid)}/${accountId}/email`, baseUrl),
+    {
+      headers: bearerHeaders(token)
+    }
+  )
+  return /** @type {CompleteResult} */ (body)
+}
+
+/**
+ * Completes JIT change phone number
+ * @param {{ uid: string, accountId: string, phone: string }} input
+ * @param {string} token
+ * @returns {Promise<CompleteResult>}
+ */
+export async function updatePhone({ uid, accountId, phone }, token) {
+  try {
+    const { body } = await patchJson(
+      new URL(`/accounts/${hashId(uid)}/${accountId}/phone`, baseUrl),
+      {
+        payload: { phone },
+        headers: bearerHeaders(token)
+      }
+    )
+    return /** @type {CompleteResult} */ (body)
+  } catch (err) {
+    if (isBadRequestError(err)) {
+      return { status: 'invalid-phone' }
+    }
+    throw err
+  }
+}
+
+/**
+ * Deletes the account based on the email that was verified from the OTP
+ * @param {{ uid: string, accountId: string }} input
+ * @param {string} token
+ * @returns {Promise<CompleteResult>}
+ */
+export async function deleteAccount({ uid, accountId }, token) {
+  const { body } = await delJson(
+    new URL(`/accounts/${hashId(uid)}/${accountId}`, baseUrl),
     {
       headers: bearerHeaders(token)
     }

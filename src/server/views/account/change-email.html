@@ -1,34 +1,33 @@
-
 {% from "govuk/components/button/macro.njk" import govukButton %}
 
 {% extends "layouts/page.html" %}
 
-{% set pageTitle = t('account.changeEmail') + " : " + t('account.requestPhoneOtp.title') %}
+{% set pageTitle = t('account.changeEmail') + " : " + t('otp.getCode') %}
 
 {% block content %}
-  <div class="govuk-grid-row">
-    <div class="govuk-grid-column-full">
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
 
     <span class="govuk-caption-l">{{ t('account.changeEmail') }}</span>
-    <h1 class="govuk-heading-l">{{ t('account.requestPhoneOtp.title') }}</h1>
+    <h1 class="govuk-heading-l">{{ t('otp.getCode') }}</h1>
 
     <div class="govuk-inset-text">
-      {{ t('account.requestPhoneOtp.inset') }} <strong>{{ phoneEndDigits }}</strong>
+      {{ t('otp.sendToPhone') }}
+      <strong>{{ phoneEndDigits }}</strong>
     </div>
 
-    <p class="govuk-body">{{ t('account.requestPhoneOtp.para1') }}</p>
+    <p class="govuk-body">{{ t('otp.requestLimitInfo') }}</p>
 
     <p class="govuk-body">{{ t('account.requestPhoneOtp.para2') }}</p>
 
-    <form method="post" action="/account/{{ uid }}/send-code" novalidate="">
+    <form method="post" action="/account/change-email/send-code?transport=sms" novalidate="">
       <input type="hidden" name="crumb" value="{{ crumb }}">
 
       {{ govukButton({
-        text: t('account.requestPhoneOtp.getCode')
-      }) }}
+      text: t('otp.getCode')
+    }) }}
     </form>
 
   </div>
-    </div>
-  </div>
+</div>
 {% endblock %}

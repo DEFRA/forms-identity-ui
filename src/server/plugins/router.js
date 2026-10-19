@@ -1,6 +1,8 @@
 import { StatusCodes } from 'http-status-codes'
 
 import {
+  accountChangeEmailRoutes,
+  accountChangePhoneRoutes,
   accountRoutes,
   healthRoute,
   homeRoute,
@@ -14,6 +16,8 @@ const routes = [
   healthRoute,
   homeRoute,
   ...accountRoutes,
+  ...accountChangeEmailRoutes,
+  ...accountChangePhoneRoutes,
   ...interactionRoutes
 ]
 

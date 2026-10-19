@@ -216,10 +216,11 @@ test.describe.serial('citizen sign-in', () => {
     expect(await res.json()).toMatchObject({ error: 'invalid_client' })
   })
 
-  test('signs out with no click when JavaScript runs', async () => {
+  test('signs out when the citizen confirms', async () => {
     // This page is from the first sign-in and has a provider session.
     await page.goto(`${RP}/`)
     await page.getByRole('link', { name: 'Sign out' }).click()
+    await page.getByRole('button', { name: 'Sign out' }).click()
 
     await expect(page).toHaveURL(returnToRp())
     await expect(

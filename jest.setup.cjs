@@ -46,7 +46,7 @@ process.env.IDENTITY_API_URL = 'http://localhost:3010'
 process.env.OIDC_RESOURCE_SERVERS =
   'urn:defra:forms:forms-submission-api,urn:defra:forms:another-api'
 process.env.OIDC_RUNNER_REDIRECT_URIS =
-  'http://localhost:3009/callback,http://localhost:3000/callback'
+  'http://localhost:3009/callback,http://localhost:3000/callback,https://forms-runner.dev-env.cloud/auth/callback'
 process.env.OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS =
   'http://localhost:3009/auth/signed-out,http://localhost:3000/'
 process.env.OIDC_RUNNER_INITIATE_LOGIN_URI =

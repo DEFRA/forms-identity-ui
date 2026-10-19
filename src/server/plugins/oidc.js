@@ -2,6 +2,8 @@ import Provider from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
+import { reportSignOut } from '~/src/server/lib/identity-api.js'
+import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 
@@ -130,6 +132,27 @@ export default {
       // or persistence failure would surface only as an opaque 500.
       provider.on('server_error', (_ctx, err) => {
         logger.error(err, '[oidcServerError] provider raised a server error')
+      })
+
+      // Emitted once the provider has completed a sign-out. A session
+      // with no account (expired before sign-out, or never signed in)
+      // has no sign-out to report. The redirect to the client must not
+      // wait on the audit, so a failure is only logged.
+      provider.on('end_session.success', (ctx) => {
+        const accountId = ctx.oidc.session?.accountId
+
+        if (!accountId) {
+          return
+        }
+
+        getServiceToken()
+          .then((token) => reportSignOut(accountId, token))
+          .catch((err) => {
+            logger.error(
+              err,
+              '[signOutReportFailed] failed to report the sign-out to forms-identity-api'
+            )
+          })
       })
 
       server.app.oidcProvider = provider

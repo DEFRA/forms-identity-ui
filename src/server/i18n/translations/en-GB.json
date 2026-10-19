@@ -3,7 +3,28 @@
     "name": "Sign in to Defra Forms"
   },
   "common": {
-    "back": "Back"
+    "back": "Back",
+    "continue": "Continue",
+    "success": "Success",
+    "phoneNumber": "Mobile phone number",
+    "phoneNumberRequired": "Enter your mobile phone number",
+    "phoneNumberFormatError": "Enter a mobile phone number in the correct format",
+    "emailAddressRequired": "Enter an email address",
+    "emailAddressFormatError": "Enter an email address in the correct format, like name@example.com"
+  },
+  "otp": {
+    "getCode": "Get security code",
+    "checkEmail": "Check your email",
+    "resendNotificationText": "We’ve sent you a new security code.",
+    "expiryInfo": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
+    "enterCode": "Enter the 6 digit security code",
+    "codeFormatError": "Enter the security code using only 6 digits",
+    "problemsSummary": "Problems with the security code?",
+    "requestLimitInfo": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
+    "emailSentLabel": "We have sent an email to:",
+    "sendToEmail": "We will send a security code to:",
+    "sendToPhone": "We will send a security code to your mobile phone number ending with",
+    "emailArrivalInfo": "Your email might take a few minutes to arrive. If you do not get an email, check your spam folder."
   },
   "home": {
     "title": "You cannot sign in from this page",
@@ -16,52 +37,74 @@
     "pageTitle": "Security",
     "cardTitle": "Your sign-in details",
     "email": "Email address",
-    "phone": "Mobile phone number",
     "changeEmail": "Change email address",
+    "changePhone": "Change mobile phone number",
     "change": "Change",
     "emailAddress": "email address",
-    "mobileNumber": "mobile number",
-    "successNotificationTitleText": "Success",
-    "successChangedEmailNotificationText": "Your email address has been changed.",
+    "mobileNumber": "mobile phone number",
+    "successChangedEmailNotificationText": "Your email address has been changed",
+    "successChangedPhoneNotificationText": "Your mobile phone number has been changed",
+    "deleteSignInTitle": "Delete your sign-in",
+    "deleteSignInInfo": "This will permanently delete your sign-in. You’ll no longer be able to access the forms you’ve used with it.",
     "requestPhoneOtp": {
-      "title": "Get security code",
-      "inset": "We will send a security code to your mobile phone number ending with",
-      "para1": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
-      "para2": "It might take a few minutes to arrive.",
-      "getCode": "Get security code"
+      "para2": "It might take a few minutes to arrive."
     },
     "sentPhoneOtp": {
       "title": "Check your phone",
-      "resendNotificationTitleText": "Success",
-      "resendNotificationText": "We’ve sent you a new security code.",
       "para1": "We need to check it’s you before you can change your email address.",
       "inset": "We have sent a security code to your mobile phone number ending with",
-      "para2": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
-      "enterCode": "Enter the 6 digit security code",
-      "continue": "Continue",
       "problemsDetails": {
-        "summaryText": "Problems with the security code?",
-        "body": "We can <a class=\"govuk-link\" href=\"./code-resend\">send the security code again</a> if the security code is not working or you did not receive it."
+        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend?transport=sms\">send the security code again</a> if the security code is not working or you did not receive it."
       }
     },
     "newEmail": {
       "title": "Enter your new email address",
-      "continue": "Continue",
-      "errorRequired": "Enter an email address",
-      "errorFormat": "Enter an email address in the correct format, like name@example.com"
+      "errorSameAsCurrent": "Enter a different email address. This is the same as your current email address.",
+      "errorAlreadyTaken": "Enter a different email address. This email address is already used for another sign-in."
+    },
+    "newPhone": {
+      "title": "Enter your new mobile phone number",
+      "body": "If you forget your sign-in details, we will send a 6 digit security code to this number.",
+      "errorSameAsCurrent": "Enter a different mobile phone number. This is the same as your current mobile phone number."
     },
     "sentEmailOtp": {
-      "title": "Check your email",
-      "resendNotificationTitleText": "Success",
-      "resendNotificationText": "We’ve sent you a new security code.",
-      "inset": "We have sent an email to: ",
-      "para1": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
-      "enterCode": "Enter the 6 digit security code",
-      "continue": "Continue",
       "problemsDetails": {
-        "summaryText": "Problems with the security code?",
-        "body": "We can <a class=\"govuk-link\" href=\"./code-resend\">send the security code again</a> or you can <a class=\"govuk-link\" href=\"./enter-email\">use a different email address</a>."
+        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend?transport=email\">send the security code again</a> or you can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./enter-email\">use a different email address</a>."
       }
+    },
+    "updateError": {
+      "titleEmail": "Your email address was not updated",
+      "titlePhone": "Your mobile phone number was not updated",
+      "bodyEmail": "You will need to <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/change-email/enter-email\">choose a different email address</a> or <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">cancel</a>.",
+      "bodyPhone": "You will need to <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account/change-phone/enter-phone\">choose a different mobile phone number</a> or <a class=\"govuk-link govuk-link--no-visited-state\" href=\"/account\">cancel</a>.",
+      "errorGeneral": "An error occurred. Please try again."
+    },
+    "deleteAccount": {
+      "title": "Enter the security code",
+      "para1": "We need to make sure it’s you before you can delete your sign-in.",
+      "cancelLinkText": "Cancel and go back",
+      "errorInvalid": "The code you entered is not correct – enter it again or request a new code",
+      "problemsDetails": {
+        "body": "We can <a class=\"govuk-link\" href=\"./code/resend\">send the security code again</a> if the security code is not working or you did not receive it."
+      },
+      "successPanel": {
+        "titleText": "Your sign-in has been deleted",
+        "body": "You can no longer access any forms you have started or submitted using this sign-in.",
+        "info": "If you need to use this form again, you will need to create a new sign-in."
+      }
+    },
+    "lockedOut": {
+      "title": "Too many security codes requested",
+      "body": [
+        "You have requested too many security codes.",
+        "Try again in [[duration]]."
+      ]
+    },
+    "codeExpired": {
+      "title": "Your security code has expired",
+      "para1": "Security codes expire after 15 minutes.",
+      "para2": "Ask us to send a new code, then enter it on the next page.",
+      "getCode": "Send a new security code"
     }
   },
   "layout": {
@@ -72,48 +115,31 @@
   },
   "signin": {
     "email": {
-      "title": "Enter your email address",
-      "continue": "Continue",
-      "errorRequired": "Enter an email address",
-      "errorFormat": "Enter an email address in the correct format, like name@example.com"
+      "title": "Enter your email address"
     },
     "code": {
-      "title": "Check your email",
-      "resendNotificationTitleText": "Success",
-      "resendNotificationText": "We’ve sent you a new security code.",
       "sentTo": "We have sent an email to: [[email]]",
-      "body": "It might take a few minutes to arrive. The security code will expire after 15 minutes.",
-      "label": "Enter the 6 digit security code",
-      "continue": "Continue",
-      "errorRequired": "Enter the 6 digit security code",
-      "errorInvalidFormat": "Enter the security code using only 6 digits",
       "errorInvalid": "The code you entered is not correct or has expired – enter it again or request a new code",
       "problemsDetails": {
-        "summaryText": "Problems with the security code?",
-        "body": "We can <a class=\"govuk-link\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link\" href=\".\">use a different email address</a>."
+        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link govuk-link--no-visited-state\" href=\".\">use a different email address</a>."
       }
     },
     "phone": {
-      "title": "Enter your mobile phone number",
-      "body": "If you forget your sign-in details, we will send a 6 digit security code to the number you give us. This will allow you to get back into your form.",
-      "label": "Mobile phone number",
-      "continue": "Continue",
-      "errorRequired": "Enter your mobile phone number",
-      "errorInvalid": "Enter a mobile phone number in the correct format"
+      "body": "If you forget your sign-in details, we will send a 6 digit security code to the number you give us. This will allow you to get back into your form."
     },
     "codeExpired": {
       "title": "Your security code has expired",
       "sentTo": "The security code was sent to: [[email]]",
       "expiryInfo": "Security codes expire after 15 minutes.",
       "resendInfo": "Ask us to send a new code, then enter it on the next page.",
-      "continue": "Send a new security code"
+      "getCode": "Send a new security code"
     },
-    "codeResend": {
-      "title": "Get security code",
-      "sentTo": "We will send a security code to: [[email]]",
-      "lockoutInfo": "You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.",
-      "emailInfo": "Your email might take a few minutes to arrive. If you do not get an email, check your spam folder.",
-      "continue": "Get security code"
+    "lockedOut": {
+      "title": "Too many security codes requested",
+      "body": [
+        "You have requested too many security codes.",
+        "Try again in [[duration]]."
+      ]
     },
     "timedOut": {
       "title": "For your security, we ended your sign in",
@@ -123,12 +149,19 @@
       ]
     }
   },
+  "duration": {
+    "hours_one": "[[count]] hour",
+    "hours_other": "[[count]] hours",
+    "minutes_one": "[[count]] minute",
+    "minutes_other": "[[count]] minutes",
+    "hoursAndMinutes": "[[hours]] and [[minutes]]"
+  },
   "errors": {
     "notFound": {
       "heading": "Page not found",
       "body1": "If you typed the web address, check it is correct.",
       "body2": "If you pasted the web address, check you copied the entire address.",
-      "body3": "If the web address is correct or you selected a link or button, <a href=\"https://www.gov.uk/guidance/contact-defra\" class=\"govuk-link\">contact the Defra Helpline</a> if you need to speak to someone."
+      "body3": "If the web address is correct or you selected a link or button, <a href=\"https://www.gov.uk/guidance/contact-defra\" class=\"govuk-link govuk-link--no-visited-state\">contact the Defra Helpline</a> if you need to speak to someone."
     },
     "serverError": {
       "heading": "Sorry, there is a problem with the service",

@@ -160,7 +160,9 @@ describe('interaction pages', () => {
   })
 
   it('POST email requests a code and redirects to the code page', async () => {
-    jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue(undefined)
+    jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
+      status: 'otp-issued'
+    })
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
 
     const res = await server.inject({
@@ -180,6 +182,122 @@ describe('interaction pages', () => {
       },
       'token-1'
     )
+  })
+
+  it.each([
+    ['a first request', '/interaction/uid-1/email'],
+    ['a resend', '/interaction/uid-1/email?resend=true']
+  ])(
+    'POST email shows the locked-out page for %s while the address is locked out',
+    async (_label, url) => {
+      // a few seconds under two hours, as it would be by the time the
+      // API's answer arrives
+      const lockedUntil = new Date(Date.now() + 2 * 60 * 60 * 1000 - 5000)
+      jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
+        status: 'locked-out',
+        lockedUntil: lockedUntil.toISOString()
+      })
+      const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
+
+      const { container, response } = await renderResponse(server, {
+        method: 'POST',
+        url,
+        headers: { cookie },
+        payload: { crumb, email: 'a@b.com' }
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(
+        container.getByRole('heading', {
+          name: 'Too many security codes requested',
+          level: 1
+        })
+      ).toBeInTheDocument()
+      expect(
+        container.getByText('You have requested too many security codes.')
+      ).toBeInTheDocument()
+      expect(container.getByText('Try again in 2 hours.')).toBeInTheDocument()
+    }
+  )
+
+  it('POST email shows the locked-out page in Welsh when the session is in Welsh', async () => {
+    jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
+      status: 'locked-out',
+      lockedUntil: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+    })
+    const { crumb, cookie } = await getWithCrumb(
+      '/interaction/uid-1/email?language=cy'
+    )
+
+    const { container, response } = await renderResponse(server, {
+      method: 'POST',
+      url: '/interaction/uid-1/email',
+      headers: { cookie },
+      payload: { crumb, email: 'a@b.com' }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(
+      container.getByRole('heading', {
+        name: 'Gofynnwyd am ormod o godau diogelwch',
+        level: 1
+      })
+    ).toBeInTheDocument()
+    expect(
+      container.getByText('Rhowch gynnig arall arni ymhen 2 awr.')
+    ).toBeInTheDocument()
+  })
+
+  it('POST email resend does not report a new code sent while locked out', async () => {
+    jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
+      status: 'locked-out',
+      lockedUntil: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    })
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
+
+    const post = await server.inject({
+      method: 'POST',
+      url: '/interaction/uid-1/email?resend=true',
+      headers: { cookie },
+      payload: { crumb, email: 'a@b.com' }
+    })
+
+    // carry any session the POST wrote into the next page, so a flash set
+    // by mistake would show up there
+    const setCookies = /** @type {string[] | string | undefined} */ (
+      post.headers['set-cookie']
+    )
+    const updated = (Array.isArray(setCookies) ? setCookies : [setCookies])
+      .filter(Boolean)
+      .map((c) => String(c).split(';')[0])
+    const cookies = new Map(
+      [...cookie.split('; '), ...updated].map((c) => [c.split('=')[0], c])
+    )
+
+    const code = await server.inject({
+      method: 'GET',
+      url: '/interaction/uid-1/code',
+      headers: { cookie: [...cookies.values()].join('; ') }
+    })
+
+    expect(code.statusCode).toBe(200)
+    expect(code.payload).not.toContain('We’ve sent you a new security code.')
+  })
+
+  it('POST email surfaces a 500 when the API returns an unknown verdict', async () => {
+    jest
+      .mocked(identityApi.requestOtpViaEmail)
+      .mockResolvedValue(/** @type {never} */ ({ status: 'something-else' }))
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
+
+    const res = await server.inject({
+      method: 'POST',
+      url: '/interaction/uid-1/email',
+      headers: { cookie },
+      payload: { crumb, email: 'a@b.com' }
+    })
+
+    expect(res.statusCode).toBe(500)
   })
 
   it('POST email re-renders with a GDS error for an invalid email', async () => {
@@ -283,8 +401,9 @@ describe('interaction pages', () => {
     })
     expect($heading).toBeInTheDocument()
     expect(
-      container.getByText('We have sent an email to: shown@example.com')
+      container.getByText('We have sent an email to:', { exact: false })
     ).toBeInTheDocument()
+    expect(container.getByText('shown@example.com')).toBeInTheDocument()
     expect(
       container.getByRole('textbox', {
         name: 'Enter the 6 digit security code'
@@ -545,20 +664,23 @@ describe('interaction pages', () => {
     )
   })
 
-  it('POST a non-number phone re-renders without calling the API', async () => {
+  it('POST an empty phone re-renders without calling the API', async () => {
     const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/phone')
 
     const { container, response } = await renderResponse(server, {
       method: 'POST',
       url: '/interaction/uid-1/phone',
       headers: { cookie },
-      payload: { crumb, phone: 'not a number' }
+      payload: { crumb, phone: '  ' }
     })
 
     expect(response.statusCode).toBe(200)
     expect(container.getByRole('alert')).toContainElement(
       container.getByRole('heading', { name: 'There is a problem' })
     )
+    expect(
+      container.getByRole('link', { name: 'Enter your mobile phone number' })
+    ).toHaveAttribute('href', '#phone')
     expect(identityApi.completeSignup).not.toHaveBeenCalled()
   })
 
@@ -669,8 +791,9 @@ describe('interaction pages', () => {
     })
     expect($heading).toBeInTheDocument()
     expect(
-      container.getByText('We will send a security code to: shown@example.com')
+      container.getByText('We will send a security code to:', { exact: false })
     ).toBeInTheDocument()
+    expect(container.getByText('shown@example.com')).toBeInTheDocument()
     expect(
       container.getByText(
         'You can request 5 security codes. If you request more than 5, you will be locked out for 2 hours.'

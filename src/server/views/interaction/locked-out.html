@@ -1,0 +1,17 @@
+{% extends "layouts/page.html" %}
+
+{% set pageTitle = t('signin.lockedOut.title') %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+
+      <h1 class="govuk-heading-l">{{ t('signin.lockedOut.title') }}</h1>
+
+      {% for paragraph in t('signin.lockedOut.body', { returnObjects: true, duration: retryAfter }) %}
+        <p class="govuk-body">{{ paragraph }}</p>
+      {% endfor %}
+
+    </div>
+  </div>
+{% endblock %}

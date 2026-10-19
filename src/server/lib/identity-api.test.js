@@ -1,19 +1,29 @@
 import Boom from '@hapi/boom'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
-import { getJson, postJson } from '~/src/server/common/helpers/fetch.js'
+import {
+  delJson,
+  getJson,
+  patchJson,
+  postJson
+} from '~/src/server/common/helpers/fetch.js'
 import { hashId } from '~/src/server/common/helpers/hash-id.js'
 import {
   completeSignup,
+  deleteAccount,
   getAccount,
   getOtpTarget,
+  reportSignOut,
   requestOtpViaEmail,
+  updatePhone,
   verifyOtp
 } from '~/src/server/lib/identity-api.js'
 
 jest.mock('~/src/server/common/helpers/fetch.js', () => ({
   ...jest.requireActual('~/src/server/common/helpers/fetch.js'),
+  delJson: jest.fn(),
   getJson: jest.fn(),
+  patchJson: jest.fn(),
   postJson: jest.fn()
 }))
 
@@ -36,7 +46,11 @@ function postPayload(index) {
 
 describe('identity-api client', () => {
   it('requestOtpViaEmail posts uid and email', async () => {
-    jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
+    jest
+      .mocked(postJson)
+      .mockResolvedValue(
+        /** @type {never} */ ({ body: { status: 'otp-issued' } })
+      )
 
     await requestOtpViaEmail(
       { uid: 'uid-1', email: 'a@b.com', purpose: PURPOSE.SIGNIN_VERIFY_EMAIL },
@@ -55,6 +69,27 @@ describe('identity-api client', () => {
       transport: 'EMAIL',
       purpose: 'SIGNIN_VERIFY_EMAIL'
     })
+  })
+
+  it('requestOtp returns the verdict body', async () => {
+    const lockedOut = {
+      status: 'locked-out',
+      lockedUntil: '2026-09-21T12:00:00.000Z'
+    }
+    jest
+      .mocked(postJson)
+      .mockResolvedValue(/** @type {never} */ ({ body: lockedOut }))
+
+    await expect(
+      requestOtpViaEmail(
+        {
+          uid: 'uid-1',
+          email: 'a@b.com',
+          purpose: PURPOSE.SIGNIN_VERIFY_EMAIL
+        },
+        'token-1'
+      )
+    ).resolves.toEqual(lockedOut)
   })
 
   it('verifyOtp returns the verdict body', async () => {
@@ -94,6 +129,50 @@ describe('identity-api client', () => {
       uid: hashId('uid-1'),
       phone: '07911 123456'
     })
+  })
+
+  it('completeSignup turns a 400 from the API into the invalid-phone verdict', async () => {
+    jest
+      .mocked(postJson)
+      .mockRejectedValue(
+        Boom.badRequest('"phone" must be a mobile phone number')
+      )
+
+    await expect(
+      completeSignup({ uid: 'uid-1', phone: 'not a number' }, 'token-1')
+    ).resolves.toEqual({ status: 'invalid-phone' })
+  })
+
+  it('completeSignup passes other API failures on', async () => {
+    jest.mocked(postJson).mockRejectedValue(Boom.badGateway())
+
+    await expect(
+      completeSignup({ uid: 'uid-1', phone: '07911 123456' }, 'token-1')
+    ).rejects.toMatchObject({ output: { statusCode: 502 } })
+  })
+
+  it('updatePhone turns a 400 from the API into the invalid-phone verdict', async () => {
+    jest
+      .mocked(patchJson)
+      .mockRejectedValue(Boom.badRequest('"phone" must be a telephone number'))
+
+    await expect(
+      updatePhone(
+        { uid: 'uid-1', accountId: 'account-1', phone: 'not a number' },
+        'token-1'
+      )
+    ).resolves.toEqual({ status: 'invalid-phone' })
+  })
+
+  it('updatePhone passes other API failures on', async () => {
+    jest.mocked(patchJson).mockRejectedValue(Boom.badGateway())
+
+    await expect(
+      updatePhone(
+        { uid: 'uid-1', accountId: 'account-1', phone: '07911 123456' },
+        'token-1'
+      )
+    ).rejects.toMatchObject({ output: { statusCode: 502 } })
   })
 
   it('keys the OTP record the same way at all four call sites', async () => {
@@ -182,5 +261,39 @@ describe('identity-api client', () => {
     const notFound = Boom.notFound()
     jest.mocked(getJson).mockRejectedValue(notFound)
     await expect(getOtpTarget('uid-none', 'token-1')).resolves.toBeNull()
+  })
+
+  it('deleteAccount returns the account or 404', async () => {
+    const accountId = 'acc-1'
+    const result = {
+      ok: true,
+      message: `Account ${accountId} deleted successfully`
+    }
+
+    jest.mocked(delJson).mockResolvedValue(
+      /** @type {never} */ ({
+        body: result
+      })
+    )
+
+    await expect(
+      deleteAccount({ uid: 'uid-1', accountId }, 'token-1')
+    ).resolves.toEqual(result)
+
+    const notFound = Boom.notFound()
+    jest.mocked(delJson).mockRejectedValue(notFound)
+    await expect(
+      deleteAccount({ uid: 'uid-1', accountId }, 'token-1')
+    ).rejects.toBe(notFound)
+  })
+
+  it('reportSignOut posts the sign-out for the account', async () => {
+    jest.mocked(postJson).mockResolvedValue(/** @type {never} */ ({}))
+
+    await reportSignOut('acc/1', 'token-1')
+
+    const [url, options] = jest.mocked(postJson).mock.calls.at(-1) ?? []
+    expect(String(url)).toBe(`${API}/accounts/acc%2F1/sign-out`)
+    expect(options).toEqual({ headers: { Authorization: 'Bearer token-1' } })
   })
 })
