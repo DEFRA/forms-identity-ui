@@ -12,20 +12,18 @@
 
       <p class="govuk-body">{{ t('signout.body') }}</p>
 
-      <div {%- if autoSubmit %} data-module="app-auto-submit"{% endif %}>
-        {{ form | safe }}
+      {{ form | safe }}
 
-        <div class="govuk-button-group">
-          {{ govukButton({
-            text: t('signout.button'),
-            name: "logout",
-            value: "yes",
-            attributes: { form: "op.logoutForm" }
-          }) }}
-          {% if cancelUri %}
-            <a class="govuk-link" href="{{ cancelUri }}">{{ t('signout.cancel') }}</a>
-          {% endif %}
-        </div>
+      <div class="govuk-button-group">
+        {{ govukButton({
+          text: t('signout.button'),
+          name: "logout",
+          value: "yes",
+          attributes: { form: "op.logoutForm" }
+        }) }}
+        {% if cancelUri %}
+          <a class="govuk-link" href="{{ cancelUri }}">{{ t('signout.cancel') }}</a>
+        {% endif %}
       </div>
 
     </div>
