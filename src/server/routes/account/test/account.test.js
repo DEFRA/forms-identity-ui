@@ -221,6 +221,10 @@ describe('/account', () => {
         reason: 'the request names a client more than once',
         url: '/account?client_id=runner&client_id=runner'
       },
+      {
+        reason: 'the request sends a return url more than once',
+        url: '/account?client_id=runner&returnUrl=http://localhost:3009/a&returnUrl=http://localhost:3009/b'
+      },
       { reason: 'the request names no client', url: '/account/change-email' }
     ])(
       'tells the user to sign in again from their service when $reason',

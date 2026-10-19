@@ -186,7 +186,7 @@ export default /** @type {ServerRoute[]} */ (
 
         // Only a client that names itself replaces the stored one
         if (clientReturn) {
-          storeClientReturn(request, clientReturn)
+          storeClientReturn(yar, clientReturn)
         }
 
         const backLink = getBackLink(yar)

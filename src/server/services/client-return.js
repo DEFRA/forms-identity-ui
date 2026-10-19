@@ -37,27 +37,27 @@ export async function findClientReturn(provider, { clientId, returnUrl }) {
 }
 
 /**
- * Reads a query value that the route has not validated yet. A parameter that
- * is sent more than once arrives as an array, and counts as not sent.
- * @param {unknown} value
- */
-function sentOnce(value) {
-  return typeof value === 'string' ? value : undefined
-}
-
-/**
  * Finds the client that sent the user, for a request that can be a step in a
  * journey. A client names itself in the query when it sends a user to the
  * account page. The steps of a journey have no query, so they use the client
  * stored from that visit.
  * @param {Request} request
  */
-export function clientReturnFor({ server, query, yar }) {
+export async function clientReturnFor({ server, query, yar }) {
+  const { client_id: clientId, returnUrl } = query
+
+  // The route has not validated the query yet, and a parameter sent more
+  // than once arrives as an array
+  if (
+    (clientId !== undefined && typeof clientId !== 'string') ||
+    (returnUrl !== undefined && typeof returnUrl !== 'string')
+  ) {
+    return undefined
+  }
+
   return findClientReturn(server.app.oidcProvider, {
-    clientId:
-      sentOnce(query.client_id) ?? yar.get(SESSION_KEY_CLIENT_ID) ?? undefined,
-    returnUrl:
-      sentOnce(query.returnUrl) ?? yar.get(SESSION_KEY_BACK_LINK) ?? undefined
+    clientId: clientId ?? yar.get(SESSION_KEY_CLIENT_ID) ?? undefined,
+    returnUrl: returnUrl ?? yar.get(SESSION_KEY_BACK_LINK) ?? undefined
   })
 }
 
@@ -65,14 +65,14 @@ export function clientReturnFor({ server, query, yar }) {
  * Stores the client and its Back link for the steps of a journey. The Back
  * link belongs to that client, so with no return address the stored one is
  * cleared and the pages show no Back link.
- * @param {Pick<Request, 'yar'>} request
+ * @param {Yar} yar
  * @param {ClientReturn} clientReturn
  */
-export function storeClientReturn({ yar }, { clientId, returnUrl }) {
-  yar.set(SESSION_KEY_CLIENT_ID, clientId)
+export function storeClientReturn(yar, clientReturn) {
+  yar.set(SESSION_KEY_CLIENT_ID, clientReturn.clientId)
 
-  if (returnUrl) {
-    yar.set(SESSION_KEY_BACK_LINK, returnUrl)
+  if (clientReturn.returnUrl) {
+    yar.set(SESSION_KEY_BACK_LINK, clientReturn.returnUrl)
   } else {
     yar.clear(SESSION_KEY_BACK_LINK)
   }
@@ -87,5 +87,6 @@ export function storeClientReturn({ yar }, { clientId, returnUrl }) {
 
 /**
  * @import { Request } from '@hapi/hapi'
+ * @import { Yar } from '@hapi/yar'
  * @import Provider from 'oidc-provider'
  */
