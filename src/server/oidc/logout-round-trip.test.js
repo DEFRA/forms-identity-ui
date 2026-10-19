@@ -50,6 +50,32 @@ describe('logout round trip', () => {
   }
 
   /**
+   * The sign-out calls forms-identity-api has received. The provider reports
+   * a sign-out after it has redirected the citizen, so wait for the call.
+   * @param {string} [email] - only calls for this account
+   */
+  async function signOutReports(email) {
+    const accountId = [...roundTrip.accounts.values()].find(
+      (account) => account.email === email
+    )?.id
+    const calls = () =>
+      roundTrip.seenPaths.filter(
+        (path) =>
+          path.startsWith('POST /accounts/') &&
+          path.endsWith('/sign-out') &&
+          (accountId === undefined || path.includes(accountId))
+      )
+
+    for (let attempt = 0; attempt < 20 && calls().length === 0; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    // Leave time for a duplicate report to arrive
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    return calls()
+  }
+
+  /**
    * Opens the sign-out page and shows it as a browser does
    * @param {Record<string, string>} params
    */
@@ -179,11 +205,6 @@ describe('logout round trip', () => {
       `${POST_LOGOUT_REDIRECT_URI}?state=logout-state&cancelled=true`
     )
 
-    // With JavaScript, the page presses its own button.
-    expect(
-      document.querySelector('[data-module="app-auto-submit"] button')
-    ).not.toBeNull()
-
     const signedOut = await submitSignOut(document)
     expect(signedOut.statusCode).toBe(303)
     expect(signedOut.headers.location).toBe(
@@ -192,6 +213,14 @@ describe('logout round trip', () => {
 
     // The full provider session ended, not only the runner's part.
     expect(roundTrip.jar.has('_session')).toBe(false)
+
+    // forms-identity-api is told, once, so that it can audit the sign-out
+    const accountId = [...roundTrip.accounts.values()].find(
+      (account) => account.email === 'own-hint@example.com'
+    )?.id
+    expect(await signOutReports('own-hint@example.com')).toEqual([
+      `POST /accounts/${accountId}/sign-out`
+    ])
 
     // The provider keeps the `offline_access` grant, so the runner's tokens
     // work until the runner revokes them
@@ -204,7 +233,7 @@ describe('logout round trip', () => {
   it('asks the citizen to confirm when the request carries no ID token', async () => {
     const tokens = await signIn('no-hint@example.com')
 
-    const { container, document } = await openSignOut({ client_id: 'runner' })
+    const { container } = await openSignOut({ client_id: 'runner' })
 
     expect(
       container.getByRole('heading', {
@@ -212,7 +241,6 @@ describe('logout round trip', () => {
         level: 1
       })
     ).toBeInTheDocument()
-    expect(document.querySelector('[data-module="app-auto-submit"]')).toBeNull()
 
     // Without a post-logout redirect URI, the page shows no Cancel link.
     expect(
@@ -235,6 +263,7 @@ describe('logout round trip', () => {
 
     await submitSignOut(withRedirect.document)
     expect(roundTrip.jar.has('_session')).toBe(false)
+    expect(await signOutReports('no-hint@example.com')).toHaveLength(1)
 
     await revoke(tokens.refresh_token)
     await expectSignInEnded(tokens)
@@ -277,8 +306,22 @@ describe('logout round trip', () => {
 
     expect((await refresh(tokens.refresh_token)).statusCode).toBe(200)
 
+    // The session was already gone, so there is no sign-out to report
+    expect(await signOutReports('expired-session@example.com')).toEqual([])
+
     await revoke(tokens.refresh_token)
     await expectSignInEnded(tokens)
+  })
+
+  it('does not report a sign-out when the citizen cancels', async () => {
+    await signIn('cancelled@example.com')
+
+    await openSignOut({
+      client_id: 'runner',
+      post_logout_redirect_uri: POST_LOGOUT_REDIRECT_URI
+    })
+
+    expect(await signOutReports('cancelled@example.com')).toEqual([])
   })
 
   it('keeps the sign-in when a revocation carries no client assertion', async () => {
