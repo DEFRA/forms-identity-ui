@@ -10,7 +10,8 @@
     "phoneNumberRequired": "Enter your mobile phone number",
     "phoneNumberFormatError": "Enter a mobile phone number in the correct format",
     "emailAddressRequired": "Enter an email address",
-    "emailAddressFormatError": "Enter an email address in the correct format, like name@example.com"
+    "emailAddressFormatError": "Enter an email address in the correct format, like name@example.com",
+    "errorPrefix": "Error: "
   },
   "otp": {
     "getCode": "Get security code",
