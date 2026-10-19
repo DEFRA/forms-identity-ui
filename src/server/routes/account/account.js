@@ -7,7 +7,7 @@ import { getBackLink } from '~/src/server/common/helpers/navigation.js'
 import { getLanguage, setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-import { signedInOnly } from '~/src/server/routes/account-sign-in.js'
+import { requiredSignInAuthOptions } from '~/src/server/routes/account-sign-in.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
 import {
@@ -171,7 +171,7 @@ export default /** @type {ServerRoute[]} */ (
       path: ACCOUNT_PATH,
       options: {
         validate: { query: queryParamsSchema },
-        ...signedInOnly,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       async handler(request, h) {
@@ -209,7 +209,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_START,
       options: {
-        ...signedInOnly,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
@@ -230,7 +230,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'POST',
       path: JOURNEY_DELETE_ACCOUNT_SEND_CODE,
       options: {
-        ...signedInOnly,
+        ...requiredSignInAuthOptions,
         validate: {
           query: Joi.object().keys({ resend: Joi.boolean().optional() })
         }
@@ -268,7 +268,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_RESEND_CODE,
       options: {
-        ...signedInOnly,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
@@ -286,7 +286,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_CODE,
       options: {
-        ...signedInOnly
+        ...requiredSignInAuthOptions
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -325,7 +325,7 @@ export default /** @type {ServerRoute[]} */ (
       path: JOURNEY_DELETE_ACCOUNT_CODE,
       options: {
         validate: { payload: formPayload('code') },
-        ...signedInOnly
+        ...requiredSignInAuthOptions
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -379,7 +379,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_CODE_EXPIRED,
       options: {
-        ...signedInOnly,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {

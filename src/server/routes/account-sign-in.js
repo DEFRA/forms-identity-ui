@@ -70,7 +70,7 @@ async function signInAtClient(request, h) {
  * runs on the route's own response, ahead of the error pages, so that it
  * sees the refusal as authentication made it.
  */
-export const signedInOnly = /** @satisfies {RouteOptions} */ ({
+export const requiredSignInAuthOptions = /** @satisfies {RouteOptions} */ ({
   auth: { mode: 'required', strategy: CITIZEN_SESSION },
   ext: {
     onPreResponse: {
