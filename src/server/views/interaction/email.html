@@ -4,7 +4,8 @@
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% from "govuk/components/input/macro.njk" import govukInput %}
 
-{% set pageTitle = t('signin.email.title') %}
+{% set errorPrefix = t('common.errorPrefix') if errorKey else '' %}
+{% set pageTitle = errorPrefix + t('signin.email.title') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
 {% block content %}

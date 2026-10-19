@@ -3,7 +3,7 @@
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 
-{% set pageTitle = t('signin.codeExpired.title') %}
+{% set pageTitle = t('common.errorPrefix') + t('signin.codeExpired.title') %}
 
 {% block content %}
   <div class="govuk-grid-row">
