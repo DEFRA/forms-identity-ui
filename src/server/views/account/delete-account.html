@@ -43,11 +43,16 @@
       <form method="post" action="/account/delete-account/send-code" novalidate="">
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
-        {{ govukButton({ text: t('common.continue') }) }}
+        <div class="govuk-button-group">
+          {{ govukButton({ text: t('common.continue') }) }}
+
+          {{ govukButton({
+            text: t('common.cancel'),
+            classes: 'govuk-button--secondary',
+            href: '/account'
+          }) }}
+        </div>
       </form>
-      <p class="govuk-body">
-        <a href="/account" class="govuk-link govuk-link--no-visited-state">{{ t('account.deleteAccount.cancelLinkText') }}</a>
-      </p>
 
     </div>
   </div>
