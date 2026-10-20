@@ -5,11 +5,7 @@
 {% from "govuk/components/input/macro.njk" import govukInput %}
 
 {% set pageTitle = t('account.changeEmail') + " : " + t('account.newEmail.title') %}
-{% set errorMessage = {
-  text: t(errorKey)
-}
-if errorKey else 
-  undefined %}
+{% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
 {% block content %}
   <div class="govuk-grid-row">
