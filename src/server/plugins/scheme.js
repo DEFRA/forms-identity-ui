@@ -25,6 +25,12 @@ export function citizenSessionScheme() {
         return h.unauthenticated(Boom.unauthorized(null, CITIZEN_SESSION))
       }
 
+      // Recorded apart from the credentials, which the refusals below also
+      // leave empty. A new sign in gives a request with no session what it
+      // lacks; these have a session already, so a new sign in would bring
+      // the user back to the same refusal.
+      request.app.hasCitizenSession = true
+
       const account = await getAccount(
         session.accountId,
         await getServiceToken()

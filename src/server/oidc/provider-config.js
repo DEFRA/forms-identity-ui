@@ -24,6 +24,15 @@ const RUNNER_POST_LOGOUT_REDIRECT_URIS = config.get(
 const RUNNER_BACKCHANNEL_LOGOUT_URI = config.get(
   'oidc.runnerBackchannelLogoutUri'
 )
+const RUNNER_INITIATE_LOGIN_URI = config.get('oidc.runnerInitiateLoginUri')
+
+const RUNNER_CLIENT_ID = 'runner'
+
+/**
+ * The clients this provider registers. A lookup of any other id goes to the
+ * identity API, so code that takes an id from a request checks it here first.
+ */
+export const REGISTERED_CLIENT_IDS = new Set([RUNNER_CLIENT_ID])
 
 /**
  * The APIs this provider issues access tokens for.
@@ -80,13 +89,17 @@ export function buildProviderConfig(adapter) {
     adapter,
     clients: [
       {
-        client_id: 'runner',
+        client_id: RUNNER_CLIENT_ID,
         redirect_uris: RUNNER_REDIRECT_URIS,
         post_logout_redirect_uris: RUNNER_POST_LOGOUT_REDIRECT_URIS,
         // The runner holds its own session, so the provider tells it when
         // the citizen's session ends. `sid` lets it end just that session.
         backchannel_logout_uri: RUNNER_BACKCHANNEL_LOGOUT_URI,
         backchannel_logout_session_required: true,
+        // Where the account pages send a user who has no session. The client
+        // starts its own sign in there, so that its session and the provider
+        // session start together and for the same account.
+        initiate_login_uri: RUNNER_INITIATE_LOGIN_URI,
         response_types: ['code'],
         grant_types: ['authorization_code', 'refresh_token'],
         // The client proves itself by signing a short-lived assertion with a
