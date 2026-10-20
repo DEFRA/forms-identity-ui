@@ -1,6 +1,7 @@
 import { createServer } from '~/src/server/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
+import { logoutAndRevokeGrants } from '~/src/server/routes/account/account.js'
 import { renderResponse } from '~/test/helpers/component-helpers.js'
 
 const account = {
@@ -473,9 +474,32 @@ describe('/account', () => {
     findByUidSpy.mockRestore()
     revokeByGrantIdSpy.mockRestore()
   })
+
+  test('should handle undfined session when revoking grants', async () => {
+    const mockErrorFn = jest.fn()
+    const uid = 'uid-1'
+    const mockRequest = /** @type {Request} */ (
+      /** @type {unknown} */ ({
+        server: {
+          app: {
+            oidcProvider: {
+              Session: {
+                findByUid: () => undefined
+              }
+            }
+          }
+        },
+        logger: {
+          error: mockErrorFn
+        }
+      })
+    )
+    await logoutAndRevokeGrants(mockRequest, uid)
+    expect(mockErrorFn).not.toHaveBeenCalled()
+  })
 })
 
 /**
- * @import { Server } from '@hapi/hapi'
+ * @import { Request, Server } from '@hapi/hapi'
  * @import { ServerInjectOptions } from '@hapi/hapi'
  */
