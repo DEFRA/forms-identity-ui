@@ -224,7 +224,9 @@ async function getAccountFromIdTokenHint(provider, details) {
     return undefined
   }
 
-  return (await accountService.getAccount(payload.sub)) ?? undefined
+  const account = await accountService.getAccount(payload.sub)
+
+  return account ?? undefined
 }
 
 /**
