@@ -451,4 +451,117 @@ describe('sign-in round trip', () => {
     const genuine = await tokenRequest(await refreshParams(refreshToken))
     expect(genuine.statusCode).toBe(200)
   })
+  describe('a sign in for a user the client names', () => {
+    /**
+     * Starts a sign in that names the user in `id_token_hint`, with no
+     * provider session, as the client does when the provider session ended
+     * and the client session did not
+     * @param {string} idToken
+     * @returns {Promise<string>} the interaction path
+     */
+    async function startNamedSignIn(idToken) {
+      jar.clear()
+
+      const challenge = createHash('sha256')
+        .update(randomBytes(32).toString('base64url'))
+        .digest('base64url')
+
+      const start = await browse(
+        `/auth?${new URLSearchParams({
+          client_id: 'runner',
+          response_type: 'code',
+          scope: CLIENT_SCOPE,
+          prompt: 'login consent',
+          redirect_uri: REDIRECT_URI,
+          state: 'state-named',
+          nonce: 'nonce-named',
+          code_challenge: challenge,
+          code_challenge_method: 'S256',
+          id_token_hint: idToken
+        }).toString()}`
+      )
+      expect(start.statusCode).toBe(303)
+
+      return String(start.headers.location)
+    }
+
+    /**
+     * @param {string} email
+     * @returns {Promise<string>} the ID token from the first sign in
+     */
+    async function idTokenFor(email) {
+      const redeemed = await signInAndRedeem(email, { state: 'state-first' })
+      return String(JSON.parse(redeemed.payload).id_token)
+    }
+
+    it('asks only for a new security code, then signs the user in', async () => {
+      const interaction = await startNamedSignIn(
+        await idTokenFor('named-journey@example.com')
+      )
+
+      const start = await browse(interaction)
+      expect(start.headers.location).toBe(`${interaction}/sign-in-again`)
+      expect((await browse(`${interaction}/sign-in-again`)).statusCode).toBe(
+        200
+      )
+
+      const sent = await browse(`${interaction}/sign-in-again`, crumb())
+      expect(sent.headers.location).toBe(`${interaction}/code`)
+      expect((await browse(`${interaction}/code`)).statusCode).toBe(200)
+
+      // the account exists, so a correct code signs the user in, with no
+      // phone step
+      const finished = await follow(
+        await browse(`${interaction}/code`, { ...crumb(), code: KNOWN_CODE })
+      )
+
+      const callback = new URL(String(finished.headers.location))
+      expect(callback.origin + callback.pathname).toBe(REDIRECT_URI)
+      expect(callback.searchParams.get('code')).toBeTruthy()
+    })
+
+    it('sends the code to the email address the user has now', async () => {
+      const idToken = await idTokenFor('before-change@example.com')
+      const account = [...accounts.values()].find(
+        ({ email }) => email === 'before-change@example.com'
+      )
+      if (account) {
+        account.email = 'after-change@example.com'
+      }
+
+      const interaction = await startNamedSignIn(idToken)
+      await browse(`${interaction}/sign-in-again`)
+      await browse(`${interaction}/sign-in-again`, crumb())
+      await browse(`${interaction}/code`)
+
+      // the code request went to the new address, because only that one
+      // finds the account when the code is checked
+      const finished = await follow(
+        await browse(`${interaction}/code`, { ...crumb(), code: KNOWN_CODE })
+      )
+      expect(String(finished.headers.location)).toContain(REDIRECT_URI)
+    })
+
+    it('lets the user sign in with a different email address', async () => {
+      const interaction = await startNamedSignIn(
+        await idTokenFor('first-account@example.com')
+      )
+
+      await browse(`${interaction}/email`)
+      await browse(`${interaction}/email`, {
+        ...crumb(),
+        email: 'second-account@example.com'
+      })
+      await browse(`${interaction}/code`)
+      await browse(`${interaction}/code`, { ...crumb(), code: KNOWN_CODE })
+      await browse(`${interaction}/phone`)
+
+      // the provider accepts the other account, as it does when the client
+      // names no user
+      const finished = await follow(
+        await browse(`${interaction}/phone`, { ...crumb(), phone: PHONE })
+      )
+      expect(String(finished.headers.location)).toContain(REDIRECT_URI)
+    })
+  })
 })

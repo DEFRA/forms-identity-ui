@@ -323,6 +323,190 @@ describe('interaction pages', () => {
     expect(identityApi.requestOtpViaEmail).not.toHaveBeenCalled()
   })
 
+  describe('when the client names a user who is still signed in there', () => {
+    beforeEach(() => {
+      const provider = server.app.oidcProvider
+      detailsSpy.mockResolvedValue(
+        /** @type {never} */ ({
+          uid: 'uid-1',
+          prompt: { name: 'login' },
+          params: { client_id: 'runner', id_token_hint: 'id-token-1' },
+          session: undefined
+        })
+      )
+      jest
+        .spyOn(provider.Client, 'find')
+        .mockResolvedValue(/** @type {never} */ ({ clientId: 'runner' }))
+      jest
+        .spyOn(provider.IdToken, 'validate')
+        .mockResolvedValue({ header: {}, payload: { sub: 'account-1' } })
+      jest.mocked(identityApi.getAccount).mockResolvedValue({
+        id: 'account-1',
+        email: 'current@example.com'
+      })
+    })
+
+    it('GET sends the user to the sign-in-again page', async () => {
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1'
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/sign-in-again')
+    })
+
+    it('GET sign-in-again tells the user they must enter a security code', async () => {
+      const { container, response } = await renderResponse(server, {
+        method: 'GET',
+        url: '/interaction/uid-1/sign-in-again'
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(
+        container.getByRole('heading', {
+          name: 'You need to enter a security code',
+          level: 1
+        })
+      ).toBeInTheDocument()
+      expect(
+        container.getByText(
+          'For your security, you must sign in again every 24 hours to see your account.'
+        )
+      ).toBeInTheDocument()
+      expect(
+        container.getByText(
+          'We will send a security code to your email address.'
+        )
+      ).toBeInTheDocument()
+      expect(
+        container.getByRole('button', { name: 'Continue' })
+      ).toBeInTheDocument()
+      expect(container.queryByRole('textbox')).not.toBeInTheDocument()
+    })
+
+    it('GET sign-in-again tells the user in Welsh on the Welsh page', async () => {
+      const { container } = await renderResponse(server, {
+        method: 'GET',
+        url: '/interaction/uid-1/sign-in-again?language=cy'
+      })
+
+      expect(
+        container.getByRole('heading', {
+          name: 'Mae angen i chi roi cod diogelwch',
+          level: 1
+        })
+      ).toBeInTheDocument()
+      expect(
+        container.getByText(
+          'Er eich diogelwch, rhaid i chi fewngofnodi eto bob 24 awr i weld eich cyfrif.'
+        )
+      ).toBeInTheDocument()
+    })
+
+    it('GET sign-in-again sends the user to the email page when the account is gone', async () => {
+      jest.mocked(identityApi.getAccount).mockResolvedValue(null)
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1/sign-in-again'
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/email')
+    })
+
+    it("POST sign-in-again sends a code to the account's email address", async () => {
+      jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
+        status: 'otp-issued'
+      })
+      const { crumb, cookie } = await getWithCrumb(
+        '/interaction/uid-1/sign-in-again'
+      )
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/interaction/uid-1/sign-in-again',
+        headers: { cookie },
+        payload: { crumb }
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/code')
+      expect(identityApi.requestOtpViaEmail).toHaveBeenCalledWith(
+        {
+          uid: 'uid-1',
+          email: 'current@example.com',
+          purpose: 'SIGNIN_VERIFY_EMAIL'
+        },
+        'token-1'
+      )
+    })
+
+    it('POST sign-in-again shows the locked-out page while the address is locked out', async () => {
+      jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
+        status: 'locked-out',
+        lockedUntil: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+      })
+      const { crumb, cookie } = await getWithCrumb(
+        '/interaction/uid-1/sign-in-again'
+      )
+
+      const { container } = await renderResponse(server, {
+        method: 'POST',
+        url: '/interaction/uid-1/sign-in-again',
+        headers: { cookie },
+        payload: { crumb }
+      })
+
+      expect(
+        container.getByRole('heading', {
+          name: 'Too many security codes requested',
+          level: 1
+        })
+      ).toBeInTheDocument()
+    })
+
+    it('POST sign-in-again sends the user to the email page when the account is gone', async () => {
+      const { crumb, cookie } = await getWithCrumb(
+        '/interaction/uid-1/sign-in-again'
+      )
+      jest.mocked(identityApi.getAccount).mockResolvedValue(null)
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/interaction/uid-1/sign-in-again',
+        headers: { cookie },
+        payload: { crumb }
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/email')
+      expect(identityApi.requestOtpViaEmail).not.toHaveBeenCalled()
+    })
+
+    it('GET code links to the email page to use a different email address', async () => {
+      const { container } = await renderResponse(server, {
+        method: 'GET',
+        url: '/interaction/uid-1/code'
+      })
+
+      expect(
+        container.getByRole('link', { name: 'use a different email address' })
+      ).toHaveAttribute('href', './email')
+    })
+  })
+
+  it('GET sign-in-again sends the user to the email page when the client names no user', async () => {
+    const response = await server.inject({
+      method: 'GET',
+      url: '/interaction/uid-1/sign-in-again'
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/interaction/uid-1/email')
+  })
+
   it('POST email without a crumb is rejected', async () => {
     const res = await server.inject({
       method: 'POST',

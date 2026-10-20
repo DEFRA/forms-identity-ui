@@ -25,6 +25,10 @@ import * as signinService from '~/src/server/services/signin-service.js'
 // setting that actually ends the interaction so the two cannot disagree
 const INTERACTION_TTL_SECONDS = config.get('oidc.ttl.interaction')
 
+// how often the sign-in-again page tells the user they must sign in, taken
+// from the setting that ends the provider session
+const SESSION_TTL_SECONDS = config.get('oidc.ttl.session')
+
 const uidParams = Joi.object({ uid: Joi.string().required() })
 const emailQuery = Joi.object({ resend: Joi.boolean().optional() })
 const languageSchema = Joi.string().valid('en-GB', 'cy').optional()
@@ -190,6 +194,53 @@ async function saveConsentGrant(provider, details) {
 }
 
 /**
+ * The email address of the user the client names in `id_token_hint`. The
+ * client sends the hint for a user who is still signed in there, so the
+ * journey asks only for a new security code. The provider checked the
+ * signature before it started the interaction. It is checked again here, so
+ * that the account always comes from a token the provider issued.
+ * @param {Provider} provider
+ * @param {InteractionDetails} details
+ * @returns {Promise<string | undefined>} undefined when there is no hint, or
+ *   the account is gone, so that the user enters their email address
+ */
+async function hintedEmail(provider, details) {
+  const { id_token_hint: idTokenHint, client_id: clientId } = details.params
+
+  if (typeof idTokenHint !== 'string' || typeof clientId !== 'string') {
+    return undefined
+  }
+
+  const client = await provider.Client.find(clientId)
+
+  if (!client) {
+    return undefined
+  }
+
+  const { payload } = await provider.IdToken.validate(idTokenHint, client)
+
+  if (typeof payload.sub !== 'string') {
+    return undefined
+  }
+
+  return signinService.getAccountEmail(payload.sub)
+}
+
+/**
+ * @param {Request<any>} request
+ * @param {ResponseToolkit<any>} h
+ * @param {Date} lockedUntil
+ */
+function lockedOutView(request, h, lockedUntil) {
+  return h.view('interaction/locked-out', {
+    retryAfter: formatHoursUntil(
+      lockedUntil,
+      getLanguage(request.query, request.yar)
+    )
+  })
+}
+
+/**
  *
  * @param {Request<{ Pres: InteractionPres, Query: { language?: string }; }>} request
  * @param {ResponseToolkit<{ Pres: InteractionPres, Query: { language?: string }; }>} h
@@ -262,7 +313,72 @@ export default /** @type {ServerRoute[]} */ (
           )
         }
 
+        // the client names a user who is still signed in there
+        if (details.params.id_token_hint) {
+          return h.redirect(`/interaction/${details.uid}/sign-in-again`)
+        }
+
         return h.redirect(`/interaction/${details.uid}/email`)
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
+    ({
+      method: 'GET',
+      path: '/interaction/{uid}/sign-in-again',
+      options: commonOptions,
+      async handler(request, h) {
+        const details = request.pre.details
+        const provider = request.server.app.oidcProvider
+
+        if (!(await hintedEmail(provider, details))) {
+          return h.redirect(`/interaction/${details.uid}/email`)
+        }
+
+        return h.view('interaction/sign-in-again', {
+          uid: details.uid,
+          sessionDuration: formatDuration(
+            SESSION_TTL_SECONDS,
+            getLanguage(request.query, request.yar)
+          )
+        })
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
+    ({
+      method: 'POST',
+      path: '/interaction/{uid}/sign-in-again',
+      options: {
+        validate: {
+          params: uidParams,
+          payload: Joi.object({ crumb: Joi.string().optional() }),
+          query: querySchema
+        },
+        plugins: { blankie: signinFormCsp },
+        pre: [GATE],
+        auth: false
+      },
+      async handler(request, h) {
+        const details = request.pre.details
+        const provider = request.server.app.oidcProvider
+
+        // the address comes from the account, never from the form
+        const email = await hintedEmail(provider, details)
+
+        if (!email) {
+          return h.redirect(`/interaction/${details.uid}/email`)
+        }
+
+        const result = await signinService.submitEmail(details.uid, email)
+
+        if (result.outcome === LOCKED_OUT) {
+          return lockedOutView(request, h, result.lockedUntil)
+        }
+
+        if (result.outcome === INVALID_EMAIL) {
+          return h.redirect(`/interaction/${details.uid}/email`)
+        }
+
+        return h.redirect(`/interaction/${details.uid}/code`)
       }
     }),
     /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
@@ -306,12 +422,7 @@ export default /** @type {ServerRoute[]} */ (
         }
 
         if (result.outcome === LOCKED_OUT) {
-          return h.view('interaction/locked-out', {
-            retryAfter: formatHoursUntil(
-              result.lockedUntil,
-              getLanguage(request.query, request.yar)
-            )
-          })
+          return lockedOutView(request, h, result.lockedUntil)
         }
 
         const { resend = false } = request.query

@@ -121,6 +121,13 @@
     }
   },
   "signin": {
+    "signInAgain": {
+      "title": "You need to enter a security code",
+      "body": [
+        "For your security, you must sign in again every [[duration]] to see your account.",
+        "We will send a security code to your email address."
+      ]
+    },
     "email": {
       "title": "Enter your email address"
     },
@@ -128,7 +135,7 @@
       "sentTo": "We have sent an email to: [[email]]",
       "errorInvalid": "The code you entered is not correct or has expired – enter it again or request a new code",
       "problemsDetails": {
-        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link govuk-link--no-visited-state\" href=\".\">use a different email address</a>."
+        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./email\">use a different email address</a>."
       }
     },
     "phone": {

@@ -141,6 +141,22 @@ export async function submitPhone(uid, phone) {
 }
 
 /**
+ * The account's current email address, for a user the client names. It
+ * comes from the account rather than from the client, because the user can
+ * change the address after the client got it.
+ * @param {string} accountId
+ * @returns {Promise<string | undefined>} undefined when the account is gone
+ */
+export async function getAccountEmail(accountId) {
+  const account = await identityApi.getAccount(
+    accountId,
+    await getServiceToken()
+  )
+
+  return account?.email
+}
+
+/**
  * The email to display on the check-your-email page, from the API's stored
  * record — the same source verification uses, so the display can never
  * disagree with it. Empty when no code has been requested yet.
