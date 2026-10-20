@@ -26,8 +26,8 @@ import * as signinService from '~/src/server/services/signin-service.js'
 // setting that actually ends the interaction so the two cannot disagree
 const INTERACTION_TTL_SECONDS = config.get('oidc.ttl.interaction')
 
-// how long ago the sign-in-again page says the user last signed in, taken
-// from the setting that ends the provider session
+// how long ago the sign-in-again page says the user last accessed their
+// account, taken from the setting that ends the provider session
 const SESSION_TTL_SECONDS = config.get('oidc.ttl.session')
 
 const uidParams = Joi.object({ uid: Joi.string().required() })

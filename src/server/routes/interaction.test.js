@@ -371,7 +371,7 @@ describe('interaction pages', () => {
       ).toBeInTheDocument()
       expect(
         container.getByText(
-          'You last signed in more than 24 hours ago. For your security, we need to check it’s you.'
+          'You last accessed your account more than 24 hours ago. For your security, we need to check it’s you.'
         )
       ).toBeInTheDocument()
       expect(
@@ -399,7 +399,7 @@ describe('interaction pages', () => {
       ).toBeInTheDocument()
       expect(
         container.getByText(
-          'Gwnaethoch fewngofnodi ddiwethaf dros 24 awr yn ôl. Er eich diogelwch, mae angen i ni wirio mai chi sydd yno.'
+          "Gwnaethoch gael mynediad i'ch cyfrif ddiwethaf dros 24 awr yn ôl. Er eich diogelwch, mae angen i ni wirio mai chi sydd yno."
         )
       ).toBeInTheDocument()
     })
