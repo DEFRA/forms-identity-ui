@@ -8,7 +8,6 @@ import { getLanguage } from '~/src/server/i18n/index.js'
 import {
   ACCOUNT_PATH,
   EMAIL_JOURNEY_START_PATH,
-  auth,
   codeErrorKey,
   flashResendIfRequested,
   getOtp,
@@ -18,6 +17,7 @@ import {
   otpVerified,
   preHandler
 } from '~/src/server/routes/account/account.js'
+import { requiredSignInAuthOptions } from '~/src/server/routes/account-sign-in.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
 import {
@@ -81,7 +81,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: EMAIL_JOURNEY_START_PATH,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
@@ -101,7 +101,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'POST',
       path: JOURNEY_SEND_CODE,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         validate: {
           query: transportSchema
         }
@@ -145,7 +145,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_PHONE_SENT_CODE,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       async handler(request, h) {
@@ -182,7 +182,7 @@ export default /** @type {ServerRoute[]} */ (
       path: JOURNEY_PHONE_CODE,
       options: {
         validate: { payload: formPayload('code') },
-        auth
+        ...requiredSignInAuthOptions
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -227,7 +227,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_ENTER_EMAIL,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       async handler(request, h) {
@@ -255,7 +255,7 @@ export default /** @type {ServerRoute[]} */ (
             email: Joi.string().allow('')
           })
         },
-        auth
+        ...requiredSignInAuthOptions
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -311,7 +311,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_EMAIL_CODE,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       async handler(request, h) {
@@ -355,7 +355,7 @@ export default /** @type {ServerRoute[]} */ (
       path: JOURNEY_EMAIL_CODE,
       options: {
         validate: { payload: formPayload('code') },
-        auth
+        ...requiredSignInAuthOptions
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -432,7 +432,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_CODE_RESEND,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
@@ -455,7 +455,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_CHANGE_EMAIL_ERROR,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
@@ -471,7 +471,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: '/account/change-email/code/expired/{transport}',
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler],
         validate: {
           params: transportSchema

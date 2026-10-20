@@ -1,19 +1,19 @@
 import Joi from 'joi'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
-import {
-  SESSION_KEY_BACK_LINK,
-  sessionNames
-} from '~/src/server/common/constants/session-names.js'
+import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { formatHoursUntil } from '~/src/server/common/helpers/duration.js'
 import { getBackLink } from '~/src/server/common/helpers/navigation.js'
-import { runnerHomepageReturnPath } from '~/src/server/common/helpers/validation.js'
 import { getLanguage, setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
+import { requiredSignInAuthOptions } from '~/src/server/routes/account-sign-in.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
+import {
+  findClientReturn,
+  storeClientReturn
+} from '~/src/server/services/client-return.js'
 import { requestOtpViaEmail } from '~/src/server/services/otp-service.js'
 import {
   INVALID_CODE,
@@ -45,15 +45,8 @@ export const PHONE_JOURNEY_START_PATH = '/account/change-phone'
 const accountAction = 'delete-account'
 
 const queryParamsSchema = Joi.object({
-  returnUrl: Joi.string()
-    .custom(
-      (value, helpers) =>
-        runnerHomepageReturnPath(value) ?? helpers.error('any.invalid')
-    )
-    .messages({
-      'any.invalid':
-        '"returnUrl" must be a homepage path within the runner service'
-    }),
+  client_id: Joi.string(),
+  returnUrl: Joi.string(),
   language: Joi.string().valid('en-GB', 'cy')
 })
 
@@ -144,11 +137,6 @@ export const preHandler = {
   method: preHandlerMethod
 }
 
-export const auth = /** @type {const} */ ({
-  mode: 'required',
-  strategy: CITIZEN_SESSION
-})
-
 /**
  * @param {string} uid
  * @param {PurposeType} purpose
@@ -177,22 +165,28 @@ export function flashResendIfRequested(request) {
 
 export default /** @type {ServerRoute[]} */ (
   /** @type {unknown[]} */ ([
-    /** @type {ServerRoute} */
+    /** @satisfies {ServerRoute<{ Query: { client_id?: string, returnUrl?: string, language?: string } }>} */
     ({
       method: 'GET',
       path: ACCOUNT_PATH,
       options: {
         validate: { query: queryParamsSchema },
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
-      handler(request, h) {
+      async handler(request, h) {
         const account = request.auth.credentials
 
         const { query, yar } = request
 
-        if (query.returnUrl) {
-          yar.set(SESSION_KEY_BACK_LINK, query.returnUrl)
+        const clientReturn = await findClientReturn(
+          request.server.app.oidcProvider,
+          { clientId: query.client_id, returnUrl: query.returnUrl }
+        )
+
+        // Only a client that names itself replaces the stored one
+        if (clientReturn) {
+          storeClientReturn(yar, clientReturn)
         }
 
         const backLink = getBackLink(yar)
@@ -215,7 +209,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_START,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
@@ -236,7 +230,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'POST',
       path: JOURNEY_DELETE_ACCOUNT_SEND_CODE,
       options: {
-        auth: { mode: 'required', strategy: CITIZEN_SESSION },
+        ...requiredSignInAuthOptions,
         validate: {
           query: Joi.object().keys({ resend: Joi.boolean().optional() })
         }
@@ -274,7 +268,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_RESEND_CODE,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
@@ -292,7 +286,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_CODE,
       options: {
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...requiredSignInAuthOptions
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -331,7 +325,7 @@ export default /** @type {ServerRoute[]} */ (
       path: JOURNEY_DELETE_ACCOUNT_CODE,
       options: {
         validate: { payload: formPayload('code') },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...requiredSignInAuthOptions
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -385,7 +379,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_CODE_EXPIRED,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
