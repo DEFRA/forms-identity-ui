@@ -124,7 +124,7 @@
     "signInAgain": {
       "title": "Mae angen i chi roi cod diogelwch",
       "body": [
-        "Er eich diogelwch, rhaid i chi fewngofnodi eto bob [[duration]] i weld eich cyfrif.",
+        "Nid ydych wedi bod yn weithgar am [[duration]], felly mae angen i chi fewngofnodi eto i weld eich cyfrif.",
         "Byddwn yn anfon cod diogelwch i'ch cyfeiriad e-bost."
       ]
     },

@@ -124,7 +124,7 @@
     "signInAgain": {
       "title": "You need to enter a security code",
       "body": [
-        "For your security, you must sign in again every [[duration]] to see your account.",
+        "You have not been active for [[duration]], so you need to sign in again to see your account.",
         "We will send a security code to your email address."
       ]
     },

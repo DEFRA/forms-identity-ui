@@ -26,7 +26,7 @@ import * as signinService from '~/src/server/services/signin-service.js'
 // setting that actually ends the interaction so the two cannot disagree
 const INTERACTION_TTL_SECONDS = config.get('oidc.ttl.interaction')
 
-// how often the sign-in-again page tells the user they must sign in, taken
+// how long the sign-in-again page says the user was not active, taken
 // from the setting that ends the provider session
 const SESSION_TTL_SECONDS = config.get('oidc.ttl.session')
 

@@ -371,7 +371,7 @@ describe('interaction pages', () => {
       ).toBeInTheDocument()
       expect(
         container.getByText(
-          'For your security, you must sign in again every 24 hours to see your account.'
+          'You have not been active for 24 hours, so you need to sign in again to see your account.'
         )
       ).toBeInTheDocument()
       expect(
@@ -399,7 +399,7 @@ describe('interaction pages', () => {
       ).toBeInTheDocument()
       expect(
         container.getByText(
-          'Er eich diogelwch, rhaid i chi fewngofnodi eto bob 24 awr i weld eich cyfrif.'
+          'Nid ydych wedi bod yn weithgar am 24 awr, felly mae angen i chi fewngofnodi eto i weld eich cyfrif.'
         )
       ).toBeInTheDocument()
     })
