@@ -6,11 +6,13 @@
     "back": "Yn ôl",
     "continue": "Parhau",
     "success": "Llwyddiant",
+    "cancel": "Canslo",
     "phoneNumber": "Rhif ffôn symudol",
     "phoneNumberRequired": "Rhowch eich rhif ffôn symudol",
     "phoneNumberFormatError": "Rhowch rif ffôn symudol yn y fformat cywir",
     "emailAddressRequired": "Rhowch gyfeiriad e-bost",
-    "emailAddressFormatError": "Rhowch gyfeiriad e-bost yn y fformat cywir, fel enw@example.com"
+    "emailAddressFormatError": "Rhowch gyfeiriad e-bost yn y fformat cywir, fel enw@example.com",
+    "errorPrefix": "Gwall: "
   },
   "otp": {
     "getCode": "Cael cod diogelwch",
@@ -34,12 +36,13 @@
     "step2": "Dewiswch Mewngofnodi neu Mewngofnodi i geisio eto."
   },
   "account": {
-    "pageTitle": "Diogelwch",
+    "pageTitle": "Gosodiadau diogelwch",
     "cardTitle": "Manylion mewngofnodi",
     "email": "Cyfeiriad e-bost",
     "changeEmail": "Newid cyfeiriad e-bost",
     "changePhone": "Newid rhif ffôn symudol",
     "change": "Newid",
+    "confirmAndChange": "Cadarnhau a newid",
     "emailAddress": "cyfeiriad e-bost",
     "mobileNumber": "rhif ffôn symudol",
     "successChangedEmailNotificationText": "Mae eich cyfeiriad e-bost wedi'i newid",
@@ -87,6 +90,7 @@
       "problemsDetails": {
         "body": "Gallwn <a class=\"govuk-link\" href=\"./code/resend\">anfon y cod diogelwch eto</a> os nad yw'r cod diogelwch yn gweithio neu os na chawsoch ef."
       },
+      "deleteSignInButton": "Dileu mewngofnodi",
       "successPanel": {
         "titleText": "Mae eich manylion mewngofnodi wedi'u dileu",
         "body": "Ni allwch bellach gael mynediad at unrhyw ffurflenni rydych wedi'u dechrau neu eu cyflwyno gan ddefnyddio'r manylion mewngofnodi hyn.",
@@ -108,6 +112,9 @@
     }
   },
   "layout": {
+    "header": {
+      "serviceName": "Diogelwch"
+    },
     "footer": {
       "contentLicenceHtml": "Mae'r holl gynnwys ar gael o dan y <a class=\"govuk-footer__link\" href=\"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/\" rel=\"license\">Drwydded Llywodraeth Agored v3.0</a>, ac eithrio lle nodir fel arall",
       "copyright": "© Hawlfraint y Goron"

@@ -10,6 +10,8 @@
 {% set pageTitle = journeyTitle + " : " + t('otp.checkEmail') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
+{% set continueButtonText = t('account.confirmAndChange') if accountAction === 'change-email' else t('common.continue') %}
+
 {% block content %}
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
@@ -54,13 +56,25 @@
           errorMessage: errorMessage
         }) }}
 
-        {{ govukButton({ text: t('common.continue') }) }}
+        <div class="govuk-button-group">
+          {% if accountAction === 'delete-account' %}
+            {{ govukButton({
+              text: t('account.deleteAccount.deleteSignInButton'),
+              classes: 'govuk-button--warning'
+            }) }}
+          {% else %}
+            {{ govukButton({ text: continueButtonText }) }}
+          {% endif %}
+
+          {{ govukButton({
+            text: t('common.cancel'),
+            classes: 'govuk-button--secondary',
+            href: '/account'
+          }) }}
+        </div>
       </form>
 
       {% if accountAction === 'delete-account' %}
-        <p class="govuk-body">
-          <a href="/account" class="govuk-link govuk-link--no-visited-state">{{ t('account.deleteAccount.cancelLinkText') }}</a>
-        </p>
         {{ govukDetails({
           summaryText: t('otp.problemsSummary'),
           html: t('account.deleteAccount.problemsDetails.body')
