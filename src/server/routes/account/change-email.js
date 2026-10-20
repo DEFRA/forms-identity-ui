@@ -90,9 +90,7 @@ export default /** @type {ServerRoute[]} */ (
 
         return h.view(JOURNEY_START_VIEW, {
           phoneEndDigits,
-          backLink: {
-            href: ACCOUNT_PATH
-          }
+          backLink: { href: ACCOUNT_PATH }
         })
       }
     }),
@@ -170,9 +168,7 @@ export default /** @type {ServerRoute[]} */ (
         return h.view('account/phone-code', {
           phoneEndDigits,
           showResendNotification,
-          backLink: {
-            href: EMAIL_JOURNEY_START_PATH
-          }
+          backLink: { href: EMAIL_JOURNEY_START_PATH }
         })
       }
     }),
@@ -205,9 +201,7 @@ export default /** @type {ServerRoute[]} */ (
 
         if (result.outcome === INVALID_CODE) {
           return h.view('account/phone-code', {
-            backLink: {
-              href: EMAIL_JOURNEY_START_PATH
-            },
+            backLink: { href: EMAIL_JOURNEY_START_PATH },
             phoneEndDigits: getPhoneEndDigits(account.phone),
             errorKey: codeErrorKey(result),
             code: code ?? ''
@@ -215,9 +209,7 @@ export default /** @type {ServerRoute[]} */ (
         }
 
         return h.view(JOURNEY_START_VIEW, {
-          backLink: {
-            href: ACCOUNT_PATH
-          },
+          backLink: { href: ACCOUNT_PATH },
           phoneEndDigits: getPhoneEndDigits(account.phone)
         })
       }
@@ -238,9 +230,7 @@ export default /** @type {ServerRoute[]} */ (
         }
 
         return h.view('account/enter-email', {
-          backLink: {
-            href: EMAIL_JOURNEY_START_PATH
-          }
+          backLink: { href: EMAIL_JOURNEY_START_PATH }
         })
       }
     }),
@@ -343,9 +333,7 @@ export default /** @type {ServerRoute[]} */ (
           email: emailOtp?.target,
           showResendNotification,
           accountAction,
-          backLink: {
-            href: JOURNEY_ENTER_EMAIL
-          }
+          backLink: { href: JOURNEY_ENTER_EMAIL }
         })
       }
     }),
@@ -420,9 +408,7 @@ export default /** @type {ServerRoute[]} */ (
         }
 
         return h.view(JOURNEY_START_VIEW, {
-          backLink: {
-            href: ACCOUNT_PATH
-          },
+          backLink: { href: ACCOUNT_PATH },
           phoneEndDigits: getPhoneEndDigits(account.phone)
         })
       }
@@ -446,7 +432,8 @@ export default /** @type {ServerRoute[]} */ (
           isSms,
           target,
           email,
-          accountAction
+          accountAction,
+          backLink: { href: EMAIL_JOURNEY_START_PATH }
         })
       }
     }),
@@ -462,7 +449,8 @@ export default /** @type {ServerRoute[]} */ (
         const errorKey = request.yar.flash(sessionNames.changeEmailError).at(0)
         return h.view('account/change-error', {
           errorKey,
-          accountAction
+          accountAction,
+          backLink: { href: JOURNEY_ENTER_EMAIL }
         })
       }
     }),
@@ -489,7 +477,8 @@ export default /** @type {ServerRoute[]} */ (
           isSms,
           target,
           accountAction,
-          transport
+          transport,
+          backLink: { href: JOURNEY_ENTER_EMAIL }
         })
       }
     })

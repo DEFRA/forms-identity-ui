@@ -22,8 +22,8 @@
     classes: "govuk-header--full-width-border"
   }) }}
   {{ govukServiceNavigation({
-    serviceName: 'Security',
-    serviceUrl: backLink if backLink else "/"
+    serviceName: t('layout.header.serviceName'),
+    serviceUrl: backLink.href if backLink else "/"
   }) }}
 {% endblock %}
 

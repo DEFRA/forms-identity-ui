@@ -35,7 +35,7 @@
     "step2": "Select Sign in or Log in to try again."
   },
   "account": {
-    "pageTitle": "Security",
+    "pageTitle": "Security settings",
     "cardTitle": "Your sign-in details",
     "email": "Email address",
     "changeEmail": "Change email address",
@@ -111,6 +111,9 @@
     }
   },
   "layout": {
+    "header": {
+      "serviceName": "Security"
+    },
     "footer": {
       "contentLicenceHtml": "All content is available under the <a class=\"govuk-footer__link\" href=\"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/\" rel=\"license\">Open Government Licence v3.0</a>, except where otherwise stated",
       "copyright": "© Crown copyright"

@@ -91,9 +91,7 @@ export default /** @type {ServerRoute[]} */ (
 
         return h.view(JOURNEY_START_VIEW, {
           email: account.email,
-          backLink: {
-            href: ACCOUNT_PATH
-          }
+          backLink: { href: ACCOUNT_PATH }
         })
       }
     }),
@@ -120,9 +118,7 @@ export default /** @type {ServerRoute[]} */ (
               result.lockedUntil,
               getLanguage(request.query, request.yar)
             ),
-            backLink: {
-              href: ACCOUNT_PATH
-            }
+            backLink: { href: ACCOUNT_PATH }
           })
         }
 
@@ -160,9 +156,7 @@ export default /** @type {ServerRoute[]} */ (
           email: emailOtp?.target,
           showResendNotification,
           accountAction,
-          backLink: {
-            href: PHONE_JOURNEY_START_PATH
-          }
+          backLink: { href: PHONE_JOURNEY_START_PATH }
         })
       }
     }),
@@ -200,16 +194,12 @@ export default /** @type {ServerRoute[]} */ (
             email: account.email,
             code: code ?? '',
             accountAction,
-            backLink: {
-              href: PHONE_JOURNEY_START_PATH
-            }
+            backLink: { href: PHONE_JOURNEY_START_PATH }
           })
         }
 
         return h.view(JOURNEY_START_VIEW, {
-          backLink: {
-            href: ACCOUNT_PATH
-          },
+          backLink: { href: ACCOUNT_PATH },
           phoneEndDigits: getPhoneEndDigits(account.phone),
           accountAction
         })
@@ -230,9 +220,7 @@ export default /** @type {ServerRoute[]} */ (
           target: account.email,
           email: account.email,
           accountAction,
-          backLink: {
-            href: PHONE_JOURNEY_START_PATH
-          }
+          backLink: { href: PHONE_JOURNEY_START_PATH }
         })
       }
     }),
@@ -253,9 +241,7 @@ export default /** @type {ServerRoute[]} */ (
 
         return h.view(ENTER_PHONE_VIEW, {
           accountAction,
-          backLink: {
-            href: PHONE_JOURNEY_START_PATH
-          }
+          backLink: { href: PHONE_JOURNEY_START_PATH }
         })
       }
     }),
@@ -290,9 +276,7 @@ export default /** @type {ServerRoute[]} */ (
             phone: trimmed,
             errorKey,
             accountAction,
-            backLink: {
-              href: PHONE_JOURNEY_START_PATH
-            }
+            backLink: { href: PHONE_JOURNEY_START_PATH }
           })
         }
 
@@ -318,9 +302,7 @@ export default /** @type {ServerRoute[]} */ (
               phone: trimmed,
               errorKey: errorKeyOnChange,
               accountAction,
-              backLink: {
-                href: PHONE_JOURNEY_START_PATH
-              }
+              backLink: { href: PHONE_JOURNEY_START_PATH }
             })
           }
           return h.redirect(JOURNEY_CHANGE_PHONE_ERROR)
@@ -348,9 +330,7 @@ export default /** @type {ServerRoute[]} */ (
         return h.view('account/change-error', {
           errorKey,
           accountAction,
-          backLink: {
-            href: JOURNEY_ENTER_PHONE
-          }
+          backLink: { href: JOURNEY_ENTER_PHONE }
         })
       }
     }),
@@ -368,9 +348,7 @@ export default /** @type {ServerRoute[]} */ (
           isSms: false,
           target: account.email,
           accountAction,
-          backLink: {
-            href: ACCOUNT_PATH
-          }
+          backLink: { href: ACCOUNT_PATH }
         })
       }
     })
