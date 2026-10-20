@@ -323,7 +323,7 @@ describe('interaction pages', () => {
     expect(identityApi.requestOtpViaEmail).not.toHaveBeenCalled()
   })
 
-  describe('when the client names a user who is still signed in there', () => {
+  describe('when the client provides the identity of a user who is still signed in there', () => {
     beforeEach(() => {
       const provider = server.app.oidcProvider
       detailsSpy.mockResolvedValue(
@@ -497,7 +497,7 @@ describe('interaction pages', () => {
     })
   })
 
-  it('GET sign-in-again sends the user to the email page when the client names no user', async () => {
+  it('GET sign-in-again sends the user to the email page when the client provides no identity', async () => {
     const response = await server.inject({
       method: 'GET',
       url: '/interaction/uid-1/sign-in-again'

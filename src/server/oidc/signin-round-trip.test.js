@@ -451,15 +451,15 @@ describe('sign-in round trip', () => {
     const genuine = await tokenRequest(await refreshParams(refreshToken))
     expect(genuine.statusCode).toBe(200)
   })
-  describe('a sign in for a user the client names', () => {
+  describe('a sign in when the client provides the identity', () => {
     /**
-     * Starts a sign in that names the user in `id_token_hint`, with no
-     * provider session, as the client does when the provider session ended
-     * and the client session did not
+     * Starts a sign in with the user's ID token in `id_token_hint` and no
+     * provider session. The client does this when the provider session has
+     * ended but the client session has not.
      * @param {string} idToken
      * @returns {Promise<string>} the interaction path
      */
-    async function startNamedSignIn(idToken) {
+    async function startSignInWithIdentity(idToken) {
       jar.clear()
 
       const challenge = createHash('sha256')
@@ -473,8 +473,8 @@ describe('sign-in round trip', () => {
           scope: CLIENT_SCOPE,
           prompt: 'login consent',
           redirect_uri: REDIRECT_URI,
-          state: 'state-named',
-          nonce: 'nonce-named',
+          state: 'state-identity',
+          nonce: 'nonce-identity',
           code_challenge: challenge,
           code_challenge_method: 'S256',
           id_token_hint: idToken
@@ -495,8 +495,8 @@ describe('sign-in round trip', () => {
     }
 
     it('asks only for a new security code, then signs the user in', async () => {
-      const interaction = await startNamedSignIn(
-        await idTokenFor('named-journey@example.com')
+      const interaction = await startSignInWithIdentity(
+        await idTokenFor('identity-journey@example.com')
       )
 
       const start = await browse(interaction)
@@ -529,7 +529,7 @@ describe('sign-in round trip', () => {
         account.email = 'after-change@example.com'
       }
 
-      const interaction = await startNamedSignIn(idToken)
+      const interaction = await startSignInWithIdentity(idToken)
       await browse(`${interaction}/sign-in-again`)
       await browse(`${interaction}/sign-in-again`, crumb())
       await browse(`${interaction}/code`)
@@ -543,7 +543,7 @@ describe('sign-in round trip', () => {
     })
 
     it('lets the user sign in with a different email address', async () => {
-      const interaction = await startNamedSignIn(
+      const interaction = await startSignInWithIdentity(
         await idTokenFor('first-account@example.com')
       )
 
@@ -557,7 +557,7 @@ describe('sign-in round trip', () => {
       await browse(`${interaction}/phone`)
 
       // the provider accepts the other account, as it does when the client
-      // names no user
+      // provides no identity
       const finished = await follow(
         await browse(`${interaction}/phone`, { ...crumb(), phone: PHONE })
       )

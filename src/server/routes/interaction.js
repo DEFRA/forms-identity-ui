@@ -325,7 +325,8 @@ export default /** @type {ServerRoute[]} */ (
           )
         }
 
-        // the client names a user who is still signed in there
+        // the client sends the user's identity when they are still signed in
+        // there
         if (details.params.id_token_hint) {
           return h.redirect(`/interaction/${details.uid}/sign-in-again`)
         }
