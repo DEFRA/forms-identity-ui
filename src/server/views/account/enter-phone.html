@@ -4,7 +4,6 @@
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% from "govuk/components/input/macro.njk" import govukInput %}
 
-{% set errorPrefix = t('common.errorPrefix') if errorKey else '' %}
 {% set pageTitle = errorPrefix + t('account.changePhone') + " : " + t('account.newPhone.title') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 

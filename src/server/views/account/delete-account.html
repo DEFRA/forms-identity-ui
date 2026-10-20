@@ -7,7 +7,6 @@
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
 
-{% set errorPrefix = t('common.errorPrefix') if errorKey else '' %}
 {% set pageTitle = errorPrefix + t('account.deleteSignInTitle') %}
 {% set errorText = t(errorKey) %}
 {% set errorMessage = { text: errorText } if errorKey else undefined %}
