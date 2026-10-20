@@ -92,6 +92,26 @@ describe('interaction pages', () => {
     return { res, crumb, cookie }
   }
 
+  /**
+   * Adds the cookies a response set to a cookie header, so that the next
+   * request carries the session the response wrote
+   * @param {string} cookie
+   * @param {ServerInjectResponse} response
+   */
+  function withSetCookies(cookie, response) {
+    const setCookies = /** @type {string[] | string | undefined} */ (
+      response.headers['set-cookie']
+    )
+    const updated = (Array.isArray(setCookies) ? setCookies : [setCookies])
+      .filter(Boolean)
+      .map((c) => String(c).split(';')[0])
+    const cookies = new Map(
+      [...cookie.split('; '), ...updated].map((c) => [c.split('=')[0], c])
+    )
+
+    return [...cookies.values()].join('; ')
+  }
+
   it('GET redirects to the email page', async () => {
     const { response } = await renderResponse(server, {
       method: 'GET',
@@ -264,24 +284,40 @@ describe('interaction pages', () => {
 
     // carry any session the POST wrote into the next page, so a flash set
     // by mistake would show up there
-    const setCookies = /** @type {string[] | string | undefined} */ (
-      post.headers['set-cookie']
-    )
-    const updated = (Array.isArray(setCookies) ? setCookies : [setCookies])
-      .filter(Boolean)
-      .map((c) => String(c).split(';')[0])
-    const cookies = new Map(
-      [...cookie.split('; '), ...updated].map((c) => [c.split('=')[0], c])
-    )
-
     const code = await server.inject({
       method: 'GET',
       url: '/interaction/uid-1/code',
-      headers: { cookie: [...cookies.values()].join('; ') }
+      headers: { cookie: withSetCookies(cookie, post) }
     })
 
     expect(code.statusCode).toBe(200)
     expect(code.payload).not.toContain('We’ve sent you a new security code.')
+  })
+
+  it('POST email resend tells the user on the code page that a new code was sent', async () => {
+    jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
+      status: 'otp-issued'
+    })
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
+
+    const post = await server.inject({
+      method: 'POST',
+      url: '/interaction/uid-1/email?resend=true',
+      headers: { cookie },
+      payload: { crumb, email: 'a@b.com' }
+    })
+
+    expect(post.headers.location).toBe('/interaction/uid-1/code')
+
+    const { container } = await renderResponse(server, {
+      method: 'GET',
+      url: '/interaction/uid-1/code',
+      headers: { cookie: withSetCookies(cookie, post) }
+    })
+
+    expect(container.getByRole('alert', { name: 'Success' })).toHaveTextContent(
+      'We’ve sent you a new security code.'
+    )
   })
 
   it('POST email surfaces a 500 when the API returns an unknown verdict', async () => {
@@ -414,6 +450,36 @@ describe('interaction pages', () => {
 
       expect(response.statusCode).toBe(302)
       expect(response.headers.location).toBe('/interaction/uid-1/email')
+    })
+
+    it('GET sign-in-again sends the user to the email page when the client is unknown', async () => {
+      jest
+        .spyOn(server.app.oidcProvider.Client, 'find')
+        .mockResolvedValue(undefined)
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1/sign-in-again'
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/email')
+      expect(identityApi.getAccount).not.toHaveBeenCalled()
+    })
+
+    it('GET sign-in-again sends the user to the email page when the ID token has no subject', async () => {
+      jest
+        .spyOn(server.app.oidcProvider.IdToken, 'validate')
+        .mockResolvedValue({ header: {}, payload: {} })
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1/sign-in-again'
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/email')
+      expect(identityApi.getAccount).not.toHaveBeenCalled()
     })
 
     it("POST sign-in-again sends a code to the account's email address", async () => {
@@ -1210,6 +1276,6 @@ describe('interaction route gating policy', () => {
 })
 
 /**
- * @import { Server } from '@hapi/hapi'
+ * @import { Server, ServerInjectResponse } from '@hapi/hapi'
  * @import { ServerResponse } from 'node:http'
  */
