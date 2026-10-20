@@ -8,7 +8,7 @@
  * and account endpoints behind the sign-in service. The stub records each
  * request, so a test can check the API traffic.
  */
-/* global afterAll, beforeAll, beforeEach, expect -- Jest supplies these, because only test files use this helper */
+/* global afterAll, beforeAll, beforeEach, expect, jest -- Jest supplies these, because only test files use this helper */
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
 
@@ -318,6 +318,21 @@ export function useRoundTrip(mockStsSend) {
     await new Promise((resolve) => stub.close(resolve))
   })
 
+  /**
+   * Stops the service and starts it again from new modules, as a deploy
+   * does. The service reads its keys when it loads, so a test sets the
+   * environment first. The stub API keeps its records, as the real store
+   * keeps sessions and grants across a deploy.
+   */
+  async function redeploy() {
+    await server.stop()
+    jest.resetModules()
+
+    const { createServer } = await import('~/src/server/index.js')
+    server = await createServer()
+    await server.initialize()
+  }
+
   // resetMocks wipes a jest.fn() implementation before every test, so the
   // token STS hands back is reinstated here rather than relied on from the
   // test file's jest.mock() call
@@ -532,6 +547,7 @@ export function useRoundTrip(mockStsSend) {
     },
     keepCookies,
     cookieHeader,
+    redeploy,
     browse,
     crumb,
     follow,
