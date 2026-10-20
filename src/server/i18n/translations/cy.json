@@ -10,7 +10,8 @@
     "phoneNumberRequired": "Rhowch eich rhif ffôn symudol",
     "phoneNumberFormatError": "Rhowch rif ffôn symudol yn y fformat cywir",
     "emailAddressRequired": "Rhowch gyfeiriad e-bost",
-    "emailAddressFormatError": "Rhowch gyfeiriad e-bost yn y fformat cywir, fel enw@example.com"
+    "emailAddressFormatError": "Rhowch gyfeiriad e-bost yn y fformat cywir, fel enw@example.com",
+    "errorPrefix": "Gwall: "
   },
   "otp": {
     "getCode": "Cael cod diogelwch",

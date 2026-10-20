@@ -12,7 +12,7 @@
 {% endblock %}
 
 {% block pageTitle -%}
-  {{ pageTitle + " - " if pageTitle }}{{ serviceName }} - GOV.UK
+  {{ t('common.errorPrefix') if errorKey or isErrorPage }}{{ pageTitle + " - " if pageTitle }}{{ serviceName }} - GOV.UK
 {%- endblock %}
 
 {% block header %}
