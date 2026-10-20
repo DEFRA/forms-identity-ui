@@ -11,6 +11,7 @@ import {
 } from '~/src/server/common/helpers/duration.js'
 import { getLanguage, setLanguage } from '~/src/server/i18n/index.js'
 import { signinFormCsp } from '~/src/server/plugins/blankie.js'
+import * as accountService from '~/src/server/services/account-service.js'
 import {
   INVALID_CODE_CONSUMED_OR_EXPIRED,
   INVALID_EMAIL,
@@ -194,17 +195,17 @@ async function saveConsentGrant(provider, details) {
 }
 
 /**
- * The email address of the user the client names in `id_token_hint`. The
- * client sends the hint for a user who is still signed in there, so the
- * journey asks only for a new security code. The provider checked the
- * signature before it started the interaction. It is checked again here, so
- * that the account always comes from a token the provider issued.
+ * Gets the account from the ID token that the client sends in
+ * `id_token_hint`. The client sends it when the user is still signed in
+ * there. The provider checked the token before the interaction started. This
+ * function checks it again, so that the account always comes from a token
+ * that the provider issued.
  * @param {Provider} provider
  * @param {InteractionDetails} details
- * @returns {Promise<string | undefined>} undefined when there is no hint, or
- *   the account is gone, so that the user enters their email address
+ * @returns {Promise<{ id: string, email: string } | undefined>} undefined
+ *   when there is no hint or no account
  */
-async function hintedEmail(provider, details) {
+async function getAccountFromIdTokenHint(provider, details) {
   const { id_token_hint: idTokenHint, client_id: clientId } = details.params
 
   if (typeof idTokenHint !== 'string' || typeof clientId !== 'string') {
@@ -223,21 +224,32 @@ async function hintedEmail(provider, details) {
     return undefined
   }
 
-  return signinService.getAccountEmail(payload.sub)
+  return (await accountService.getAccount(payload.sub)) ?? undefined
 }
 
 /**
+ * Sends the user on after a code request. The email page and the
+ * sign-in-again page both request a code, so both use this function.
  * @param {Request<any>} request
  * @param {ResponseToolkit<any>} h
- * @param {Date} lockedUntil
+ * @param {string} uid
+ * @param {Exclude<EmailOutcome, { outcome: 'invalid-email' }>} result
  */
-function lockedOutView(request, h, lockedUntil) {
-  return h.view('interaction/locked-out', {
-    retryAfter: formatHoursUntil(
-      lockedUntil,
-      getLanguage(request.query, request.yar)
-    )
-  })
+function codeRequestResponse(request, h, uid, result) {
+  if (result.outcome === LOCKED_OUT) {
+    return h.view('interaction/locked-out', {
+      retryAfter: formatHoursUntil(
+        result.lockedUntil,
+        getLanguage(request.query, request.yar)
+      )
+    })
+  }
+
+  if (request.query.resend) {
+    request.yar.flash(sessionNames.codeResendSuccessNotification, true)
+  }
+
+  return h.redirect(`/interaction/${uid}/code`)
 }
 
 /**
@@ -330,7 +342,9 @@ export default /** @type {ServerRoute[]} */ (
         const details = request.pre.details
         const provider = request.server.app.oidcProvider
 
-        if (!(await hintedEmail(provider, details))) {
+        const account = await getAccountFromIdTokenHint(provider, details)
+
+        if (!account) {
           return h.redirect(`/interaction/${details.uid}/email`)
         }
 
@@ -362,23 +376,22 @@ export default /** @type {ServerRoute[]} */ (
         const provider = request.server.app.oidcProvider
 
         // the address comes from the account, never from the form
-        const email = await hintedEmail(provider, details)
+        const account = await getAccountFromIdTokenHint(provider, details)
 
-        if (!email) {
+        if (!account) {
           return h.redirect(`/interaction/${details.uid}/email`)
         }
 
-        const result = await signinService.submitEmail(details.uid, email)
-
-        if (result.outcome === LOCKED_OUT) {
-          return lockedOutView(request, h, result.lockedUntil)
-        }
+        const result = await signinService.submitEmail(
+          details.uid,
+          account.email
+        )
 
         if (result.outcome === INVALID_EMAIL) {
           return h.redirect(`/interaction/${details.uid}/email`)
         }
 
-        return h.redirect(`/interaction/${details.uid}/code`)
+        return codeRequestResponse(request, h, details.uid, result)
       }
     }),
     /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
@@ -421,17 +434,7 @@ export default /** @type {ServerRoute[]} */ (
           })
         }
 
-        if (result.outcome === LOCKED_OUT) {
-          return lockedOutView(request, h, result.lockedUntil)
-        }
-
-        const { resend = false } = request.query
-
-        if (resend) {
-          request.yar.flash(sessionNames.codeResendSuccessNotification, true)
-        }
-
-        return h.redirect(`/interaction/${details.uid}/code`)
+        return codeRequestResponse(request, h, details.uid, result)
       }
     }),
     /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
@@ -577,6 +580,7 @@ export default /** @type {ServerRoute[]} */ (
 /**
  * @import { Request, ResponseToolkit, Server, ServerRoute } from '@hapi/hapi'
  * @import { Provider } from 'oidc-provider'
+ * @import { EmailOutcome } from '~/src/server/services/signin-service.js'
  * @typedef {Awaited<ReturnType<Provider['interactionDetails']>>} InteractionDetails
  * @typedef {{ details: InteractionDetails }} InteractionPres
  */
