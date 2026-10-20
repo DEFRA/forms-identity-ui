@@ -467,6 +467,34 @@ describe('interaction pages', () => {
       ).toBeInTheDocument()
     })
 
+    it("POST sign-in-again shows the email page with an error when the account's email address is not valid", async () => {
+      jest.mocked(identityApi.getAccount).mockResolvedValue({
+        id: 'account-1',
+        email: 'not-an-email'
+      })
+      const { crumb, cookie } = await getWithCrumb(
+        '/interaction/uid-1/sign-in-again'
+      )
+
+      const { container } = await renderResponse(server, {
+        method: 'POST',
+        url: '/interaction/uid-1/sign-in-again',
+        headers: { cookie },
+        payload: { crumb }
+      })
+
+      expect(container.getByRole('alert')).toBeInTheDocument()
+      expect(
+        container.getByRole('link', {
+          name: 'Enter an email address in the correct format, like name@example.com'
+        })
+      ).toHaveAttribute('href', '#email')
+      expect(
+        container.getByRole('textbox', { name: 'Enter your email address' })
+      ).toHaveValue('not-an-email')
+      expect(identityApi.requestOtpViaEmail).not.toHaveBeenCalled()
+    })
+
     it('POST sign-in-again sends the user to the email page when the account is gone', async () => {
       const { crumb, cookie } = await getWithCrumb(
         '/interaction/uid-1/sign-in-again'

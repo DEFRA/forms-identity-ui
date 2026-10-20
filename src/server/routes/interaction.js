@@ -235,9 +235,18 @@ async function getAccountFromIdTokenHint(provider, details) {
  * @param {Request<any>} request
  * @param {ResponseToolkit<any>} h
  * @param {string} uid
- * @param {Exclude<EmailOutcome, { outcome: 'invalid-email' }>} result
+ * @param {EmailOutcome} result
  */
 function codeRequestResponse(request, h, uid, result) {
+  // the email page shows the error, so that the user can correct the address
+  if (result.outcome === INVALID_EMAIL) {
+    return h.view('interaction/email', {
+      uid,
+      email: result.email,
+      errorKey: result.errorKey
+    })
+  }
+
   if (result.outcome === LOCKED_OUT) {
     return h.view('interaction/locked-out', {
       retryAfter: formatHoursUntil(
@@ -390,10 +399,6 @@ export default /** @type {ServerRoute[]} */ (
           account.email
         )
 
-        if (result.outcome === INVALID_EMAIL) {
-          return h.redirect(`/interaction/${details.uid}/email`)
-        }
-
         return codeRequestResponse(request, h, details.uid, result)
       }
     }),
@@ -428,14 +433,6 @@ export default /** @type {ServerRoute[]} */ (
         const details = request.pre.details
         const { email } = request.payload
         const result = await signinService.submitEmail(details.uid, email)
-
-        if (result.outcome === INVALID_EMAIL) {
-          return h.view('interaction/email', {
-            uid: details.uid,
-            email: result.email,
-            errorKey: result.errorKey
-          })
-        }
 
         return codeRequestResponse(request, h, details.uid, result)
       }
