@@ -1,6 +1,7 @@
 {% extends "layouts/page.html" %}
 
-{% set pageTitle = t('common.errorPrefix') + t('signin.lockedOut.title') %}
+{% set isErrorPage = true %}
+{% set pageTitle = t('signin.lockedOut.title') %}
 
 {% block content %}
   <div class="govuk-grid-row">

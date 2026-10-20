@@ -7,7 +7,7 @@
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
 {% set journeyTitle = t('account.changePhone') if accountAction === 'change-phone' else t('account.changeEmail') %}
-{% set pageTitle = errorPrefix + journeyTitle + " : " + t('otp.checkEmail') %}
+{% set pageTitle = journeyTitle + " : " + t('otp.checkEmail') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
 {% block content %}
