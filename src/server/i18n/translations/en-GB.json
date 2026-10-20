@@ -6,6 +6,7 @@
     "back": "Back",
     "continue": "Continue",
     "success": "Success",
+    "cancel": "Cancel",
     "phoneNumber": "Mobile phone number",
     "phoneNumberRequired": "Enter your mobile phone number",
     "phoneNumberFormatError": "Enter a mobile phone number in the correct format",
@@ -40,6 +41,7 @@
     "changeEmail": "Change email address",
     "changePhone": "Change mobile phone number",
     "change": "Change",
+    "confirmAndChange": "Confirm and change",
     "emailAddress": "email address",
     "mobileNumber": "mobile phone number",
     "successChangedEmailNotificationText": "Your email address has been changed",
@@ -87,6 +89,7 @@
       "problemsDetails": {
         "body": "We can <a class=\"govuk-link\" href=\"./code/resend\">send the security code again</a> if the security code is not working or you did not receive it."
       },
+      "deleteSignInButton": "Delete sign-in",
       "successPanel": {
         "titleText": "Your sign-in has been deleted",
         "body": "You can no longer access any forms you have started or submitted using this sign-in.",

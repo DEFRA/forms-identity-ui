@@ -6,6 +6,7 @@
     "back": "Yn ôl",
     "continue": "Parhau",
     "success": "Llwyddiant",
+    "cancel": "Canslo",
     "phoneNumber": "Rhif ffôn symudol",
     "phoneNumberRequired": "Rhowch eich rhif ffôn symudol",
     "phoneNumberFormatError": "Rhowch rif ffôn symudol yn y fformat cywir",
@@ -40,6 +41,7 @@
     "changeEmail": "Newid cyfeiriad e-bost",
     "changePhone": "Newid rhif ffôn symudol",
     "change": "Newid",
+    "confirmAndChange": "Cadarnhau a newid",
     "emailAddress": "cyfeiriad e-bost",
     "mobileNumber": "rhif ffôn symudol",
     "successChangedEmailNotificationText": "Mae eich cyfeiriad e-bost wedi'i newid",
@@ -87,6 +89,7 @@
       "problemsDetails": {
         "body": "Gallwn <a class=\"govuk-link\" href=\"./code/resend\">anfon y cod diogelwch eto</a> os nad yw'r cod diogelwch yn gweithio neu os na chawsoch ef."
       },
+      "deleteSignInButton": "Dileu mewngofnodi",
       "successPanel": {
         "titleText": "Mae eich manylion mewngofnodi wedi'u dileu",
         "body": "Ni allwch bellach gael mynediad at unrhyw ffurflenni rydych wedi'u dechrau neu eu cyflwyno gan ddefnyddio'r manylion mewngofnodi hyn.",

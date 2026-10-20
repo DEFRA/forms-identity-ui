@@ -6,6 +6,7 @@ import {
   sessionNames
 } from '~/src/server/common/constants/session-names.js'
 import { formatHoursUntil } from '~/src/server/common/helpers/duration.js'
+import { getBackLink } from '~/src/server/common/helpers/navigation.js'
 import { runnerHomepageReturnPath } from '~/src/server/common/helpers/validation.js'
 import { getLanguage, setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
@@ -194,9 +195,7 @@ export default /** @type {ServerRoute[]} */ (
           yar.set(SESSION_KEY_BACK_LINK, query.returnUrl)
         }
 
-        const backLink = yar.get(SESSION_KEY_BACK_LINK)
-          ? { href: yar.get(SESSION_KEY_BACK_LINK) }
-          : undefined
+        const backLink = getBackLink(yar)
 
         const notificationSuccessKey = request.yar
           .flash(sessionNames.accountSuccessNotification)
