@@ -65,7 +65,7 @@ export function getSessionUid(request) {
  * @param {Request<any>} request
  * @param {string} uid
  */
-export async function logoutAndRevokeGrants(request, uid) {
+async function logoutAndRevokeGrants(request, uid) {
   // The account is already deleted when this runs, so a failure here is
   // logged rather than thrown: the user must still see the deletion succeed
   try {
