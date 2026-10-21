@@ -557,9 +557,7 @@ describe('change-phone round trip', () => {
     const page = await browse('/account/change-phone/email-code')
     expect(page.statusCode).toBe(200)
     expect(page.payload).toContain('code-sent@example.com')
-    expect(page.payload).toContain(
-      '<title>Change mobile phone number : Check your email'
-    )
+    expect(page.payload).toContain('<title>Check your email')
     expect(page.payload).toContain('action="/account/change-phone/email-code"')
   })
 
