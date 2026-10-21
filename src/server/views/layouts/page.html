@@ -22,7 +22,7 @@
     classes: "govuk-header--full-width-border"
   }) }}
   {{ govukServiceNavigation({
-    serviceName: t('layout.header.serviceName'),
+    serviceName: t('service.name') if isSignIn else t('account.headerText'),
     serviceUrl: backLink.href if backLink else "/"
   }) }}
 {% endblock %}

@@ -37,6 +37,7 @@
   },
   "account": {
     "pageTitle": "Gosodiadau diogelwch",
+    "headerText": "Diogelwch",
     "cardTitle": "Manylion mewngofnodi",
     "email": "Cyfeiriad e-bost",
     "changeEmail": "Newid cyfeiriad e-bost",
@@ -112,9 +113,6 @@
     }
   },
   "layout": {
-    "header": {
-      "serviceName": "Diogelwch"
-    },
     "footer": {
       "contentLicenceHtml": "Mae'r holl gynnwys ar gael o dan y <a class=\"govuk-footer__link\" href=\"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/\" rel=\"license\">Drwydded Llywodraeth Agored v3.0</a>, ac eithrio lle nodir fel arall",
       "copyright": "© Hawlfraint y Goron"

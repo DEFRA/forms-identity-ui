@@ -1,8 +1,10 @@
 import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
+import { allAvailableLanguages } from '~/src/server/common/constants/languages.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { CLIENT_AUTH_METHOD, SIGNING_ALG } from '~/src/server/constants.js'
+import { t } from '~/src/server/i18n/index.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
@@ -77,6 +79,33 @@ function cancelUriFor(ctx) {
 }
 
 /**
+ * The language for text display on the sign-out page. This is passed
+ * in the OIDC state.
+ * @param {KoaContextWithOIDC} ctx
+ * @returns {string}
+ */
+function getLanguageFromState(ctx) {
+  const langInUrl = ctx.URL.searchParams.get('language')
+  if (langInUrl) {
+    return langInUrl
+  }
+
+  const state = ctx.oidc.params?.state
+
+  /** @type {{ language?: string } | undefined } */
+  let stateObj
+  if (typeof state === 'string') {
+    try {
+      stateObj = JSON.parse(state)
+    } catch {
+      // Swallow error
+    }
+  }
+
+  return stateObj?.language ?? 'en-GB'
+}
+
+/**
  * Builds the oidc-provider configuration
  * @param {AdapterConstructor} adapter
  * @returns {Configuration}
@@ -142,11 +171,21 @@ export function buildProviderConfig(adapter) {
         // revocation endpoint.
         logoutSource(ctx, form) {
           ctx.type = 'html'
+          const language = getLanguageFromState(ctx)
           ctx.body = view('signout.html', {
             context: {
               ...context(null),
               form,
-              cancelUri: cancelUriFor(ctx)
+              cancelUri: cancelUriFor(ctx),
+              availableLanguages: allAvailableLanguages,
+              language,
+              isResponseOK: true,
+              currentPath: ctx.URL.href,
+              /**
+               * @param {string} key
+               * @param {Record<string, unknown>} [opts]
+               */
+              t: (key, opts) => t(key, language, opts)
             }
           })
           return Promise.resolve()

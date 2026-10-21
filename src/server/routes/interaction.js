@@ -48,6 +48,17 @@ export function formPayload(field) {
 /* eslint-disable jsdoc/reject-any-type -- hapi request refs are invariant, so only any-ref helpers can be shared by payload-narrowed routes */
 
 /**
+ * Add property 'isSignIn' to the model so the page titling can be tailored to these flows
+ * @param {ResponseToolkit<any>} h
+ * @param {string} viewName
+ * @param { object | undefined } model
+ * @returns {ResponseObject}
+ */
+function addTitleFlagToViewModel(h, viewName, model) {
+  return h.view(viewName, { ...model, isSignIn: true })
+}
+
+/**
  * Security gate. Checks that this browser is the one that started the
  * sign-in: the uid in the URL must match the signed cookie the provider
  * set. Without this check, anyone could guess a uid and see another
@@ -70,13 +81,12 @@ export async function requireInteraction(request, h) {
     return await provider.interactionDetails(request.raw.req, request.raw.res)
   } catch (err) {
     if (err instanceof errors.SessionNotFound) {
-      return h
-        .view('interaction/timed-out', {
-          interactionDuration: formatDuration(
-            INTERACTION_TTL_SECONDS,
-            getLanguage(request.query, request.yar)
-          )
-        })
+      return addTitleFlagToViewModel(h, 'interaction/timed-out', {
+        interactionDuration: formatDuration(
+          INTERACTION_TTL_SECONDS,
+          getLanguage(request.query, request.yar)
+        )
+      })
         .code(StatusCodes.GONE)
         .takeover()
     }
@@ -203,7 +213,7 @@ async function commonOTPHandler(request, h, viewName) {
     return h.redirect(`/interaction/${uid}`)
   }
 
-  return h.view(`interaction/${viewName}`, { email })
+  return addTitleFlagToViewModel(h, `interaction/${viewName}`, { email })
 }
 
 /**
@@ -276,7 +286,9 @@ export default /** @type {ServerRoute[]} */ (
       handler(request, h) {
         const details = request.pre.details
 
-        return h.view('interaction/email', { uid: details.uid })
+        return addTitleFlagToViewModel(h, 'interaction/email', {
+          uid: details.uid
+        })
       }
     }),
     /** @satisfies {ServerRoute<{ Payload: { email?: string }, Pres: InteractionPres, Query: { language?: string, resend?: boolean } }>} */
@@ -298,7 +310,7 @@ export default /** @type {ServerRoute[]} */ (
         const result = await signinService.submitEmail(details.uid, email)
 
         if (result.outcome === INVALID_EMAIL) {
-          return h.view('interaction/email', {
+          return addTitleFlagToViewModel(h, 'interaction/email', {
             uid: details.uid,
             email: result.email,
             errorKey: result.errorKey
@@ -306,7 +318,7 @@ export default /** @type {ServerRoute[]} */ (
         }
 
         if (result.outcome === LOCKED_OUT) {
-          return h.view('interaction/locked-out', {
+          return addTitleFlagToViewModel(h, 'interaction/locked-out', {
             retryAfter: formatHoursUntil(
               result.lockedUntil,
               getLanguage(request.query, request.yar)
@@ -344,7 +356,7 @@ export default /** @type {ServerRoute[]} */ (
           .flash(sessionNames.codeResendSuccessNotification)
           .at(0)
 
-        return h.view('interaction/code', {
+        return addTitleFlagToViewModel(h, 'interaction/code', {
           uid: details.uid,
           email,
           showResendNotification
@@ -388,7 +400,7 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(`/interaction/${details.uid}`)
         }
 
-        return h.view('interaction/code', {
+        return addTitleFlagToViewModel(h, 'interaction/code', {
           uid: details.uid,
           email,
           errorKey: result.errorKey
@@ -419,7 +431,9 @@ export default /** @type {ServerRoute[]} */ (
       path: '/interaction/{uid}/phone',
       options: commonOptions,
       handler(request, h) {
-        return h.view('interaction/phone', { uid: request.pre.details.uid })
+        return addTitleFlagToViewModel(h, 'interaction/phone', {
+          uid: request.pre.details.uid
+        })
       }
     }),
     /** @satisfies {ServerRoute<{ Payload: { phone?: string }, Pres: InteractionPres, Query: { language?: string } }>} */
@@ -449,7 +463,7 @@ export default /** @type {ServerRoute[]} */ (
           return finishLogin(request, h, result.accountId)
         }
         if (result.outcome === INVALID_PHONE) {
-          return h.view('interaction/phone', {
+          return addTitleFlagToViewModel(h, 'interaction/phone', {
             uid: details.uid,
             phone: result.phone,
             errorKey: result.errorKey
@@ -464,7 +478,7 @@ export default /** @type {ServerRoute[]} */ (
 )
 
 /**
- * @import { Request, ResponseToolkit, Server, ServerRoute } from '@hapi/hapi'
+ * @import { Request, ResponseObject, ResponseToolkit, Server, ServerRoute } from '@hapi/hapi'
  * @import { Provider } from 'oidc-provider'
  * @typedef {Awaited<ReturnType<Provider['interactionDetails']>>} InteractionDetails
  * @typedef {{ details: InteractionDetails }} InteractionPres

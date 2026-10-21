@@ -200,7 +200,7 @@ describe('logout round trip', () => {
 
     // Cancel goes back to the client's post-logout redirect URI. The marker
     // tells the client to keep the user signed in.
-    expect(container.getByRole('link', { name: 'Cancel' })).toHaveAttribute(
+    expect(container.getByRole('button', { name: 'Cancel' })).toHaveAttribute(
       'href',
       `${POST_LOGOUT_REDIRECT_URI}?state=logout-state&cancelled=true`
     )
@@ -258,7 +258,7 @@ describe('logout round trip', () => {
       post_logout_redirect_uri: POST_LOGOUT_REDIRECT_URI
     })
     expect(
-      withRedirect.container.getByRole('link', { name: 'Cancel' })
+      withRedirect.container.getByRole('button', { name: 'Cancel' })
     ).toHaveAttribute('href', `${POST_LOGOUT_REDIRECT_URI}?cancelled=true`)
 
     await submitSignOut(withRedirect.document)
