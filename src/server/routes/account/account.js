@@ -365,7 +365,7 @@ export default /** @type {ServerRoute[]} */ (
             errorKey: codeErrorKey(result),
             email: account.email,
             accountAction,
-            code: code ?? '',
+            code: '',
             backLink: { href: JOURNEY_DELETE_ACCOUNT_START }
           })
         }
