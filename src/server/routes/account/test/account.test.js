@@ -1,6 +1,15 @@
+import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { createServer } from '~/src/server/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
+import {
+  codeErrorKey,
+  flashResendIfRequested,
+  getPhoneEndDigits,
+  otpMissing,
+  otpVerified
+} from '~/src/server/routes/account/account.js'
+import * as accountService from '~/src/server/services/account-service.js'
 import { renderResponse } from '~/test/helpers/component-helpers.js'
 
 const account = {
@@ -473,9 +482,393 @@ describe('/account', () => {
     findByUidSpy.mockRestore()
     revokeByGrantIdSpy.mockRestore()
   })
+
+  describe('helpers', () => {
+    test('getPhoneEndDigits returns the last 4 characters', () => {
+      expect(getPhoneEndDigits('+447507123456')).toBe('3456')
+    })
+
+    test.each([
+      { otp: null, verified: false, missing: true },
+      {
+        otp: { consumed: true, verified: true, target: 't' },
+        verified: false,
+        missing: true
+      },
+      {
+        otp: { consumed: false, verified: false, target: 't' },
+        verified: false,
+        missing: false
+      },
+      {
+        otp: { consumed: false, verified: true, target: 't' },
+        verified: true,
+        missing: false
+      }
+    ])('otpVerified/otpMissing for $otp', ({ otp, verified, missing }) => {
+      expect(Boolean(otpVerified(otp))).toBe(verified)
+      expect(otpMissing(otp)).toBe(missing)
+    })
+
+    test.each([
+      { result: { errorKey: 'otp.enterCode' }, key: 'otp.enterCode' },
+      { result: { errorKey: 42 }, key: 'signin.code.errorInvalid' },
+      { result: {}, key: 'signin.code.errorInvalid' }
+    ])('codeErrorKey for $result', ({ result, key }) => {
+      expect(codeErrorKey(result)).toBe(key)
+    })
+
+    test.each([
+      { query: { resend: true }, flashed: true },
+      { query: {}, flashed: false }
+    ])('flashResendIfRequested with $query', ({ query, flashed }) => {
+      const flash = jest.fn()
+
+      flashResendIfRequested(/** @type {never} */ ({ query, yar: { flash } }))
+
+      expect(flash.mock.calls).toEqual(
+        flashed ? [['codeResendSuccessNotification', true]] : []
+      )
+    })
+  })
+
+  describe('delete account journey', () => {
+    const otp = { consumed: false, verified: false, target: 'email@test.com' }
+
+    /**
+     * @param {string} url
+     * @param {Record<string, string>} [payload]
+     */
+    async function post(url, payload = {}) {
+      const { crumb, cookie } = await getWithCrumb('/account/delete-account')
+
+      return renderResponse(server, {
+        method: 'POST',
+        url,
+        payload: { crumb, ...payload },
+        headers: { cookie },
+        auth
+      })
+    }
+
+    /**
+     * @param {string} url
+     */
+    function get(url) {
+      return renderResponse(server, { method: 'GET', url, auth })
+    }
+
+    test('GET start page shows the account email and a back link to the account', async () => {
+      const { container, response } = await get('/account/delete-account')
+
+      expect(response.statusCode).toBe(200)
+      expect(container.getByText('email@test.com')).toBeInTheDocument()
+    })
+
+    test('GET resend page renders for the account email', async () => {
+      const { response, container } = await get(
+        '/account/delete-account/code/resend'
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(container.getAllByText(/email@test\.com/).length).toBeGreaterThan(
+        0
+      )
+    })
+
+    test('GET expired page renders', async () => {
+      const { response } = await get('/account/delete-account/code/expired')
+
+      expect(response.statusCode).toBe(200)
+    })
+
+    describe('send code', () => {
+      test('requests an email code and redirects to the code page', async () => {
+        jest
+          .mocked(identityApi.requestOtpViaEmail)
+          .mockResolvedValue({ status: 'otp-issued' })
+
+        const { response } = await post('/account/delete-account/send-code')
+
+        expect(response.statusCode).toBe(302)
+        expect(response.headers.location).toBe(
+          '/account/delete-account/email-code'
+        )
+        expect(identityApi.requestOtpViaEmail).toHaveBeenCalledWith(
+          expect.objectContaining({
+            uid: 'sess-id-1',
+            email: 'email@test.com',
+            accountId: 'acc-id'
+          }),
+          'token-1'
+        )
+      })
+
+      test('flashes a resend notification when the code is re-sent', async () => {
+        jest
+          .mocked(identityApi.requestOtpViaEmail)
+          .mockResolvedValue({ status: 'otp-issued' })
+
+        const { response } = await post(
+          '/account/delete-account/send-code?resend=true'
+        )
+
+        expect(response.statusCode).toBe(302)
+        expect(response.headers.location).toBe(
+          '/account/delete-account/email-code'
+        )
+      })
+
+      test('shows the locked out page when too many codes were requested', async () => {
+        jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
+          status: 'locked-out',
+          lockedUntil: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString()
+        })
+
+        const { response, container } = await post(
+          '/account/delete-account/send-code'
+        )
+
+        expect(response.statusCode).toBe(200)
+        expect(container.getByText(/hours?/i)).toBeInTheDocument()
+      })
+
+      test('rejects an invalid resend query', async () => {
+        const { response } = await post(
+          '/account/delete-account/send-code?resend=nope'
+        )
+
+        expect(response.statusCode).toBe(400)
+      })
+    })
+
+    describe('GET email code page', () => {
+      test('redirects to the start when no code was requested', async () => {
+        jest.mocked(identityApi.getOtp).mockResolvedValue(null)
+
+        const { response } = await get('/account/delete-account/email-code')
+
+        expect(response.statusCode).toBe(302)
+        expect(response.headers.location).toBe('/account/delete-account')
+      })
+
+      test('redirects to the start when the code was already consumed', async () => {
+        jest
+          .mocked(identityApi.getOtp)
+          .mockResolvedValue({ ...otp, consumed: true })
+
+        const { response } = await get('/account/delete-account/email-code')
+
+        expect(response.statusCode).toBe(302)
+        expect(response.headers.location).toBe('/account/delete-account')
+      })
+
+      test('renders the code page for the account email', async () => {
+        jest.mocked(identityApi.getOtp).mockResolvedValue(otp)
+
+        const { response, container } = await get(
+          '/account/delete-account/email-code'
+        )
+
+        expect(response.statusCode).toBe(200)
+        expect(
+          container.getAllByText(/email@test\.com/).length
+        ).toBeGreaterThan(0)
+        expect(identityApi.getOtp).toHaveBeenCalledWith(
+          'sess-id-1',
+          'token-1',
+          PURPOSE.ACCOUNT_DELETE_ACCOUNT_VERIFY_EMAIL
+        )
+      })
+    })
+
+    describe('POST email code', () => {
+      test('redirects to the start when no code was requested', async () => {
+        jest.mocked(identityApi.getOtp).mockResolvedValue(null)
+
+        const { response } = await post('/account/delete-account/email-code', {
+          code: '123456'
+        })
+
+        expect(response.statusCode).toBe(302)
+        expect(response.headers.location).toBe('/account/delete-account')
+        expect(identityApi.verifyOtp).not.toHaveBeenCalled()
+        expect(identityApi.deleteAccount).not.toHaveBeenCalled()
+      })
+
+      test('redirects to the expired page when the code is consumed or expired', async () => {
+        jest.mocked(identityApi.getOtp).mockResolvedValue(otp)
+        jest.mocked(identityApi.verifyOtp).mockResolvedValue(
+          /** @type {never} */ ({
+            status: 'invalid-code-consumed-or-expired'
+          })
+        )
+
+        const { response } = await post('/account/delete-account/email-code', {
+          code: '123456'
+        })
+
+        expect(response.statusCode).toBe(302)
+        expect(response.headers.location).toBe(
+          '/account/delete-account/code/expired'
+        )
+        expect(identityApi.deleteAccount).not.toHaveBeenCalled()
+      })
+
+      test.each([
+        { reason: 'wrong', status: 'invalid-code', code: '000000' },
+        { reason: 'malformed', status: 'invalid-code-format', code: 'abc' }
+      ])(
+        're-renders the code page and keeps the account when the code is $reason',
+        async ({ status, code }) => {
+          jest.mocked(identityApi.getOtp).mockResolvedValue(otp)
+          jest
+            .mocked(identityApi.verifyOtp)
+            .mockResolvedValue(/** @type {never} */ ({ status }))
+
+          const { response, container } = await post(
+            '/account/delete-account/email-code',
+            { code }
+          )
+
+          expect(response.statusCode).toBe(200)
+          expect(container.getByDisplayValue(code)).toBeInTheDocument()
+          expect(identityApi.deleteAccount).not.toHaveBeenCalled()
+        }
+      )
+
+      test('shows an error without calling the API when no code is entered', async () => {
+        jest.mocked(identityApi.getOtp).mockResolvedValue(otp)
+
+        const { response } = await post('/account/delete-account/email-code')
+
+        expect(response.statusCode).toBe(200)
+        expect(identityApi.verifyOtp).not.toHaveBeenCalled()
+        expect(identityApi.deleteAccount).not.toHaveBeenCalled()
+      })
+
+      test('redirects back to the code page for an unexpected outcome', async () => {
+        jest.mocked(identityApi.getOtp).mockResolvedValue(otp)
+        jest
+          .spyOn(accountService, 'submitCode')
+          .mockResolvedValue({ outcome: 'phone-required' })
+
+        const { response } = await post('/account/delete-account/email-code', {
+          code: '123456'
+        })
+
+        expect(response.statusCode).toBe(302)
+        expect(response.headers.location).toBe(
+          '/account/delete-account/email-code'
+        )
+        expect(identityApi.deleteAccount).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('after a successful deletion', () => {
+      beforeEach(() => {
+        jest.mocked(identityApi.getOtp).mockResolvedValue(otp)
+        jest
+          .mocked(identityApi.verifyOtp)
+          .mockResolvedValue(/** @type {never} */ ({ status: 'valid' }))
+        jest
+          .mocked(identityApi.deleteAccount)
+          .mockResolvedValue(/** @type {never} */ ({ outcome: 'complete' }))
+      })
+
+      test('succeeds without revoking anything when there is no provider session', async () => {
+        jest
+          .spyOn(server.app.oidcProvider.Session, 'findByUid')
+          .mockResolvedValue(/** @type {never} */ (undefined))
+        const revoke = jest
+          .spyOn(server.app.oidcProvider.AccessToken, 'revokeByGrantId')
+          .mockResolvedValue()
+
+        const { response } = await post('/account/delete-account/email-code', {
+          code: '123456'
+        })
+
+        expect(response.statusCode).toBe(200)
+        expect(identityApi.deleteAccount).toHaveBeenCalled()
+        expect(revoke).not.toHaveBeenCalled()
+      })
+
+      test('destroys a session that has no authorizations', async () => {
+        const session = { destroy: jest.fn() }
+        jest
+          .spyOn(server.app.oidcProvider.Session, 'findByUid')
+          .mockResolvedValue(/** @type {never} */ (session))
+        const revoke = jest
+          .spyOn(server.app.oidcProvider.AccessToken, 'revokeByGrantId')
+          .mockResolvedValue()
+
+        const { response } = await post('/account/delete-account/email-code', {
+          code: '123456'
+        })
+
+        expect(response.statusCode).toBe(200)
+        expect(revoke).not.toHaveBeenCalled()
+        expect(session.destroy).toHaveBeenCalledTimes(1)
+      })
+
+      test('revokes each distinct grant only once', async () => {
+        const session = {
+          authorizations: {
+            a: { grantId: 'grant-1' },
+            b: { grantId: 'grant-1' }
+          },
+          destroy: jest.fn()
+        }
+        jest
+          .spyOn(server.app.oidcProvider.Session, 'findByUid')
+          .mockResolvedValue(/** @type {never} */ (session))
+        const revoke = jest
+          .spyOn(server.app.oidcProvider.AccessToken, 'revokeByGrantId')
+          .mockResolvedValue()
+
+        await post('/account/delete-account/email-code', { code: '123456' })
+
+        expect(revoke).toHaveBeenCalledTimes(1)
+        expect(revoke).toHaveBeenCalledWith('grant-1')
+      })
+
+      test('still destroys the session and shows success when revoking a grant fails', async () => {
+        const session = {
+          authorizations: { a: { grantId: 'grant-1' } },
+          destroy: jest.fn()
+        }
+        jest
+          .spyOn(server.app.oidcProvider.Session, 'findByUid')
+          .mockResolvedValue(/** @type {never} */ (session))
+        jest
+          .spyOn(server.app.oidcProvider.AccessToken, 'revokeByGrantId')
+          .mockRejectedValue(new Error('revoke failed'))
+
+        const { response } = await post('/account/delete-account/email-code', {
+          code: '123456'
+        })
+
+        expect(response.statusCode).toBe(200)
+        expect(session.destroy).toHaveBeenCalledTimes(1)
+      })
+
+      test('shows success when looking up the session fails', async () => {
+        jest
+          .spyOn(server.app.oidcProvider.Session, 'findByUid')
+          .mockRejectedValue(new Error('store down'))
+
+        const { response } = await post('/account/delete-account/email-code', {
+          code: '123456'
+        })
+
+        expect(response.statusCode).toBe(200)
+        expect(identityApi.deleteAccount).toHaveBeenCalled()
+      })
+    })
+  })
 })
 
 /**
- * @import { Server } from '@hapi/hapi'
+ * @import { Request, Server } from '@hapi/hapi'
  * @import { ServerInjectOptions } from '@hapi/hapi'
  */

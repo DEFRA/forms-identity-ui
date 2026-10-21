@@ -256,13 +256,9 @@ export default /** @type {ServerRoute[]} */ (
       handler(request, h) {
         const account = /** @type {Account} */ (request.auth.credentials)
 
-        const backLink = {
-          href: ACCOUNT_PATH
-        }
-
         return h.view(DELETE_ACCOUNT_VIEW, {
-          backLink,
-          email: account.email
+          email: account.email,
+          backLink: { href: ACCOUNT_PATH }
         })
       }
     }),
@@ -291,7 +287,8 @@ export default /** @type {ServerRoute[]} */ (
             retryAfter: formatHoursUntil(
               result.lockedUntil,
               getLanguage(request.query, request.yar)
-            )
+            ),
+            backLink: { href: ACCOUNT_PATH }
           })
         }
 
@@ -318,7 +315,8 @@ export default /** @type {ServerRoute[]} */ (
           isSms: false,
           target: account.email,
           email: account.email,
-          accountAction
+          accountAction,
+          backLink: { href: JOURNEY_DELETE_ACCOUNT_START }
         })
       }
     }),
@@ -408,7 +406,8 @@ export default /** @type {ServerRoute[]} */ (
             errorKey: codeErrorKey(result),
             email: account.email,
             accountAction,
-            code: code ?? ''
+            code: code ?? '',
+            backLink: { href: JOURNEY_DELETE_ACCOUNT_START }
           })
         }
 
@@ -428,7 +427,8 @@ export default /** @type {ServerRoute[]} */ (
         return h.view('account/code-expired', {
           isSms: false,
           target: account.email,
-          accountAction
+          accountAction,
+          backLink: { href: JOURNEY_DELETE_ACCOUNT_START }
         })
       }
     })
