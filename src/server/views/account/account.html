@@ -7,7 +7,7 @@
 
 {% block content %}
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-full">
+    <div class="govuk-grid-column-two-thirds">
 
       {% if notificationSuccessKey %}
         {{ govukNotificationBanner({
@@ -19,6 +19,11 @@
 
       <h1 class="govuk-heading-l">{{ t('account.pageTitle') }}</h1>
 
+    </div>
+  </div>
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
       {{ govukSummaryList({
         card: {
           title: {
@@ -56,7 +61,11 @@
           }
         ]
       }) }}
+    </div>
+  </div>
 
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
       <h2 class="govuk-heading-m">{{ t('account.deleteSignInTitle') }}</h2>
       <p class="govuk-body">{{ t('account.deleteSignInInfo') }}</p>
       <p class="govuk-body">

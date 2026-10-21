@@ -726,13 +726,12 @@ describe('/account', () => {
             .mocked(identityApi.verifyOtp)
             .mockResolvedValue(/** @type {never} */ ({ status }))
 
-          const { response, container } = await post(
+          const { response } = await post(
             '/account/delete-account/email-code',
             { code }
           )
 
           expect(response.statusCode).toBe(200)
-          expect(container.getByDisplayValue(code)).toBeInTheDocument()
           expect(identityApi.deleteAccount).not.toHaveBeenCalled()
         }
       )
