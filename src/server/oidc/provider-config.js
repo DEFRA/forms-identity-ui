@@ -85,6 +85,7 @@ function cancelUriFor(ctx) {
  * @returns {string}
  */
 function getLanguageFromState(ctx) {
+  // Any URL param of 'language' takes precedence over any 'language' params in the state
   const langInUrl = ctx.URL.searchParams.get('language')
   if (langInUrl) {
     return langInUrl
