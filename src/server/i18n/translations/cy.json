@@ -119,6 +119,13 @@
     }
   },
   "signin": {
+    "signInAgain": {
+      "title": "Mae angen i chi roi cod diogelwch",
+      "body": [
+        "Gwnaethoch gael mynediad i'ch cyfrif ddiwethaf dros [[duration]] yn ôl. Er eich diogelwch, mae angen i ni wirio mai chi sydd yno.",
+        "Byddwn yn anfon cod diogelwch i'ch cyfeiriad e-bost."
+      ]
+    },
     "email": {
       "title": "Rhowch eich cyfeiriad e-bost"
     },
@@ -126,7 +133,7 @@
       "sentTo": "Rydym wedi anfon e-bost at: [[email]]",
       "errorInvalid": "Nid yw'r cod a roesoch yn gywir neu mae wedi dod i ben – rhowch gynnig arall arni neu gofynnwch am god newydd",
       "problemsDetails": {
-        "body": "Gallwn <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link govuk-link--no-visited-state\" href=\".\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
+        "body": "Gallwn <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./email\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
       }
     },
     "phone": {

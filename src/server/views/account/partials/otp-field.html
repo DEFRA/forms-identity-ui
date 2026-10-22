@@ -1,0 +1,11 @@
+{{ govukInput({
+  label: { text: t('otp.enterCode') },
+  classes: "govuk-input--width-10 govuk-input--extra-letter-spacing",
+  id: "code",
+  name: "code",
+  type: "text",
+  inputmode: "numeric",
+  autocomplete: "one-time-code",
+  spellcheck: false,
+  errorMessage: errorMessage
+}) }}

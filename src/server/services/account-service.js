@@ -74,6 +74,13 @@ export async function deleteAccount(uid, accountId) {
 }
 
 /**
+ * @param {string} accountId
+ */
+export async function getAccount(accountId) {
+  return identityApi.getAccount(accountId, await getServiceToken())
+}
+
+/**
  * @import { CodeOutcome } from '~/src/server/services/outcomes.js'
  * @import { PurposeType } from '~/src/server/common/constants/purposes.js'
  */
