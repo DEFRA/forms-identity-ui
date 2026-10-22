@@ -37,6 +37,7 @@
   },
   "account": {
     "pageTitle": "Security settings",
+    "headerText": "Security",
     "cardTitle": "Your sign-in details",
     "email": "Email address",
     "changeEmail": "Change email address",
@@ -112,15 +113,19 @@
     }
   },
   "layout": {
-    "header": {
-      "serviceName": "Security"
-    },
     "footer": {
       "contentLicenceHtml": "All content is available under the <a class=\"govuk-footer__link\" href=\"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/\" rel=\"license\">Open Government Licence v3.0</a>, except where otherwise stated",
       "copyright": "© Crown copyright"
     }
   },
   "signin": {
+    "signInAgain": {
+      "title": "You need to enter a security code",
+      "body": [
+        "You last accessed your account more than [[duration]] ago. For your security, we need to check it’s you.",
+        "We will send a security code to your email address."
+      ]
+    },
     "email": {
       "title": "Enter your email address"
     },
@@ -128,7 +133,7 @@
       "sentTo": "We have sent an email to: [[email]]",
       "errorInvalid": "The code you entered is not correct or has expired – enter it again or request a new code",
       "problemsDetails": {
-        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link govuk-link--no-visited-state\" href=\".\">use a different email address</a>."
+        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./email\">use a different email address</a>."
       }
     },
     "phone": {

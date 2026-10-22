@@ -6,12 +6,12 @@
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
-{% set pageTitle = t('account.changeEmail') + " : " + t('account.sentPhoneOtp.title') %}
+{% set pageTitle = t('account.sentPhoneOtp.title') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
 {% block content %}
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-full">
+    <div class="govuk-grid-column-two-thirds">
 
       {% if showResendNotification %}
         {{ govukNotificationBanner({
@@ -21,12 +21,7 @@
         }) }}
       {% endif %}
 
-      {% if errorKey %}
-        {{ govukErrorSummary({
-          titleText: t('errors.errorSummaryTitle'),
-          errorList: [{ text: t(errorKey), href: "#code" }]
-        }) }}
-      {% endif %}
+      {% include "account/partials/error-summary.html" %}
 
       {% include "account/partials/heading-caption.html" %}
       <h1 class="govuk-heading-l">{{ t('account.sentPhoneOtp.title') }}</h1>
@@ -42,18 +37,7 @@
       <form method="post" action="/account/change-email/phone-code" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
-        {{ govukInput({
-          label: { text: t('otp.enterCode') },
-          classes: "govuk-input--width-10 govuk-input--extra-letter-spacing",
-          id: "code",
-          name: "code",
-          type: "text",
-          value: code,
-          inputmode: "numeric",
-          autocomplete: "one-time-code",
-          spellcheck: false,
-          errorMessage: errorMessage
-        }) }}
+        {% include "account/partials/otp-field.html" %}
 
         <div class="govuk-button-group">
           {{ govukButton({ text: t('common.continue') }) }}

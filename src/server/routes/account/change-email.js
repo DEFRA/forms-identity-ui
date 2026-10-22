@@ -204,7 +204,7 @@ export default /** @type {ServerRoute[]} */ (
             backLink: { href: EMAIL_JOURNEY_START_PATH },
             phoneEndDigits: getPhoneEndDigits(account.phone),
             errorKey: codeErrorKey(result),
-            code: code ?? ''
+            code: ''
           })
         }
 
@@ -271,7 +271,8 @@ export default /** @type {ServerRoute[]} */ (
         if (errorKey) {
           return h.view('account/enter-email', {
             email,
-            errorKey
+            errorKey,
+            backLink: { href: EMAIL_JOURNEY_START_PATH }
           })
         }
 
@@ -403,7 +404,7 @@ export default /** @type {ServerRoute[]} */ (
             errorKey: codeErrorKey(result),
             email: emailOtp?.target,
             accountAction,
-            code: code ?? ''
+            code: ''
           })
         }
 

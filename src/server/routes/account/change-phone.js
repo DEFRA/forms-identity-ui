@@ -192,7 +192,7 @@ export default /** @type {ServerRoute[]} */ (
           return h.view('account/email-code', {
             errorKey: codeErrorKey(result),
             email: account.email,
-            code: code ?? '',
+            code: '',
             accountAction,
             backLink: { href: PHONE_JOURNEY_START_PATH }
           })

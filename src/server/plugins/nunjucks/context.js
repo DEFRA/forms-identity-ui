@@ -5,6 +5,7 @@ import Boom from '@hapi/boom'
 import { StatusCodes } from 'http-status-codes'
 
 import { config } from '~/src/config/index.js'
+import { allAvailableLanguages } from '~/src/server/common/constants/languages.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { getLanguage, t } from '~/src/server/i18n/index.js'
 
@@ -33,15 +34,11 @@ export function context(request) {
     !Boom.isBoom(response) && response?.statusCode === StatusCodes.OK
 
   const language = getLanguage(request?.query, request?.yar)
-  const availableLanguages = [
-    { code: 'en-GB', name: 'English' },
-    { code: 'cy', name: 'Cymraeg' }
-  ]
 
   return {
     assetPath: '/assets',
     language,
-    availableLanguages,
+    availableLanguages: allAvailableLanguages,
     serviceName: t('service.name', language),
     cspNonce: request?.plugins.blankie?.nonces?.script,
     currentPath: request ? `${request.path}${request.url.search}` : undefined,

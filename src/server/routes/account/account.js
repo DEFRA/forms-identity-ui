@@ -325,7 +325,8 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_CODE,
       options: {
-        ...requiredSignInAuthOptions
+        ...requiredSignInAuthOptions,
+        pre: [preHandler]
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -406,7 +407,7 @@ export default /** @type {ServerRoute[]} */ (
             errorKey: codeErrorKey(result),
             email: account.email,
             accountAction,
-            code: code ?? '',
+            code: '',
             backLink: { href: JOURNEY_DELETE_ACCOUNT_START }
           })
         }

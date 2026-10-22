@@ -1,8 +1,10 @@
 import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
+import { allAvailableLanguages } from '~/src/server/common/constants/languages.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { CLIENT_AUTH_METHOD, SIGNING_ALG } from '~/src/server/constants.js'
+import { t } from '~/src/server/i18n/index.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
@@ -77,6 +79,23 @@ function cancelUriFor(ctx) {
   cancelUri.searchParams.set('cancelled', 'true')
 
   return cancelUri.href
+}
+
+/**
+ * The ui_locales value (language) passed in the OIDC parameters.
+ * @param {KoaContextWithOIDC} ctx
+ * @returns {string}
+ */
+function uiLocales(ctx) {
+  const lang = ctx.oidc.params?.ui_locales
+
+  const availableLanguages = new Set(allAvailableLanguages.map((l) => l.code))
+
+  if (typeof lang === 'string' && availableLanguages.has(lang)) {
+    return lang
+  }
+
+  return 'en-GB'
 }
 
 /**
@@ -165,11 +184,21 @@ export function buildProviderConfig(adapter) {
         // revocation endpoint.
         logoutSource(ctx, form) {
           ctx.type = 'html'
+          const language = uiLocales(ctx)
           ctx.body = view('signout.html', {
             context: {
               ...context(null),
               form,
-              cancelUri: cancelUriFor(ctx)
+              cancelUri: cancelUriFor(ctx),
+              language,
+              currentPath: ctx.URL.href,
+              /**
+               * @param {string} key
+               * @param {Record<string, unknown>} [opts]
+               */
+              t: (key, opts) => t(key, language, opts),
+              isResponseOK: true,
+              useLocalesAsLanguageParam: true
             }
           })
           return Promise.resolve()
