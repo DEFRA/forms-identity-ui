@@ -79,31 +79,20 @@ function cancelUriFor(ctx) {
 }
 
 /**
- * The language for text display on the sign-out page. This is passed
- * in the OIDC state.
+ * The ui_locales value (language) passed in the OIDC parameters.
  * @param {KoaContextWithOIDC} ctx
  * @returns {string}
  */
-function getLanguageFromState(ctx) {
-  // Any URL param of 'language' takes precedence over any 'language' params in the state
-  const langInUrl = ctx.URL.searchParams.get('language')
-  if (langInUrl) {
-    return langInUrl
+function uiLocales(ctx) {
+  const lang = ctx.oidc.params?.ui_locales
+
+  const availableLanguages = new Set(allAvailableLanguages.map((l) => l.code))
+
+  if (typeof lang === 'string' && availableLanguages.has(lang)) {
+    return lang
   }
 
-  const state = ctx.oidc.params?.state
-
-  /** @type {{ language?: string } | undefined } */
-  let stateObj
-  if (typeof state === 'string') {
-    try {
-      stateObj = JSON.parse(state)
-    } catch {
-      // Swallow error
-    }
-  }
-
-  return stateObj?.language ?? 'en-GB'
+  return 'en-GB'
 }
 
 /**
@@ -172,21 +161,21 @@ export function buildProviderConfig(adapter) {
         // revocation endpoint.
         logoutSource(ctx, form) {
           ctx.type = 'html'
-          const language = getLanguageFromState(ctx)
+          const language = uiLocales(ctx)
           ctx.body = view('signout.html', {
             context: {
               ...context(null),
               form,
               cancelUri: cancelUriFor(ctx),
-              availableLanguages: allAvailableLanguages,
               language,
-              isResponseOK: true,
               currentPath: ctx.URL.href,
               /**
                * @param {string} key
                * @param {Record<string, unknown>} [opts]
                */
-              t: (key, opts) => t(key, language, opts)
+              t: (key, opts) => t(key, language, opts),
+              isResponseOK: true,
+              useLocalesAsLanguageParam: true
             }
           })
           return Promise.resolve()
