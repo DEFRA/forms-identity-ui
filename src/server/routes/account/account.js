@@ -284,7 +284,8 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_CODE,
       options: {
-        ...requiredSignInAuthOptions
+        ...requiredSignInAuthOptions,
+        pre: [preHandler]
       },
       async handler(request, h) {
         const uid = getSessionUid(request)

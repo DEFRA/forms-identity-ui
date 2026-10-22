@@ -22,7 +22,11 @@
           attributes: { form: "op.logoutForm" }
         }) }}
         {% if cancelUri %}
-          <a class="govuk-link" href="{{ cancelUri }}">{{ t('signout.cancel') }}</a>
+          {{ govukButton({
+            text: t('signout.cancel'),
+            href: cancelUri,
+            classes: "govuk-button--secondary"
+          }) }}
         {% endif %}
       </div>
 

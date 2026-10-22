@@ -271,7 +271,8 @@ export default /** @type {ServerRoute[]} */ (
         if (errorKey) {
           return h.view('account/enter-email', {
             email,
-            errorKey
+            errorKey,
+            backLink: { href: EMAIL_JOURNEY_START_PATH }
           })
         }
 
