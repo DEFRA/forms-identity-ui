@@ -324,6 +324,23 @@ describe('logout round trip', () => {
     expect(await signOutReports('cancelled@example.com')).toEqual([])
   })
 
+  it('handles Welsh in the sign-out page', async () => {
+    await signIn('welsh@example.com')
+
+    const { container } = await openSignOut({
+      client_id: 'runner',
+      post_logout_redirect_uri: POST_LOGOUT_REDIRECT_URI,
+      ui_locales: 'cy'
+    })
+
+    expect(
+      container.getByRole('heading', {
+        name: 'Ydych chi’n siŵr eich bod eisiau allgofnodi?',
+        level: 1
+      })
+    ).toBeInTheDocument()
+  })
+
   it('keeps the sign-in when a revocation carries no client assertion', async () => {
     const tokens = await signIn('unauthenticated-revoke@example.com')
 
