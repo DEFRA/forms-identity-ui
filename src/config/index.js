@@ -274,6 +274,12 @@ export const config = convict({
       default: /** @type {string[] | null} */ (null),
       env: 'OIDC_RUNNER_POST_LOGOUT_REDIRECT_URIS'
     },
+    runnerBackchannelLogoutUri: {
+      doc: 'Back-channel logout endpoint of the runner client. The provider posts a logout token here when the citizen is signed out, including when their account is deleted.',
+      format: String,
+      default: /** @type {string | null} */ (null),
+      env: 'OIDC_RUNNER_BACKCHANNEL_LOGOUT_URI'
+    },
     runnerInitiateLoginUri: {
       doc: 'initiate_login_uri for the client (OpenID Connect Core, section 4). The account pages send a user with no session here, so that the client starts its sign in.',
       format: String,
