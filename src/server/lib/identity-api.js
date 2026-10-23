@@ -150,6 +150,19 @@ export async function getAccount(id, token) {
 }
 
 /**
+ * Reports that a user signed out, so forms-identity-api can audit it
+ * @param {string} id - the account id, which is also the OIDC `sub`
+ * @param {string} token
+ * @returns {Promise<void>}
+ */
+export async function reportSignOut(id, token) {
+  await postJson(
+    new URL(`/accounts/${encodeURIComponent(id)}/sign-out`, baseUrl),
+    { headers: bearerHeaders(token) }
+  )
+}
+
+/**
  * Information regarding a sign-in code (sucha as target it was sent to (display data for the
  * check-your-email page), whether ist has been consumed, and whether it has been verified.
  * @param {string} uid

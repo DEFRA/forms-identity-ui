@@ -1,18 +1,19 @@
 import Joi from 'joi'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
-import {
-  SESSION_KEY_BACK_LINK,
-  sessionNames
-} from '~/src/server/common/constants/session-names.js'
+import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { formatHoursUntil } from '~/src/server/common/helpers/duration.js'
-import { runnerHomepageReturnPath } from '~/src/server/common/helpers/validation.js'
+import { getBackLink } from '~/src/server/common/helpers/navigation.js'
 import { getLanguage, setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-import { CITIZEN_SESSION } from '~/src/server/plugins/scheme.js'
+import { requiredSignInAuthOptions } from '~/src/server/routes/account-sign-in.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
+import {
+  findClientReturn,
+  storeClientReturn
+} from '~/src/server/services/client-return.js'
 import { requestOtpViaEmail } from '~/src/server/services/otp-service.js'
 import {
   INVALID_CODE,
@@ -44,15 +45,8 @@ export const PHONE_JOURNEY_START_PATH = '/account/change-phone'
 const accountAction = 'delete-account'
 
 const queryParamsSchema = Joi.object({
-  returnUrl: Joi.string()
-    .custom(
-      (value, helpers) =>
-        runnerHomepageReturnPath(value) ?? helpers.error('any.invalid')
-    )
-    .messages({
-      'any.invalid':
-        '"returnUrl" must be a homepage path within the runner service'
-    }),
+  client_id: Joi.string(),
+  returnUrl: Joi.string(),
   language: Joi.string().valid('en-GB', 'cy')
 })
 
@@ -65,6 +59,45 @@ const queryParamsSchema = Joi.object({
  */
 export function getSessionUid(request) {
   return /** @type {string} */ (request.auth.artifacts.sessionUid)
+}
+
+/**
+ * Destroying a session directly, as account deletion does, skips the
+ * provider's own sign-out, so the clients that keep a session of their own
+ * are told here. A client that cannot be reached is logged and skipped, so it
+ * cannot stop the grants being revoked.
+ * @param {Request<any>} request
+ * @param {Provider} provider
+ * @param {Session} session
+ */
+async function notifyClientsOfLogout(request, provider, session) {
+  const { accountId } = session
+
+  if (!accountId) {
+    return
+  }
+
+  await Promise.all(
+    Object.keys(session.authorizations ?? {}).map(async (clientId) => {
+      try {
+        // `backchannelLogout` is on the client but missing from its types
+        const client = /** @type {BackchannelClient | undefined} */ (
+          await provider.Client.find(clientId)
+        )
+
+        const sid = session.sidFor(clientId)
+
+        if (client?.backchannelLogoutUri && sid) {
+          await client.backchannelLogout(accountId, sid)
+        }
+      } catch (error) {
+        request.logger.error(
+          error,
+          `Failed to send back-channel logout to ${clientId} after account deletion`
+        )
+      }
+    })
+  )
 }
 
 /**
@@ -81,6 +114,8 @@ async function logoutAndRevokeGrants(request, uid) {
     if (!session) {
       return
     }
+
+    await notifyClientsOfLogout(request, provider, session)
 
     const grantIds = new Set(
       Object.values(session.authorizations ?? {})
@@ -143,11 +178,6 @@ export const preHandler = {
   method: preHandlerMethod
 }
 
-export const auth = /** @type {const} */ ({
-  mode: 'required',
-  strategy: CITIZEN_SESSION
-})
-
 /**
  * @param {string} uid
  * @param {PurposeType} purpose
@@ -176,27 +206,31 @@ export function flashResendIfRequested(request) {
 
 export default /** @type {ServerRoute[]} */ (
   /** @type {unknown[]} */ ([
-    /** @type {ServerRoute} */
+    /** @satisfies {ServerRoute<{ Query: { client_id?: string, returnUrl?: string, language?: string } }>} */
     ({
       method: 'GET',
       path: ACCOUNT_PATH,
       options: {
         validate: { query: queryParamsSchema },
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
-      handler(request, h) {
+      async handler(request, h) {
         const account = request.auth.credentials
 
         const { query, yar } = request
 
-        if (query.returnUrl) {
-          yar.set(SESSION_KEY_BACK_LINK, query.returnUrl)
+        const clientReturn = await findClientReturn(
+          request.server.app.oidcProvider,
+          { clientId: query.client_id, returnUrl: query.returnUrl }
+        )
+
+        // Only a client that names itself replaces the stored one
+        if (clientReturn) {
+          storeClientReturn(yar, clientReturn)
         }
 
-        const backLink = yar.get(SESSION_KEY_BACK_LINK)
-          ? { href: yar.get(SESSION_KEY_BACK_LINK) }
-          : undefined
+        const backLink = getBackLink(yar)
 
         const notificationSuccessKey = request.yar
           .flash(sessionNames.accountSuccessNotification)
@@ -216,19 +250,15 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_START,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
         const account = /** @type {Account} */ (request.auth.credentials)
 
-        const backLink = {
-          href: ACCOUNT_PATH
-        }
-
         return h.view(DELETE_ACCOUNT_VIEW, {
-          backLink,
-          email: account.email
+          email: account.email,
+          backLink: { href: ACCOUNT_PATH }
         })
       }
     }),
@@ -237,7 +267,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'POST',
       path: JOURNEY_DELETE_ACCOUNT_SEND_CODE,
       options: {
-        auth: { mode: 'required', strategy: CITIZEN_SESSION },
+        ...requiredSignInAuthOptions,
         validate: {
           query: Joi.object().keys({ resend: Joi.boolean().optional() })
         }
@@ -257,7 +287,8 @@ export default /** @type {ServerRoute[]} */ (
             retryAfter: formatHoursUntil(
               result.lockedUntil,
               getLanguage(request.query, request.yar)
-            )
+            ),
+            backLink: { href: ACCOUNT_PATH }
           })
         }
 
@@ -275,7 +306,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_RESEND_CODE,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
@@ -284,7 +315,8 @@ export default /** @type {ServerRoute[]} */ (
           isSms: false,
           target: account.email,
           email: account.email,
-          accountAction
+          accountAction,
+          backLink: { href: JOURNEY_DELETE_ACCOUNT_START }
         })
       }
     }),
@@ -293,7 +325,8 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_CODE,
       options: {
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...requiredSignInAuthOptions,
+        pre: [preHandler]
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -332,7 +365,7 @@ export default /** @type {ServerRoute[]} */ (
       path: JOURNEY_DELETE_ACCOUNT_CODE,
       options: {
         validate: { payload: formPayload('code') },
-        auth: { mode: 'required', strategy: CITIZEN_SESSION }
+        ...requiredSignInAuthOptions
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -374,7 +407,8 @@ export default /** @type {ServerRoute[]} */ (
             errorKey: codeErrorKey(result),
             email: account.email,
             accountAction,
-            code: code ?? ''
+            code: '',
+            backLink: { href: JOURNEY_DELETE_ACCOUNT_START }
           })
         }
 
@@ -386,7 +420,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_DELETE_ACCOUNT_CODE_EXPIRED,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
@@ -394,7 +428,8 @@ export default /** @type {ServerRoute[]} */ (
         return h.view('account/code-expired', {
           isSms: false,
           target: account.email,
-          accountAction
+          accountAction,
+          backLink: { href: JOURNEY_DELETE_ACCOUNT_START }
         })
       }
     })
@@ -405,4 +440,7 @@ export default /** @type {ServerRoute[]} */ (
  * @import { Request, ResponseToolkit, ServerRoute } from '@hapi/hapi'
  * @import { PurposeType } from '~/src/server/common/constants/purposes.js'
  * @import { Account } from '~/src/server/types.js'
+ * @import { Provider } from 'oidc-provider'
+ * @typedef {{ backchannelLogoutUri?: string, backchannelLogout: (sub: string, sid: string) => Promise<void> }} BackchannelClient
+ * @typedef {NonNullable<Awaited<ReturnType<Provider['Session']['findByUid']>>>} Session
  */

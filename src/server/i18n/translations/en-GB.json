@@ -6,11 +6,13 @@
     "back": "Back",
     "continue": "Continue",
     "success": "Success",
+    "cancel": "Cancel",
     "phoneNumber": "Mobile phone number",
     "phoneNumberRequired": "Enter your mobile phone number",
     "phoneNumberFormatError": "Enter a mobile phone number in the correct format",
     "emailAddressRequired": "Enter an email address",
-    "emailAddressFormatError": "Enter an email address in the correct format, like name@example.com"
+    "emailAddressFormatError": "Enter an email address in the correct format, like name@example.com",
+    "errorPrefix": "Error: "
   },
   "otp": {
     "getCode": "Get security code",
@@ -34,12 +36,14 @@
     "step2": "Select Sign in or Log in to try again."
   },
   "account": {
-    "pageTitle": "Security",
+    "pageTitle": "Security settings",
+    "headerText": "Security",
     "cardTitle": "Your sign-in details",
     "email": "Email address",
     "changeEmail": "Change email address",
     "changePhone": "Change mobile phone number",
     "change": "Change",
+    "confirmAndChange": "Confirm and change",
     "emailAddress": "email address",
     "mobileNumber": "mobile phone number",
     "successChangedEmailNotificationText": "Your email address has been changed",
@@ -87,6 +91,7 @@
       "problemsDetails": {
         "body": "We can <a class=\"govuk-link\" href=\"./code/resend\">send the security code again</a> if the security code is not working or you did not receive it."
       },
+      "deleteSignInButton": "Delete sign-in",
       "successPanel": {
         "titleText": "Your sign-in has been deleted",
         "body": "You can no longer access any forms you have started or submitted using this sign-in.",
@@ -114,6 +119,13 @@
     }
   },
   "signin": {
+    "signInAgain": {
+      "title": "You need to enter a security code",
+      "body": [
+        "You last accessed your account more than [[duration]] ago. For your security, we need to check it’s you.",
+        "We will send a security code to your email address."
+      ]
+    },
     "email": {
       "title": "Enter your email address"
     },
@@ -121,7 +133,7 @@
       "sentTo": "We have sent an email to: [[email]]",
       "errorInvalid": "The code you entered is not correct or has expired – enter it again or request a new code",
       "problemsDetails": {
-        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link govuk-link--no-visited-state\" href=\".\">use a different email address</a>."
+        "body": "We can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">send the security code again</a> or you can <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./email\">use a different email address</a>."
       }
     },
     "phone": {
@@ -168,6 +180,10 @@
       "canYou": "You can:",
       "tryBack": "try your browser back button",
       "contact": "<a class=\"govuk-link\" href=\"https://www.gov.uk/guidance/contact-defra\">contact the Defra Helpline</a> if you have any questions"
+    },
+    "signInAgain": {
+      "heading": "Sign in again",
+      "body": "Your session has ended. To keep your account secure, go back to the service you were using and sign in again."
     },
     "errorSummaryTitle": "There is a problem"
   },

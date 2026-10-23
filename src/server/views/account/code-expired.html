@@ -3,11 +3,12 @@
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 
+{% set isErrorPage = true %}
 {% set pageTitle = t('signin.codeExpired.title') %}
 
 {% block content %}
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-full">
+    <div class="govuk-grid-column-two-thirds">
       {% include "account/partials/heading-caption.html" %}
       <h1 class="govuk-heading-l">{{ t('account.codeExpired.title') }}</h1>
 

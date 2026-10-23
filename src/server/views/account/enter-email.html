@@ -4,7 +4,7 @@
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% from "govuk/components/input/macro.njk" import govukInput %}
 
-{% set pageTitle = t('account.changeEmail') + " : " + t('account.newEmail.title') %}
+{% set pageTitle = t('account.newEmail.title') %}
 {% set errorMessage = { text: t(errorKey) } if errorKey else undefined %}
 
 {% block content %}
@@ -38,7 +38,15 @@
           errorMessage: errorMessage
         }) }}
 
-        {{ govukButton({ text: t('common.continue') }) }}
+        <div class="govuk-button-group">
+          {{ govukButton({ text: t('common.continue') }) }}
+
+          {{ govukButton({
+            text: t('common.cancel'),
+            classes: 'govuk-button--secondary',
+            href: '/account'
+          }) }}
+        </div>
       </form>
 
     </div>

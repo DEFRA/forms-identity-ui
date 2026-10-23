@@ -1,4 +1,7 @@
-import { environment } from '~/src/server/plugins/nunjucks/environment.js'
+import {
+  applyUrlParam,
+  environment
+} from '~/src/server/plugins/nunjucks/environment.js'
 
 /**
  * Render a Nunjucks view outside the hapi request lifecycle
@@ -7,5 +10,6 @@ import { environment } from '~/src/server/plugins/nunjucks/environment.js'
  * @param {{ context?: object }} [options]
  */
 export function view(viewPath, options) {
+  environment.addFilter('applyUrlParam', applyUrlParam)
   return environment.render(viewPath, options?.context)
 }

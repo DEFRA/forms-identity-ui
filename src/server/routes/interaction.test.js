@@ -93,6 +93,26 @@ describe('interaction pages', () => {
     return { res, crumb, cookie }
   }
 
+  /**
+   * Adds the cookies a response set to a cookie header, so that the next
+   * request carries the session the response wrote
+   * @param {string} cookie
+   * @param {ServerInjectResponse} response
+   */
+  function withSetCookies(cookie, response) {
+    const setCookies = /** @type {string[] | string | undefined} */ (
+      response.headers['set-cookie']
+    )
+    const updated = (Array.isArray(setCookies) ? setCookies : [setCookies])
+      .filter(Boolean)
+      .map((c) => String(c).split(';')[0])
+    const cookies = new Map(
+      [...cookie.split('; '), ...updated].map((c) => [c.split('=')[0], c])
+    )
+
+    return [...cookies.values()].join('; ')
+  }
+
   it('GET redirects to the email page', async () => {
     const { response } = await renderResponse(server, {
       method: 'GET',
@@ -265,24 +285,40 @@ describe('interaction pages', () => {
 
     // carry any session the POST wrote into the next page, so a flash set
     // by mistake would show up there
-    const setCookies = /** @type {string[] | string | undefined} */ (
-      post.headers['set-cookie']
-    )
-    const updated = (Array.isArray(setCookies) ? setCookies : [setCookies])
-      .filter(Boolean)
-      .map((c) => String(c).split(';')[0])
-    const cookies = new Map(
-      [...cookie.split('; '), ...updated].map((c) => [c.split('=')[0], c])
-    )
-
     const code = await server.inject({
       method: 'GET',
       url: '/interaction/uid-1/code',
-      headers: { cookie: [...cookies.values()].join('; ') }
+      headers: { cookie: withSetCookies(cookie, post) }
     })
 
     expect(code.statusCode).toBe(200)
     expect(code.payload).not.toContain('We’ve sent you a new security code.')
+  })
+
+  it('POST email resend tells the user on the code page that a new code was sent', async () => {
+    jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
+      status: 'otp-issued'
+    })
+    const { crumb, cookie } = await getWithCrumb('/interaction/uid-1/email')
+
+    const post = await server.inject({
+      method: 'POST',
+      url: '/interaction/uid-1/email?resend=true',
+      headers: { cookie },
+      payload: { crumb, email: 'a@b.com' }
+    })
+
+    expect(post.headers.location).toBe('/interaction/uid-1/code')
+
+    const { container } = await renderResponse(server, {
+      method: 'GET',
+      url: '/interaction/uid-1/code',
+      headers: { cookie: withSetCookies(cookie, post) }
+    })
+
+    expect(container.getByRole('alert', { name: 'Success' })).toHaveTextContent(
+      'We’ve sent you a new security code.'
+    )
   })
 
   it('POST email surfaces a 500 when the API returns an unknown verdict', async () => {
@@ -322,6 +358,248 @@ describe('interaction pages', () => {
       })
     ).toHaveAttribute('href', '#email')
     expect(identityApi.requestOtpViaEmail).not.toHaveBeenCalled()
+  })
+
+  describe('when the client provides the identity of a user who is still signed in there', () => {
+    beforeEach(() => {
+      const provider = server.app.oidcProvider
+      detailsSpy.mockResolvedValue(
+        /** @type {never} */ ({
+          uid: 'uid-1',
+          prompt: { name: 'login' },
+          params: { client_id: 'runner', id_token_hint: 'id-token-1' },
+          session: undefined
+        })
+      )
+      jest
+        .spyOn(provider.Client, 'find')
+        .mockResolvedValue(/** @type {never} */ ({ clientId: 'runner' }))
+      jest
+        .spyOn(provider.IdToken, 'validate')
+        .mockResolvedValue({ header: {}, payload: { sub: 'account-1' } })
+      jest.mocked(identityApi.getAccount).mockResolvedValue({
+        id: 'account-1',
+        email: 'current@example.com'
+      })
+    })
+
+    it('GET sends the user to the sign-in-again page', async () => {
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1'
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/sign-in-again')
+    })
+
+    it('GET sign-in-again tells the user they must enter a security code', async () => {
+      const { container, response } = await renderResponse(server, {
+        method: 'GET',
+        url: '/interaction/uid-1/sign-in-again'
+      })
+
+      expect(response.statusCode).toBe(200)
+      expect(
+        container.getByRole('heading', {
+          name: 'You need to enter a security code',
+          level: 1
+        })
+      ).toBeInTheDocument()
+      expect(
+        container.getByText(
+          'You last accessed your account more than 24 hours ago. For your security, we need to check it’s you.'
+        )
+      ).toBeInTheDocument()
+      expect(
+        container.getByText(
+          'We will send a security code to your email address.'
+        )
+      ).toBeInTheDocument()
+      expect(
+        container.getByRole('button', { name: 'Continue' })
+      ).toBeInTheDocument()
+      expect(container.queryByRole('textbox')).not.toBeInTheDocument()
+    })
+
+    it('GET sign-in-again tells the user in Welsh on the Welsh page', async () => {
+      const { container } = await renderResponse(server, {
+        method: 'GET',
+        url: '/interaction/uid-1/sign-in-again?language=cy'
+      })
+
+      expect(
+        container.getByRole('heading', {
+          name: 'Mae angen i chi roi cod diogelwch',
+          level: 1
+        })
+      ).toBeInTheDocument()
+      expect(
+        container.getByText(
+          "Gwnaethoch gael mynediad i'ch cyfrif ddiwethaf dros 24 awr yn ôl. Er eich diogelwch, mae angen i ni wirio mai chi sydd yno."
+        )
+      ).toBeInTheDocument()
+    })
+
+    it('GET sign-in-again sends the user to the email page when the account is gone', async () => {
+      jest.mocked(identityApi.getAccount).mockResolvedValue(null)
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1/sign-in-again'
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/email')
+    })
+
+    it('GET sign-in-again sends the user to the email page when the client is unknown', async () => {
+      jest
+        .spyOn(server.app.oidcProvider.Client, 'find')
+        .mockResolvedValue(undefined)
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1/sign-in-again'
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/email')
+      expect(identityApi.getAccount).not.toHaveBeenCalled()
+    })
+
+    it('GET sign-in-again sends the user to the email page when the ID token has no subject', async () => {
+      jest
+        .spyOn(server.app.oidcProvider.IdToken, 'validate')
+        .mockResolvedValue({ header: {}, payload: {} })
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/interaction/uid-1/sign-in-again'
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/email')
+      expect(identityApi.getAccount).not.toHaveBeenCalled()
+    })
+
+    it("POST sign-in-again sends a code to the account's email address", async () => {
+      jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
+        status: 'otp-issued'
+      })
+      const { crumb, cookie } = await getWithCrumb(
+        '/interaction/uid-1/sign-in-again'
+      )
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/interaction/uid-1/sign-in-again',
+        headers: { cookie },
+        payload: { crumb }
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/code')
+      expect(identityApi.requestOtpViaEmail).toHaveBeenCalledWith(
+        {
+          uid: 'uid-1',
+          email: 'current@example.com',
+          purpose: 'SIGNIN_VERIFY_EMAIL'
+        },
+        'token-1'
+      )
+    })
+
+    it('POST sign-in-again shows the locked-out page while the address is locked out', async () => {
+      jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
+        status: 'locked-out',
+        lockedUntil: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+      })
+      const { crumb, cookie } = await getWithCrumb(
+        '/interaction/uid-1/sign-in-again'
+      )
+
+      const { container } = await renderResponse(server, {
+        method: 'POST',
+        url: '/interaction/uid-1/sign-in-again',
+        headers: { cookie },
+        payload: { crumb }
+      })
+
+      expect(
+        container.getByRole('heading', {
+          name: 'Too many security codes requested',
+          level: 1
+        })
+      ).toBeInTheDocument()
+    })
+
+    it("POST sign-in-again shows the email page with an error when the account's email address is not valid", async () => {
+      jest.mocked(identityApi.getAccount).mockResolvedValue({
+        id: 'account-1',
+        email: 'not-an-email'
+      })
+      const { crumb, cookie } = await getWithCrumb(
+        '/interaction/uid-1/sign-in-again'
+      )
+
+      const { container } = await renderResponse(server, {
+        method: 'POST',
+        url: '/interaction/uid-1/sign-in-again',
+        headers: { cookie },
+        payload: { crumb }
+      })
+
+      expect(container.getByRole('alert')).toBeInTheDocument()
+      expect(
+        container.getByRole('link', {
+          name: 'Enter an email address in the correct format, like name@example.com'
+        })
+      ).toHaveAttribute('href', '#email')
+      expect(
+        container.getByRole('textbox', { name: 'Enter your email address' })
+      ).toHaveValue('not-an-email')
+      expect(identityApi.requestOtpViaEmail).not.toHaveBeenCalled()
+    })
+
+    it('POST sign-in-again sends the user to the email page when the account is gone', async () => {
+      const { crumb, cookie } = await getWithCrumb(
+        '/interaction/uid-1/sign-in-again'
+      )
+      jest.mocked(identityApi.getAccount).mockResolvedValue(null)
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/interaction/uid-1/sign-in-again',
+        headers: { cookie },
+        payload: { crumb }
+      })
+
+      expect(response.statusCode).toBe(302)
+      expect(response.headers.location).toBe('/interaction/uid-1/email')
+      expect(identityApi.requestOtpViaEmail).not.toHaveBeenCalled()
+    })
+
+    it('GET code links to the email page to use a different email address', async () => {
+      const { container } = await renderResponse(server, {
+        method: 'GET',
+        url: '/interaction/uid-1/code'
+      })
+
+      expect(
+        container.getByRole('link', { name: 'use a different email address' })
+      ).toHaveAttribute('href', './email')
+    })
+  })
+
+  it('GET sign-in-again sends the user to the email page when the client provides no identity', async () => {
+    const response = await server.inject({
+      method: 'GET',
+      url: '/interaction/uid-1/sign-in-again'
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/interaction/uid-1/email')
   })
 
   it('POST email without a crumb is rejected', async () => {
@@ -1033,6 +1311,6 @@ describe('interaction route gating policy', () => {
 })
 
 /**
- * @import { Server } from '@hapi/hapi'
+ * @import { Server, ServerInjectResponse } from '@hapi/hapi'
  * @import { ServerResponse } from 'node:http'
  */

@@ -2,8 +2,10 @@ import { setUserId } from '@defra/forms-common'
 import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
+import { allAvailableLanguages } from '~/src/server/common/constants/languages.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import { CLIENT_AUTH_METHOD, SIGNING_ALG } from '~/src/server/constants.js'
+import { t } from '~/src/server/i18n/index.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
@@ -22,6 +24,18 @@ const RUNNER_REDIRECT_URIS = config.get('oidc.runnerRedirectUris')
 const RUNNER_POST_LOGOUT_REDIRECT_URIS = config.get(
   'oidc.runnerPostLogoutRedirectUris'
 )
+const RUNNER_BACKCHANNEL_LOGOUT_URI = config.get(
+  'oidc.runnerBackchannelLogoutUri'
+)
+const RUNNER_INITIATE_LOGIN_URI = config.get('oidc.runnerInitiateLoginUri')
+
+const RUNNER_CLIENT_ID = 'runner'
+
+/**
+ * The clients this provider registers. A lookup of any other id goes to the
+ * identity API, so code that takes an id from a request checks it here first.
+ */
+export const REGISTERED_CLIENT_IDS = new Set([RUNNER_CLIENT_ID])
 
 /**
  * The APIs this provider issues access tokens for.
@@ -69,6 +83,23 @@ function cancelUriFor(ctx) {
 }
 
 /**
+ * The ui_locales value (language) passed in the OIDC parameters.
+ * @param {KoaContextWithOIDC} ctx
+ * @returns {string}
+ */
+function uiLocales(ctx) {
+  const lang = ctx.oidc.params?.ui_locales
+
+  const availableLanguages = new Set(allAvailableLanguages.map((l) => l.code))
+
+  if (typeof lang === 'string' && availableLanguages.has(lang)) {
+    return lang
+  }
+
+  return 'en-GB'
+}
+
+/**
  * Builds the oidc-provider configuration
  * @param {AdapterConstructor} adapter
  * @returns {Configuration}
@@ -78,9 +109,17 @@ export function buildProviderConfig(adapter) {
     adapter,
     clients: [
       {
-        client_id: 'runner',
+        client_id: RUNNER_CLIENT_ID,
         redirect_uris: RUNNER_REDIRECT_URIS,
         post_logout_redirect_uris: RUNNER_POST_LOGOUT_REDIRECT_URIS,
+        // The runner holds its own session, so the provider tells it when
+        // the citizen's session ends. `sid` lets it end just that session.
+        backchannel_logout_uri: RUNNER_BACKCHANNEL_LOGOUT_URI,
+        backchannel_logout_session_required: true,
+        // Where the account pages send a user who has no session. The client
+        // starts its own sign in there, so that its session and the provider
+        // session start together and for the same account.
+        initiate_login_uri: RUNNER_INITIATE_LOGIN_URI,
         response_types: ['code'],
         grant_types: ['authorization_code', 'refresh_token'],
         // The client proves itself by signing a short-lived assertion with a
@@ -120,6 +159,22 @@ export function buildProviderConfig(adapter) {
       revocation_endpoint_auth_methods_supported: [CLIENT_AUTH_METHOD],
       revocation_endpoint_auth_signing_alg_values_supported: [SIGNING_ALG]
     },
+    // oidc-provider blocks outgoing requests (such as back-channel logout) to
+    // loopback and private addresses. Locally the runner is on localhost, so
+    // the protection is only lifted outside production.
+    ...(config.get('isProduction')
+      ? {}
+      : {
+          fetch: (
+            /** @type {string | URL | Request} */ url,
+            /** @type {RequestInit | undefined} */ options
+          ) =>
+            globalThis.fetch(url, {
+              ...options,
+              // @ts-expect-error undici option not in the DOM types
+              dispatcher: undefined
+            })
+        }),
     features: {
       rpInitiatedLogout: {
         enabled: true,
@@ -128,26 +183,29 @@ export function buildProviderConfig(adapter) {
         // ends the session, clears the cookie and redirects to the client.
         // It keeps `offline_access` grants, which the client ends at the
         // revocation endpoint.
-        // When the ID token hint identifies the signed-in user, the page
-        // presses its Sign out button on load. Without JavaScript, the user
-        // presses the button.
         logoutSource(ctx, form) {
-          const accountId = ctx.oidc.session?.accountId
-
           ctx.type = 'html'
+          const language = uiLocales(ctx)
           ctx.body = view('signout.html', {
             context: {
               ...context(null),
               form,
               cancelUri: cancelUriFor(ctx),
-              autoSubmit:
-                accountId !== undefined &&
-                ctx.oidc.entities.IdTokenHint?.payload.sub === accountId
+              language,
+              currentPath: ctx.URL.href,
+              /**
+               * @param {string} key
+               * @param {Record<string, unknown>} [opts]
+               */
+              t: (key, opts) => t(key, language, opts),
+              isResponseOK: true,
+              useLocalesAsLanguageParam: true
             }
           })
           return Promise.resolve()
         }
       },
+      backchannelLogout: { enabled: true },
       revocation: { enabled: true },
       devInteractions: { enabled: false },
       // On by default, and its endpoint is deliberately not mounted

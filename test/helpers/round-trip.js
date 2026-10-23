@@ -186,6 +186,10 @@ function createStubApi() {
     }
 
     if (segments[0] === 'accounts') {
+      if (method === 'POST' && segments[2] === 'sign-out') {
+        return accounts.has(segments[1]) ? NO_CONTENT : NOT_FOUND
+      }
+
       if (method === 'POST') {
         const record = otps.get(body.uid)
 

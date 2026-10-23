@@ -12,7 +12,7 @@
 {% endblock %}
 
 {% block pageTitle -%}
-  {{ pageTitle + " - " if pageTitle }}{{ serviceName }} - GOV.UK
+  {{ t('common.errorPrefix') if errorKey or isErrorPage }}{{ pageTitle + " - " if pageTitle }}{{ serviceName }} - GOV.UK
 {%- endblock %}
 
 {% block header %}
@@ -22,8 +22,8 @@
     classes: "govuk-header--full-width-border"
   }) }}
   {{ govukServiceNavigation({
-    serviceName: serviceName,
-    serviceUrl: "/"
+    serviceName: t('service.name') if isSignIn else t('account.headerText'),
+    serviceUrl: backLink.href if backLink else "/"
   }) }}
 {% endblock %}
 

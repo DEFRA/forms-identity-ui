@@ -3,6 +3,8 @@ import Provider from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
+import { reportSignOut } from '~/src/server/lib/identity-api.js'
+import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { makeHttpAdapter } from '~/src/server/oidc/http-adapter.js'
 import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
 
@@ -66,6 +68,40 @@ function pinOrigin(req) {
 }
 
 /**
+ * oidc-provider's message for an `initiate_login_uri` that is not an https
+ * URL. That check has no error code, so the message identifies it.
+ */
+const INITIATE_LOGIN_URI_NOT_HTTPS = 'initiate_login_uri must be a https uri'
+
+/**
+ * Lets a client register an http `initiate_login_uri`, for local development
+ * where the clients have no TLS. oidc-provider sends every client metadata
+ * failure through `invalidate`, so this replaces that method and passes all
+ * other failures to the original.
+ * @param {Provider} provider
+ */
+function allowHttpInitiateLoginUri(provider) {
+  const schema = provider.Client.Schema.prototype
+  const { invalidate } = schema
+
+  /**
+   * @this {{ initiate_login_uri?: unknown }}
+   * @param {string} message
+   * @param {string} [code]
+   */
+  schema.invalidate = function (message, code) {
+    if (
+      message === INITIATE_LOGIN_URI_NOT_HTTPS &&
+      URL.parse(String(this.initiate_login_uri))?.protocol === 'http:'
+    ) {
+      return
+    }
+
+    invalidate.call(this, message, code)
+  }
+}
+
+/**
  * Runs node-oidc-provider inside this service, so its cookies are
  * first-party. Persistence is the HTTP adapter against forms-identity-api.
  * @satisfies {ServerRegisterPluginObject<void>}
@@ -86,6 +122,12 @@ export default {
       // environment. What it trusts is what pinOrigin just wrote.
       provider.proxy = true
 
+      // In development the service runs over http, and so do its clients.
+      // Production keeps the https rule.
+      if (config.get('isDevelopment')) {
+        allowHttpInitiateLoginUri(provider)
+      }
+
       // The provider turns internal faults into a bare `server_error` for the
       // client, so without this the cause never reaches the logs — an adapter
       // or persistence failure would surface only as an opaque 500.
@@ -98,6 +140,27 @@ export default {
       provider.use(async (ctx, next) => {
         await next()
         setUserId(ctx.oidc?.session?.accountId)
+      })
+
+      // Emitted once the provider has completed a sign-out. A session
+      // with no account (expired before sign-out, or never signed in)
+      // has no sign-out to report. The redirect to the client must not
+      // wait on the audit, so a failure is only logged.
+      provider.on('end_session.success', (ctx) => {
+        const accountId = ctx.oidc.session?.accountId
+
+        if (!accountId) {
+          return
+        }
+
+        getServiceToken()
+          .then((token) => reportSignOut(accountId, token))
+          .catch((err) => {
+            logger.error(
+              err,
+              '[signOutReportFailed] failed to report the sign-out to forms-identity-api'
+            )
+          })
       })
 
       server.app.oidcProvider = provider

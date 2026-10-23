@@ -6,13 +6,14 @@
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
+
 {% set pageTitle = t('account.deleteSignInTitle') %}
 {% set errorText = t(errorKey) %}
 {% set errorMessage = { text: errorText } if errorKey else undefined %}
 
 {% block content %}
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-full">
+    <div class="govuk-grid-column-two-thirds">
       {% if showResendNotification %}
         {{ govukNotificationBanner({
           type: "success",
@@ -42,11 +43,16 @@
       <form method="post" action="/account/delete-account/send-code" novalidate="">
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
-        {{ govukButton({ text: t('common.continue') }) }}
+        <div class="govuk-button-group">
+          {{ govukButton({ text: t('common.continue') }) }}
+
+          {{ govukButton({
+            text: t('common.cancel'),
+            classes: 'govuk-button--secondary',
+            href: '/account'
+          }) }}
+        </div>
       </form>
-      <p class="govuk-body">
-        <a href="/account" class="govuk-link govuk-link--no-visited-state">{{ t('account.deleteAccount.cancelLinkText') }}</a>
-      </p>
 
     </div>
   </div>

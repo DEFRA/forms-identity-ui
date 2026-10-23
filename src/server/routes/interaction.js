@@ -12,6 +12,7 @@ import {
 } from '~/src/server/common/helpers/duration.js'
 import { getLanguage, setLanguage } from '~/src/server/i18n/index.js'
 import { signinFormCsp } from '~/src/server/plugins/blankie.js'
+import * as accountService from '~/src/server/services/account-service.js'
 import {
   INVALID_CODE_CONSUMED_OR_EXPIRED,
   INVALID_EMAIL,
@@ -25,6 +26,10 @@ import * as signinService from '~/src/server/services/signin-service.js'
 // how long the timed-out page tells the user they had, taken from the
 // setting that actually ends the interaction so the two cannot disagree
 const INTERACTION_TTL_SECONDS = config.get('oidc.ttl.interaction')
+
+// how long ago the sign-in-again page says the user last accessed their
+// account, taken from the setting that ends the provider session
+const SESSION_TTL_SECONDS = config.get('oidc.ttl.session')
 
 const uidParams = Joi.object({ uid: Joi.string().required() })
 const emailQuery = Joi.object({ resend: Joi.boolean().optional() })
@@ -47,6 +52,17 @@ export function formPayload(field) {
 }
 
 /* eslint-disable jsdoc/reject-any-type -- hapi request refs are invariant, so only any-ref helpers can be shared by payload-narrowed routes */
+
+/**
+ * Add property 'isSignIn' to the model so the page titling can be tailored to these flows
+ * @param {ResponseToolkit<any>} h
+ * @param {string} viewName
+ * @param { object | undefined } model
+ * @returns {ResponseObject}
+ */
+function addTitleFlagToViewModel(h, viewName, model) {
+  return h.view(viewName, { ...model, isSignIn: true })
+}
 
 /**
  * Security gate. Checks that this browser is the one that started the
@@ -79,13 +95,12 @@ export async function requireInteraction(request, h) {
     return details
   } catch (err) {
     if (err instanceof errors.SessionNotFound) {
-      return h
-        .view('interaction/timed-out', {
-          interactionDuration: formatDuration(
-            INTERACTION_TTL_SECONDS,
-            getLanguage(request.query, request.yar)
-          )
-        })
+      return addTitleFlagToViewModel(h, 'interaction/timed-out', {
+        interactionDuration: formatDuration(
+          INTERACTION_TTL_SECONDS,
+          getLanguage(request.query, request.yar)
+        )
+      })
         .code(StatusCodes.GONE)
         .takeover()
     }
@@ -201,6 +216,75 @@ async function saveConsentGrant(provider, details) {
 }
 
 /**
+ * Gets the account from the ID token that the client sends in
+ * `id_token_hint`. The client sends it when the user is still signed in
+ * there. The provider checked the token before the interaction started. This
+ * function checks it again, so that the account always comes from a token
+ * that the provider issued.
+ * @param {Provider} provider
+ * @param {InteractionDetails} details
+ * @returns {Promise<{ id: string, email: string } | undefined>} undefined
+ *   when there is no hint or no account
+ */
+async function getAccountFromIdTokenHint(provider, details) {
+  const { id_token_hint: idTokenHint, client_id: clientId } = details.params
+
+  if (typeof idTokenHint !== 'string' || typeof clientId !== 'string') {
+    return undefined
+  }
+
+  const client = await provider.Client.find(clientId)
+
+  if (!client) {
+    return undefined
+  }
+
+  const { payload } = await provider.IdToken.validate(idTokenHint, client)
+
+  if (typeof payload.sub !== 'string') {
+    return undefined
+  }
+
+  const account = await accountService.getAccount(payload.sub)
+
+  return account ?? undefined
+}
+
+/**
+ * Sends the user on after a code request. The email page and the
+ * sign-in-again page both request a code, so both use this function.
+ * @param {Request<any>} request
+ * @param {ResponseToolkit<any>} h
+ * @param {string} uid
+ * @param {EmailOutcome} result
+ */
+function codeRequestResponse(request, h, uid, result) {
+  // the email page shows the error, so that the user can correct the address
+  if (result.outcome === INVALID_EMAIL) {
+    return h.view('interaction/email', {
+      uid,
+      email: result.email,
+      errorKey: result.errorKey
+    })
+  }
+
+  if (result.outcome === LOCKED_OUT) {
+    return h.view('interaction/locked-out', {
+      retryAfter: formatHoursUntil(
+        result.lockedUntil,
+        getLanguage(request.query, request.yar)
+      )
+    })
+  }
+
+  if (request.query.resend) {
+    request.yar.flash(sessionNames.codeResendSuccessNotification, true)
+  }
+
+  return h.redirect(`/interaction/${uid}/code`)
+}
+
+/**
  *
  * @param {Request<{ Pres: InteractionPres, Query: { language?: string }; }>} request
  * @param {ResponseToolkit<{ Pres: InteractionPres, Query: { language?: string }; }>} h
@@ -214,7 +298,7 @@ async function commonOTPHandler(request, h, viewName) {
     return h.redirect(`/interaction/${uid}`)
   }
 
-  return h.view(`interaction/${viewName}`, { email })
+  return addTitleFlagToViewModel(h, `interaction/${viewName}`, { email })
 }
 
 /**
@@ -273,7 +357,70 @@ export default /** @type {ServerRoute[]} */ (
           )
         }
 
+        // the client sends the user's identity when they are still signed in
+        // there
+        if (details.params.id_token_hint) {
+          return h.redirect(`/interaction/${details.uid}/sign-in-again`)
+        }
+
         return h.redirect(`/interaction/${details.uid}/email`)
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
+    ({
+      method: 'GET',
+      path: '/interaction/{uid}/sign-in-again',
+      options: commonOptions,
+      async handler(request, h) {
+        const details = request.pre.details
+        const provider = request.server.app.oidcProvider
+
+        const account = await getAccountFromIdTokenHint(provider, details)
+
+        if (!account) {
+          return h.redirect(`/interaction/${details.uid}/email`)
+        }
+
+        return h.view('interaction/sign-in-again', {
+          uid: details.uid,
+          sessionDuration: formatDuration(
+            SESSION_TTL_SECONDS,
+            getLanguage(request.query, request.yar)
+          )
+        })
+      }
+    }),
+    /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
+    ({
+      method: 'POST',
+      path: '/interaction/{uid}/sign-in-again',
+      options: {
+        validate: {
+          params: uidParams,
+          payload: Joi.object({ crumb: Joi.string().optional() }),
+          query: querySchema
+        },
+        plugins: { blankie: signinFormCsp },
+        pre: [GATE],
+        auth: false
+      },
+      async handler(request, h) {
+        const details = request.pre.details
+        const provider = request.server.app.oidcProvider
+
+        // the address comes from the account, never from the form
+        const account = await getAccountFromIdTokenHint(provider, details)
+
+        if (!account) {
+          return h.redirect(`/interaction/${details.uid}/email`)
+        }
+
+        const result = await signinService.submitEmail(
+          details.uid,
+          account.email
+        )
+
+        return codeRequestResponse(request, h, details.uid, result)
       }
     }),
     /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
@@ -287,7 +434,9 @@ export default /** @type {ServerRoute[]} */ (
       handler(request, h) {
         const details = request.pre.details
 
-        return h.view('interaction/email', { uid: details.uid })
+        return addTitleFlagToViewModel(h, 'interaction/email', {
+          uid: details.uid
+        })
       }
     }),
     /** @satisfies {ServerRoute<{ Payload: { email?: string }, Pres: InteractionPres, Query: { language?: string, resend?: boolean } }>} */
@@ -308,30 +457,7 @@ export default /** @type {ServerRoute[]} */ (
         const { email } = request.payload
         const result = await signinService.submitEmail(details.uid, email)
 
-        if (result.outcome === INVALID_EMAIL) {
-          return h.view('interaction/email', {
-            uid: details.uid,
-            email: result.email,
-            errorKey: result.errorKey
-          })
-        }
-
-        if (result.outcome === LOCKED_OUT) {
-          return h.view('interaction/locked-out', {
-            retryAfter: formatHoursUntil(
-              result.lockedUntil,
-              getLanguage(request.query, request.yar)
-            )
-          })
-        }
-
-        const { resend = false } = request.query
-
-        if (resend) {
-          request.yar.flash(sessionNames.codeResendSuccessNotification, true)
-        }
-
-        return h.redirect(`/interaction/${details.uid}/code`)
+        return codeRequestResponse(request, h, details.uid, result)
       }
     }),
     /** @satisfies {ServerRoute<{ Pres: InteractionPres, Query: { language?: string } }>} */
@@ -355,7 +481,7 @@ export default /** @type {ServerRoute[]} */ (
           .flash(sessionNames.codeResendSuccessNotification)
           .at(0)
 
-        return h.view('interaction/code', {
+        return addTitleFlagToViewModel(h, 'interaction/code', {
           uid: details.uid,
           email,
           showResendNotification
@@ -399,7 +525,7 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(`/interaction/${details.uid}`)
         }
 
-        return h.view('interaction/code', {
+        return addTitleFlagToViewModel(h, 'interaction/code', {
           uid: details.uid,
           email,
           errorKey: result.errorKey
@@ -430,7 +556,9 @@ export default /** @type {ServerRoute[]} */ (
       path: '/interaction/{uid}/phone',
       options: commonOptions,
       handler(request, h) {
-        return h.view('interaction/phone', { uid: request.pre.details.uid })
+        return addTitleFlagToViewModel(h, 'interaction/phone', {
+          uid: request.pre.details.uid
+        })
       }
     }),
     /** @satisfies {ServerRoute<{ Payload: { phone?: string }, Pres: InteractionPres, Query: { language?: string } }>} */
@@ -460,7 +588,7 @@ export default /** @type {ServerRoute[]} */ (
           return finishLogin(request, h, result.accountId)
         }
         if (result.outcome === INVALID_PHONE) {
-          return h.view('interaction/phone', {
+          return addTitleFlagToViewModel(h, 'interaction/phone', {
             uid: details.uid,
             phone: result.phone,
             errorKey: result.errorKey
@@ -475,8 +603,9 @@ export default /** @type {ServerRoute[]} */ (
 )
 
 /**
- * @import { Request, ResponseToolkit, Server, ServerRoute } from '@hapi/hapi'
+ * @import { Request, ResponseObject, ResponseToolkit, Server, ServerRoute } from '@hapi/hapi'
  * @import { Provider } from 'oidc-provider'
+ * @import { EmailOutcome } from '~/src/server/services/signin-service.js'
  * @typedef {Awaited<ReturnType<Provider['interactionDetails']>>} InteractionDetails
  * @typedef {{ details: InteractionDetails }} InteractionPres
  */

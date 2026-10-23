@@ -3,12 +3,10 @@ import Joi from 'joi'
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { formatHoursUntil } from '~/src/server/common/helpers/duration.js'
-import { getBackLink } from '~/src/server/common/helpers/navigation.js'
 import { getLanguage } from '~/src/server/i18n/index.js'
 import {
   ACCOUNT_PATH,
   PHONE_JOURNEY_START_PATH,
-  auth,
   codeErrorKey,
   flashResendIfRequested,
   getOtp,
@@ -18,6 +16,7 @@ import {
   otpVerified,
   preHandler
 } from '~/src/server/routes/account/account.js'
+import { requiredSignInAuthOptions } from '~/src/server/routes/account-sign-in.js'
 import { formPayload } from '~/src/server/routes/interaction.js'
 import * as accountService from '~/src/server/services/account-service.js'
 import { requestOtpViaEmail } from '~/src/server/services/otp-service.js'
@@ -84,19 +83,15 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: PHONE_JOURNEY_START_PATH,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
         const account = /** @type {Account} */ (request.auth.credentials)
 
-        const backLink = {
-          href: ACCOUNT_PATH
-        }
-
         return h.view(JOURNEY_START_VIEW, {
-          backLink,
-          email: account.email
+          email: account.email,
+          backLink: { href: ACCOUNT_PATH }
         })
       }
     }),
@@ -105,7 +100,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'POST',
       path: JOURNEY_SEND_CODE,
       options: {
-        auth
+        ...requiredSignInAuthOptions
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -122,7 +117,8 @@ export default /** @type {ServerRoute[]} */ (
             retryAfter: formatHoursUntil(
               result.lockedUntil,
               getLanguage(request.query, request.yar)
-            )
+            ),
+            backLink: { href: ACCOUNT_PATH }
           })
         }
 
@@ -136,7 +132,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_EMAIL_CODE,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       async handler(request, h) {
@@ -159,7 +155,8 @@ export default /** @type {ServerRoute[]} */ (
         return h.view('account/email-code', {
           email: emailOtp?.target,
           showResendNotification,
-          accountAction
+          accountAction,
+          backLink: { href: PHONE_JOURNEY_START_PATH }
         })
       }
     }),
@@ -169,7 +166,7 @@ export default /** @type {ServerRoute[]} */ (
       path: JOURNEY_EMAIL_CODE,
       options: {
         validate: { payload: formPayload('code') },
-        auth
+        ...requiredSignInAuthOptions
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -195,14 +192,16 @@ export default /** @type {ServerRoute[]} */ (
           return h.view('account/email-code', {
             errorKey: codeErrorKey(result),
             email: account.email,
-            code: code ?? '',
-            accountAction
+            code: '',
+            accountAction,
+            backLink: { href: PHONE_JOURNEY_START_PATH }
           })
         }
 
         return h.view(JOURNEY_START_VIEW, {
-          backLink: getBackLink(request.yar),
-          phoneEndDigits: getPhoneEndDigits(account.phone)
+          backLink: { href: ACCOUNT_PATH },
+          phoneEndDigits: getPhoneEndDigits(account.phone),
+          accountAction
         })
       }
     }),
@@ -211,7 +210,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_CODE_RESEND,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
@@ -220,7 +219,8 @@ export default /** @type {ServerRoute[]} */ (
           isSms: false,
           target: account.email,
           email: account.email,
-          accountAction
+          accountAction,
+          backLink: { href: PHONE_JOURNEY_START_PATH }
         })
       }
     }),
@@ -229,7 +229,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_ENTER_PHONE,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       async handler(request, h) {
@@ -239,7 +239,10 @@ export default /** @type {ServerRoute[]} */ (
           return h.redirect(PHONE_JOURNEY_START_PATH)
         }
 
-        return h.view(ENTER_PHONE_VIEW, { accountAction })
+        return h.view(ENTER_PHONE_VIEW, {
+          accountAction,
+          backLink: { href: PHONE_JOURNEY_START_PATH }
+        })
       }
     }),
     /** @satisfies {ServerRoute<{ Query: { resend?: boolean}, Payload: { phone: string } }>} */
@@ -253,7 +256,7 @@ export default /** @type {ServerRoute[]} */ (
             phone: Joi.string().allow('').required()
           })
         },
-        auth
+        ...requiredSignInAuthOptions
       },
       async handler(request, h) {
         const uid = getSessionUid(request)
@@ -271,7 +274,9 @@ export default /** @type {ServerRoute[]} */ (
         if (errorKey) {
           return h.view(ENTER_PHONE_VIEW, {
             phone: trimmed,
-            errorKey
+            errorKey,
+            accountAction,
+            backLink: { href: PHONE_JOURNEY_START_PATH }
           })
         }
 
@@ -289,10 +294,15 @@ export default /** @type {ServerRoute[]} */ (
             'account.updateError.errorGeneral'
 
           request.yar.flash(sessionNames.changeEmailError, errorKeyOnChange)
-          if (changeResult.status === INVALID_PHONE) {
+          if (
+            changeResult.status === INVALID_PHONE ||
+            changeResult.status === SAME_AS_CURRENT
+          ) {
             return h.view(ENTER_PHONE_VIEW, {
               phone: trimmed,
-              errorKey: errorKeyOnChange
+              errorKey: errorKeyOnChange,
+              accountAction,
+              backLink: { href: PHONE_JOURNEY_START_PATH }
             })
           }
           return h.redirect(JOURNEY_CHANGE_PHONE_ERROR)
@@ -312,14 +322,15 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: JOURNEY_CHANGE_PHONE_ERROR,
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
         const errorKey = request.yar.flash(sessionNames.changeEmailError).at(0)
         return h.view('account/change-error', {
           errorKey,
-          accountAction
+          accountAction,
+          backLink: { href: JOURNEY_ENTER_PHONE }
         })
       }
     }),
@@ -328,7 +339,7 @@ export default /** @type {ServerRoute[]} */ (
       method: 'GET',
       path: '/account/change-phone/code/expired',
       options: {
-        auth,
+        ...requiredSignInAuthOptions,
         pre: [preHandler]
       },
       handler(request, h) {
@@ -336,7 +347,8 @@ export default /** @type {ServerRoute[]} */ (
         return h.view('account/code-expired', {
           isSms: false,
           target: account.email,
-          accountAction
+          accountAction,
+          backLink: { href: ACCOUNT_PATH }
         })
       }
     })

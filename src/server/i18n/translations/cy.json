@@ -6,11 +6,13 @@
     "back": "Yn ôl",
     "continue": "Parhau",
     "success": "Llwyddiant",
+    "cancel": "Canslo",
     "phoneNumber": "Rhif ffôn symudol",
     "phoneNumberRequired": "Rhowch eich rhif ffôn symudol",
     "phoneNumberFormatError": "Rhowch rif ffôn symudol yn y fformat cywir",
     "emailAddressRequired": "Rhowch gyfeiriad e-bost",
-    "emailAddressFormatError": "Rhowch gyfeiriad e-bost yn y fformat cywir, fel enw@example.com"
+    "emailAddressFormatError": "Rhowch gyfeiriad e-bost yn y fformat cywir, fel enw@example.com",
+    "errorPrefix": "Gwall: "
   },
   "otp": {
     "getCode": "Cael cod diogelwch",
@@ -34,12 +36,14 @@
     "step2": "Dewiswch Mewngofnodi neu Mewngofnodi i geisio eto."
   },
   "account": {
-    "pageTitle": "Diogelwch",
+    "pageTitle": "Gosodiadau diogelwch",
+    "headerText": "Diogelwch",
     "cardTitle": "Manylion mewngofnodi",
     "email": "Cyfeiriad e-bost",
     "changeEmail": "Newid cyfeiriad e-bost",
     "changePhone": "Newid rhif ffôn symudol",
     "change": "Newid",
+    "confirmAndChange": "Cadarnhau a newid",
     "emailAddress": "cyfeiriad e-bost",
     "mobileNumber": "rhif ffôn symudol",
     "successChangedEmailNotificationText": "Mae eich cyfeiriad e-bost wedi'i newid",
@@ -87,6 +91,7 @@
       "problemsDetails": {
         "body": "Gallwn <a class=\"govuk-link\" href=\"./code/resend\">anfon y cod diogelwch eto</a> os nad yw'r cod diogelwch yn gweithio neu os na chawsoch ef."
       },
+      "deleteSignInButton": "Dileu mewngofnodi",
       "successPanel": {
         "titleText": "Mae eich manylion mewngofnodi wedi'u dileu",
         "body": "Ni allwch bellach gael mynediad at unrhyw ffurflenni rydych wedi'u dechrau neu eu cyflwyno gan ddefnyddio'r manylion mewngofnodi hyn.",
@@ -114,6 +119,13 @@
     }
   },
   "signin": {
+    "signInAgain": {
+      "title": "Mae angen i chi roi cod diogelwch",
+      "body": [
+        "Gwnaethoch gael mynediad i'ch cyfrif ddiwethaf dros [[duration]] yn ôl. Er eich diogelwch, mae angen i ni wirio mai chi sydd yno.",
+        "Byddwn yn anfon cod diogelwch i'ch cyfeiriad e-bost."
+      ]
+    },
     "email": {
       "title": "Rhowch eich cyfeiriad e-bost"
     },
@@ -121,7 +133,7 @@
       "sentTo": "Rydym wedi anfon e-bost at: [[email]]",
       "errorInvalid": "Nid yw'r cod a roesoch yn gywir neu mae wedi dod i ben – rhowch gynnig arall arni neu gofynnwch am god newydd",
       "problemsDetails": {
-        "body": "Gallwn <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link govuk-link--no-visited-state\" href=\".\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
+        "body": "Gallwn <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./code/resend\">anfon y cod diogelwch eto</a> neu gallwch <a class=\"govuk-link govuk-link--no-visited-state\" href=\"./email\">ddefnyddio cyfeiriad e-bost gwahanol</a>."
       }
     },
     "phone": {
@@ -166,6 +178,10 @@
       "canYou": "Gallwch:",
       "tryBack": "roi gynnig ar fotwm mynd yn ôl eich porwr",
       "contact": "<a class=\"govuk-link govuk-link--no-visited-state\" href=\"https://www.gov.uk/guidance/contact-defra\">gysylltu â Llinell Gymorth Defra</a> os oes gennych unrhyw gwestiynau"
+    },
+    "signInAgain": {
+      "heading": "Mewngofnodwch eto",
+      "body": "Mae eich sesiwn wedi dod i ben. I gadw eich cyfrif yn ddiogel, ewch yn ôl i'r gwasanaeth roeddech yn ei ddefnyddio a mewngofnodwch eto."
     },
     "errorSummaryTitle": "Mae problem wedi codi"
   },

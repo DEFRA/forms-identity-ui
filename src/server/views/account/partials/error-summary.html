@@ -1,0 +1,6 @@
+{% if errorKey %}
+  {{ govukErrorSummary({
+    titleText: t('errors.errorSummaryTitle'),
+    errorList: [{ text: t(errorKey), href: "#code" }]
+  }) }}
+{% endif %}
