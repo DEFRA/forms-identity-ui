@@ -18,6 +18,11 @@ import { logger } from '~/src/server/common/helpers/logging/logger.js'
 const JWKS_KEY_NAME = /^OIDC_JWKS_KEY_(\d+)$/
 
 /**
+ * Captures the key number from the name of a cookie key variable
+ */
+const COOKIE_KEY_NAME = /^OIDC_COOKIE_KEY_(\d+)$/
+
+/**
  * A reader of a token finds the key by its `kid`, so each signing key has
  * one. The provider checks the rest of the key when it starts.
  * @type {ObjectSchema<SigningJwk>}
@@ -148,6 +153,32 @@ export function signingJwks(env, signingNumber) {
   // A `kid` is public, so the log can show which key is which
   for (const { name, value } of keys) {
     logger.info(`[oidcKeys] Loaded ${name}: ${value.kid}`)
+  }
+
+  return keys.map(({ value }) => value)
+}
+
+/**
+ * The keys that sign the provider cookies, signing key first, in the form
+ * that the provider takes. Logs which keys are loaded.
+ * @param {NodeJS.ProcessEnv} env
+ * @param {number} signingNumber - the value of OIDC_COOKIE_SIGNING_KEY
+ */
+export function cookieKeys(env, signingNumber) {
+  // The provider takes a cookie key as the text that is set
+  const unvalidatedKeys = readNumberedKeys(
+    env,
+    COOKIE_KEY_NAME,
+    (_name, value) => value
+  )
+  const keys = signingKeyFirst(unvalidatedKeys, signingNumber)
+
+  logger.info(`[oidcKeys] ${keys.length} cookie keys loaded`)
+  logger.info(`[oidcKeys] Signing with ${keys[0].name}`)
+
+  // A cookie key has no public name, so the log shows only the variable
+  for (const { name } of keys) {
+    logger.info(`[oidcKeys] Loaded ${name}`)
   }
 
   return keys.map(({ value }) => value)

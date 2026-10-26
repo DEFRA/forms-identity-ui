@@ -28,12 +28,14 @@ const {
 
 const runnerKeypair = generateClientKeypair()
 
-// Two signing keys with the pointer at the second, as in a rotation after
-// the pointer has moved
+// Two keys in each set with the pointer at the second, as in a rotation
+// after the pointer has moved
 process.env.OIDC_JWKS_KEY_1 = JSON.stringify(generateSigningJwk())
 process.env.OIDC_JWKS_KEY_2 = JSON.stringify(generateSigningJwk())
 process.env.OIDC_JWKS_SIGNING_KEY = '2'
-process.env.OIDC_COOKIE_KEYS = 'test-cookie-key-1,test-cookie-key-2'
+process.env.OIDC_COOKIE_KEY_1 = 'test-cookie-key-1'
+process.env.OIDC_COOKIE_KEY_2 = 'test-cookie-key-2'
+process.env.OIDC_COOKIE_SIGNING_KEY = '2'
 // the provider is given the public half; tests needing to act as the client
 // sign with the private half
 process.env.OIDC_RUNNER_JWKS = JSON.stringify(runnerKeypair.public)

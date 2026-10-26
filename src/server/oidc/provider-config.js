@@ -7,15 +7,15 @@ import { CLIENT_AUTH_METHOD, SIGNING_ALG } from '~/src/server/constants.js'
 import { t } from '~/src/server/i18n/index.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-import { signingJwks } from '~/src/server/oidc/keys.js'
+import { cookieKeys, signingJwks } from '~/src/server/oidc/keys.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
 import { view } from '~/src/server/plugins/nunjucks/render.js'
 
 // All required at startup — the service refuses to boot without them.
-// The provider signs with the first key and accepts all of them, so the
-// list has the signing key first.
+// The provider signs with the first key of each list and accepts all of
+// them, so each list has the signing key first.
 const SIGNING_JWKS = signingJwks(process.env, config.get('oidc.jwksSigningKey'))
-const COOKIE_KEYS = config.get('oidc.cookieKeys')
+const COOKIE_KEYS = cookieKeys(process.env, config.get('oidc.cookieSigningKey'))
 
 const COOKIE_SECURE = config.get('oidc.cookieSecure')
 const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (

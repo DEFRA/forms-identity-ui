@@ -236,12 +236,11 @@ export const config = convict({
       default: /** @type {number | null} */ (null),
       env: 'OIDC_JWKS_SIGNING_KEY'
     },
-    cookieKeys: {
-      doc: 'Comma-separated cookie signing keys, identical across containers',
-      format: 'csv',
-      default: /** @type {string[] | null} */ (null),
-      sensitive: true,
-      env: 'OIDC_COOKIE_KEYS'
+    cookieSigningKey: {
+      doc: 'Number of the key that signs provider cookies. The keys are the secrets OIDC_COOKIE_KEY_<n>, identical across containers, read in src/server/oidc/keys.js. See docs/key-rotation.md.',
+      format: 'nat',
+      default: /** @type {number | null} */ (null),
+      env: 'OIDC_COOKIE_SIGNING_KEY'
     },
     cookieSecure: {
       doc: 'Secure flag on provider cookies (off for local http)',

@@ -1,5 +1,5 @@
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
-import { signingJwks } from '~/src/server/oidc/keys.js'
+import { cookieKeys, signingJwks } from '~/src/server/oidc/keys.js'
 
 /**
  * @param {string} kid
@@ -126,6 +126,56 @@ describe('signingJwks', () => {
 
     expect(() => signingJwks(env, 100)).toThrow(
       'No key found with signing number 100'
+    )
+  })
+})
+
+describe('cookieKeys', () => {
+  it('returns the signing key first, then the others from the lowest number to the highest', () => {
+    const env = {
+      OIDC_COOKIE_KEY_10: 'cookie-ten',
+      OIDC_COOKIE_KEY_3: 'cookie-three',
+      OIDC_COOKIE_KEY_1: 'cookie-one',
+      OIDC_COOKIE_KEY_2: 'cookie-two'
+    }
+
+    expect(cookieKeys(env, 3)).toEqual([
+      'cookie-three',
+      'cookie-one',
+      'cookie-two',
+      'cookie-ten'
+    ])
+  })
+
+  it('logs how many keys are loaded, which key signs, and each key', () => {
+    const info = jest.spyOn(logger, 'info')
+    const env = {
+      OIDC_COOKIE_KEY_1: 'cookie-one',
+      OIDC_COOKIE_KEY_2: 'cookie-two'
+    }
+
+    cookieKeys(env, 2)
+
+    expect(info.mock.calls).toEqual([
+      ['[oidcKeys] 2 cookie keys loaded'],
+      ['[oidcKeys] Signing with OIDC_COOKIE_KEY_2'],
+      ['[oidcKeys] Loaded OIDC_COOKIE_KEY_2'],
+      ['[oidcKeys] Loaded OIDC_COOKIE_KEY_1']
+    ])
+  })
+
+  it('reads only the cookie keys', () => {
+    const env = {
+      OIDC_COOKIE_KEY_1: 'cookie-one',
+      OIDC_JWKS_KEY_2: jwk('kid-2')
+    }
+
+    expect(cookieKeys(env, 1)).toEqual(['cookie-one'])
+  })
+
+  it('refuses a pointer to a key that is not there', () => {
+    expect(() => cookieKeys({ OIDC_COOKIE_KEY_1: 'cookie-one' }, 2)).toThrow(
+      'No key found with signing number 2'
     )
   })
 })
