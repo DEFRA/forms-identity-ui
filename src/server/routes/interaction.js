@@ -1,3 +1,4 @@
+import { setUserId } from '@defra/forms-common'
 import Boom from '@hapi/boom'
 import { StatusCodes } from 'http-status-codes'
 import Joi from 'joi'
@@ -83,7 +84,15 @@ export async function requireInteraction(request, h) {
 
   try {
     setLanguage(request)
-    return await provider.interactionDetails(request.raw.req, request.raw.res)
+    const details = await provider.interactionDetails(
+      request.raw.req,
+      request.raw.res
+    )
+
+    // The user is already signed in when the interaction only asks for consent
+    setUserId(details.session?.accountId)
+
+    return details
   } catch (err) {
     if (err instanceof errors.SessionNotFound) {
       return addTitleFlagToViewModel(h, 'interaction/timed-out', {
@@ -164,6 +173,8 @@ export function assertInteractionRoutesGated(server) {
  * @param {string} accountId
  */
 async function finishLogin(request, h, accountId) {
+  setUserId(accountId)
+
   await request.server.app.oidcProvider.interactionFinished(
     request.raw.req,
     request.raw.res,

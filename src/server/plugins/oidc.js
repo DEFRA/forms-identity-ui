@@ -1,3 +1,4 @@
+import { setUserId } from '@defra/forms-common'
 import Provider from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
@@ -132,6 +133,13 @@ export default {
       // or persistence failure would surface only as an opaque 500.
       provider.on('server_error', (_ctx, err) => {
         logger.error(err, '[oidcServerError] provider raised a server error')
+      })
+
+      // The provider loads its session while it handles the request, so the
+      // account ID is added to the log context once the request is handled
+      provider.use(async (ctx, next) => {
+        await next()
+        setUserId(ctx.oidc?.session?.accountId)
       })
 
       // Emitted once the provider has completed a sign-out. A session
