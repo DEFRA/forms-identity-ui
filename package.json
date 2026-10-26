@@ -61,6 +61,7 @@
     "blankie": "^5.0.0",
     "blipp": "^4.0.2",
     "convict": "^6.2.5",
+    "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
     "govuk-frontend": "^5.13.0",
     "hapi-pino": "^13.0.0",

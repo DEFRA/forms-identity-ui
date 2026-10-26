@@ -1,3 +1,4 @@
+import { isMatch } from 'date-fns'
 import Joi from 'joi'
 
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
@@ -33,26 +34,12 @@ const COOKIE_KEY_NAME = /^OIDC_COOKIE_KEY_(\d+)$/
 const jwkSchema = Joi.object({ kid: Joi.string().required() }).unknown()
 
 /**
- * Whether the digits are a real calendar date as YYYYMMDD. Date.UTC rolls
- * an out-of-range day or month into the next one, so a date that does not
- * exist comes back as a different date.
+ * Whether the digits are a date that exists, as YYYYMMDD. The length is
+ * checked first, because date-fns also matches seven digits such as 2026126.
  * @param {string} digits
  */
 function isCalendarDate(digits) {
-  if (digits.length !== 8) {
-    return false
-  }
-
-  const year = Number(digits.slice(0, 4))
-  const month = Number(digits.slice(4, 6))
-  const day = Number(digits.slice(6, 8))
-  const date = new Date(Date.UTC(year, month - 1, day))
-
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  )
+  return digits.length === 8 && isMatch(digits, 'yyyyMMdd')
 }
 
 /**
