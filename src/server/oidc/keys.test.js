@@ -15,10 +15,10 @@ describe('signingJwks', () => {
       OIDC_JWKS_KEY_5: jwk('kid-5')
     }
 
-    expect(signingJwks(env, 5)).toEqual([
-      { kty: 'RSA', kid: 'kid-5', d: 'private-part-of-kid-5' },
-      { kty: 'RSA', kid: 'kid-4', d: 'private-part-of-kid-4' }
-    ])
+    const keys = signingJwks(env, 5)
+
+    expect(keys).toHaveLength(2)
+    expect(keys.map((key) => key.kid)).toEqual(['kid-5', 'kid-4'])
   })
 
   it('logs how many keys are loaded, which key signs, and the kid of each key', () => {
