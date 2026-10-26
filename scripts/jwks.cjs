@@ -41,12 +41,12 @@ function generateKeyPair(role) {
 }
 
 /**
- * The provider's own signing JWKS (private). It signs ID tokens and access
- * tokens; the public half is published at the JWKS endpoint for clients and
- * APIs to verify against.
+ * One private key for the provider to sign ID tokens and access tokens with.
+ * The public half is published at the JWKS endpoint for clients and APIs to
+ * verify against.
  */
-function generateJwks() {
-  return generateKeyPair('sig').private
+function generateSigningJwk() {
+  return generateKeyPair('sig').private.keys[0]
 }
 
 /**
@@ -58,4 +58,4 @@ function generateClientKeypair() {
   return generateKeyPair('runner')
 }
 
-module.exports = { generateClientKeypair, generateJwks }
+module.exports = { generateClientKeypair, generateSigningJwk }

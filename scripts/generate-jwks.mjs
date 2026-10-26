@@ -1,9 +1,11 @@
 /**
- * Generates the provider's private signing JWKS (RS256). Put the output in .env
- * as OIDC_JWKS (identical across containers — keys are never boot-generated).
+ * Generates one private signing key (RS256) for the provider. Put the output
+ * in .env as OIDC_JWKS_KEY_<n>, where <n> is the next key number, identical
+ * across containers. Keys are never boot-generated. docs/key-rotation.md has
+ * the procedure to bring a new key into use.
  *
  * Usage: node scripts/generate-jwks.mjs
  */
-import { generateJwks } from './jwks.cjs'
+import { generateSigningJwk } from './jwks.cjs'
 
-process.stdout.write(`${JSON.stringify(generateJwks())}\n`)
+process.stdout.write(`${JSON.stringify(generateSigningJwk())}\n`)

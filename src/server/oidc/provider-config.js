@@ -7,14 +7,16 @@ import { CLIENT_AUTH_METHOD, SIGNING_ALG } from '~/src/server/constants.js'
 import { t } from '~/src/server/i18n/index.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
+import { signingJwks } from '~/src/server/oidc/keys.js'
 import { context } from '~/src/server/plugins/nunjucks/context.js'
 import { view } from '~/src/server/plugins/nunjucks/render.js'
 
-// All required at startup — config validation refuses to boot without them
-const JWKS = /** @type {{ keys: JWK[] }} */ (
-  JSON.parse(config.get('oidc.jwks'))
-)
+// All required at startup — the service refuses to boot without them.
+// The provider signs with the first key and accepts all of them, so the
+// list has the signing key first.
+const SIGNING_JWKS = signingJwks(process.env, config.get('oidc.jwksSigningKey'))
 const COOKIE_KEYS = config.get('oidc.cookieKeys')
+
 const COOKIE_SECURE = config.get('oidc.cookieSecure')
 const RUNNER_JWKS = /** @type {{ keys: JWK[] }} */ (
   JSON.parse(config.get('oidc.runnerJwks'))
@@ -130,7 +132,7 @@ export function buildProviderConfig(adapter) {
         jwks: RUNNER_JWKS
       }
     ],
-    jwks: { keys: JWKS.keys },
+    jwks: { keys: SIGNING_JWKS },
     clientAuthMethods: [CLIENT_AUTH_METHOD],
     pkce: { required: () => true },
     // A refresh returns a new access token but keeps the same refresh token.

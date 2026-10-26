@@ -113,6 +113,16 @@ describe('oidc plugin', () => {
     expect(keys[0].d).toBeUndefined()
   })
 
+  it('serves each key in the set, so a token from the key before the current one still verifies', async () => {
+    const res = await server.inject({ method: 'GET', url: '/jwks' })
+
+    const { keys } = JSON.parse(res.payload)
+    expect(keys.map((/** @type {{ kid: string }} */ key) => key.kid)).toEqual([
+      JSON.parse(String(process.env.OIDC_JWKS_KEY_2)).kid,
+      JSON.parse(String(process.env.OIDC_JWKS_KEY_1)).kid
+    ])
+  })
+
   it('still renders the GDS 404 for unknown routes', async () => {
     const res = await server.inject({ method: 'GET', url: '/unknown-page' })
 
