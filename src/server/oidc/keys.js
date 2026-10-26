@@ -71,8 +71,6 @@ function readDatedKeys(env, namePattern, parse) {
       throw new Error(`${name} is empty`)
     }
 
-    // Each name is set once and a date has one 8-digit form, so two keys
-    // cannot have the same date
     keys.push({ date: Number(digits), name, value: parse(name, value) })
   }
 
