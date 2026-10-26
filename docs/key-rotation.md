@@ -157,7 +157,8 @@ keys. A service with an old copy does not know the new key.
 ## Task 3: Delete an old key
 
 This task makes the service refuse all items that the old key signed. Do it
-only after Task 2 is complete.
+only after Task 2 is complete and the wait in step 2 is over. The wait can be
+hours or days, as the live config sets it.
 
 1. Read the pointer. Make sure that it does not name the key that you will delete.
 2. Wait until no user holds an item that the old key signed. See [How long to wait before you delete a key](#how-long-to-wait-before-you-delete-a-key).
@@ -176,6 +177,12 @@ Start the wait at the time that Task 2 was deployed.
 
 Example only: if the live `SESSION_TIMEOUT` is 4 hours, wait at least 4
 hours after Task 2 before you delete the old signing key.
+
+`OIDC_TTL_REFRESH_TOKEN` does not change the wait. A refresh token is not
+signed by a signing key, so it continues to work after you delete the old
+key, and the tokens that it gets are signed by the new key. The runner
+keeps a refresh token only for the length of its session, so the runner
+session sets the wait.
 
 If you delete a key too early, no data is lost. Some users see an error at
 sign out.
