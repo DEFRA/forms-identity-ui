@@ -71,11 +71,14 @@ function readDatedKeys(env, namePattern, parse) {
       throw new Error(`${name} is empty`)
     }
 
+    // Each name is set once and a date has one 8-digit form, so two keys
+    // cannot have the same date
     keys.push({ date: Number(digits), name, value: parse(name, value) })
   }
 
   // Environment variables come in no set order. Sorted, the startup log and
   // the JWKS endpoint list the keys in the same order in each container.
+  // YYYYMMDD as a number sorts in date order.
   return keys.sort((a, b) => a.date - b.date)
 }
 
