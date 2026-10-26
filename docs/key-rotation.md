@@ -298,14 +298,14 @@ Limits that you must know:
 The service checks the keys when it starts. If a check fails, the service
 does not start and the deploy fails. Correct the setting and deploy again.
 
-| The log says                                                        | Cause                                                                | What to do                                                                            |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `OIDC_JWKS_SIGNING_KEY is 100, but the keys that exist are 1, 2, 3` | The pointer names a key that is not there                            | Set the pointer to a number in the list, or add the key. Deploy.                      |
-| `OIDC_JWKS_SIGNING_KEY is 1, but no OIDC_JWKS_KEY_<n> is set`       | The set has no keys                                                  | Do [Task 1](#task-1-add-a-new-key) with the number that the pointer holds. Deploy.    |
-| `OIDC_JWKS_KEY_2 must be one JWK, as JSON, with a kid`              | The value was not pasted in full, or is not the output of the script | Make a new key and write the secret again. Deploy.                                    |
-| `OIDC_JWKS_KEY_1 and OIDC_JWKS_KEY_2 have the same kid`             | One value was pasted into two settings                               | Delete the one that the pointer does not name. Make a new key if you need it. Deploy. |
-| `OIDC_JWKS_KEY_1 and OIDC_JWKS_KEY_01 have the same key number`     | Two settings have the same number, one with a leading zero           | Delete the one that you did not mean to add. Deploy.                                  |
-| `OIDC_JWKS_KEY_2 is empty`                                          | The secret was added with no value                                   | Write the key value into the secret, or delete the secret. Deploy.                    |
+| The log says                                                    | Cause                                                             | What to do                                                                                                          |
+| --------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `No key found with signing number 100`                          | The pointer names a key that is not there, or the set has no keys | Set the pointer to the number of a key that is set, or do [Task 1](#task-1-add-a-new-key) with that number. Deploy. |
+| `Couldn't parse JWK as JSON in OIDC_JWKS_KEY_2`                 | The value was not pasted in full                                  | Make a new key and write the secret again. Deploy.                                                                  |
+| `JWK in OIDC_JWKS_KEY_2 must be an object with a kid`           | The value is not the output of the script                         | Make a new key and write the secret again. Deploy.                                                                  |
+| `OIDC_JWKS_KEY_1 and OIDC_JWKS_KEY_2 have the same kid`         | One value was pasted into two settings                            | Delete the one that the pointer does not name. Make a new key if you need it. Deploy.                               |
+| `OIDC_JWKS_KEY_1 and OIDC_JWKS_KEY_01 have the same key number` | Two settings have the same number, one with a leading zero        | Delete the one that you did not mean to add. Deploy.                                                                |
+| `OIDC_JWKS_KEY_2 is empty`                                      | The secret was added with no value                                | Write the key value into the secret, or delete the secret. Deploy.                                                  |
 
 The numbers and names in your log will be different.
 

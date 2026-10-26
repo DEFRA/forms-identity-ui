@@ -12,11 +12,10 @@ import { logger } from '~/src/server/common/helpers/logging/logger.js'
  * The procedure is in docs/key-rotation.md.
  */
 
-const JWKS_KEYS = {
-  namePattern: /^OIDC_JWKS_KEY_(\d+)$/,
-  prefix: 'OIDC_JWKS_KEY_',
-  pointerName: 'OIDC_JWKS_SIGNING_KEY'
-}
+/**
+ * Captures the key number from the name of a signing key variable
+ */
+const JWKS_KEY_NAME = /^OIDC_JWKS_KEY_(\d+)$/
 
 /**
  * A reader of a token finds the key by its `kid`, so each signing key has
@@ -75,21 +74,14 @@ function readNumberedKeys(env, namePattern, parse) {
  * the first key in its list and accepts all of them.
  * @template {{ number: number }} Key
  * @param {Key[]} keys - from the lowest number to the highest
- * @param {{ prefix: string, pointerName: string }} keySet
  * @param {number} signingNumber - the value of the pointer
  * @returns {Key[]}
  */
-function signingKeyFirst(keys, { prefix, pointerName }, signingNumber) {
+function signingKeyFirst(keys, signingNumber) {
   const signingKey = keys.find((key) => key.number === signingNumber)
 
   if (!signingKey) {
-    const existingNumbers = keys.map((key) => key.number).join(', ')
-
-    throw new Error(
-      keys.length > 0
-        ? `${pointerName} is ${signingNumber}, but the keys that exist are ${existingNumbers}`
-        : `${pointerName} is ${signingNumber}, but no ${prefix}<n> is set`
-    )
+    throw new Error(`No key found with signing number ${signingNumber}`)
   }
 
   const otherKeys = keys.filter((key) => key !== signingKey)
@@ -125,21 +117,19 @@ function verifyNoDuplicateKeys(keys) {
  * @param {string} value
  */
 function parseJwk(name, value) {
-  const notAJwk = new Error(`${name} must be one JWK, as JSON, with a kid`)
-
   /** @type {unknown} */
   let json
 
   try {
     json = JSON.parse(value)
   } catch {
-    throw notAJwk
+    throw new Error(`Couldn't parse JWK as JSON in ${name}`)
   }
 
   const { error, value: jwk } = jwkSchema.validate(json)
 
   if (error) {
-    throw notAJwk
+    throw new Error(`JWK in ${name} must be an object with a kid`)
   }
 
   return jwk
@@ -152,11 +142,11 @@ function parseJwk(name, value) {
  * @param {number} signingNumber - the value of OIDC_JWKS_SIGNING_KEY
  */
 export function signingJwks(env, signingNumber) {
-  const keys = readNumberedKeys(env, JWKS_KEYS.namePattern, parseJwk)
+  const keys = readNumberedKeys(env, JWKS_KEY_NAME, parseJwk)
 
   verifyNoDuplicateKeys(keys)
 
-  const signingFirst = signingKeyFirst(keys, JWKS_KEYS, signingNumber)
+  const signingFirst = signingKeyFirst(keys, signingNumber)
 
   logger.info(`[oidcKeys] ${keys.length} signing keys loaded`)
   logger.info(`[oidcKeys] Signing with ${signingFirst[0].name}`)
