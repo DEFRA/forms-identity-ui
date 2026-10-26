@@ -26,8 +26,7 @@ const jwkSchema = Joi.object({ kid: Joi.string().required() }).unknown()
 
 /**
  * Reads and parses the keys of one set, from the lowest number to the
- * highest. Stops when two names have the same number, such as `_1` and
- * `_01`, because an operator could then change one and leave the other.
+ * highest.
  * @template Value
  * @param {NodeJS.ProcessEnv} env
  * @param {RegExp} namePattern - captures the key number from a variable name
@@ -45,28 +44,23 @@ function readNumberedKeys(env, namePattern, parse) {
       continue
     }
 
-    // An empty key is most likely a secret that was created and not filled
     if (!value?.trim()) {
       throw new Error(`${name} is empty`)
     }
 
     const number = Number(digits)
-    const keyWithSameNumber = keyByNumber.get(number)
-
-    if (keyWithSameNumber) {
+    if (keyByNumber.get(number)) {
       throw new Error(
-        `${keyWithSameNumber.name} and ${name} have the same key number`
+        `${keyByNumber.get(number)?.name} and ${name} have the same key number`
       )
     }
 
     keyByNumber.set(number, { number, name, value: parse(name, value) })
   }
 
-  const keys = [...keyByNumber.values()]
-
   // Environment variables come in no set order. Sorted, the startup log and
   // the JWKS endpoint list the keys in the same order in each container.
-  return keys.sort((a, b) => a.number - b.number)
+  return [...keyByNumber.values()].sort((a, b) => a.number - b.number)
 }
 
 /**
