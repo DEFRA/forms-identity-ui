@@ -118,8 +118,8 @@ describe('oidc plugin', () => {
 
     const { keys } = JSON.parse(res.payload)
     expect(keys.map((/** @type {JWK} */ key) => key.kid)).toEqual([
-      JSON.parse(String(process.env.OIDC_JWKS_KEY_2)).kid,
-      JSON.parse(String(process.env.OIDC_JWKS_KEY_1)).kid
+      JSON.parse(String(process.env.OIDC_JWKS_KEY_20261026)).kid,
+      JSON.parse(String(process.env.OIDC_JWKS_KEY_20261001)).kid
     ])
   })
 

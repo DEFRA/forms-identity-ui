@@ -231,13 +231,13 @@ export const config = convict({
       env: 'OIDC_ISSUER'
     },
     jwksSigningKey: {
-      doc: 'Number of the key that signs tokens. The keys are the secrets OIDC_JWKS_KEY_<n>, one private JWK each (run `node scripts/generate-jwks.mjs`), read in src/server/oidc/keys.js. See docs/key-rotation.md.',
+      doc: 'Date of the key that signs tokens, as YYYYMMDD. The keys are the secrets OIDC_JWKS_KEY_<YYYYMMDD>, one private JWK each (run `node scripts/generate-jwks.mjs`), read in src/server/oidc/keys.js. See docs/key-rotation.md.',
       format: 'nat',
       default: /** @type {number | null} */ (null),
       env: 'OIDC_JWKS_SIGNING_KEY'
     },
     cookieSigningKey: {
-      doc: 'Number of the key that signs provider cookies. The keys are the secrets OIDC_COOKIE_KEY_<n>, identical across containers, read in src/server/oidc/keys.js. See docs/key-rotation.md.',
+      doc: 'Date of the key that signs provider cookies, as YYYYMMDD. The keys are the secrets OIDC_COOKIE_KEY_<YYYYMMDD>, identical across containers, read in src/server/oidc/keys.js. See docs/key-rotation.md.',
       format: 'nat',
       default: /** @type {number | null} */ (null),
       env: 'OIDC_COOKIE_SIGNING_KEY'

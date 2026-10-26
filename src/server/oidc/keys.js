@@ -3,22 +3,25 @@ import Joi from 'joi'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
 
 /**
- * Keys that are set as numbered environment variables, one key for each
- * variable, with a pointer that holds the number of the key that signs.
+ * Keys that are set as dated environment variables, one key for each
+ * variable, with a pointer that holds the date of the key that signs.
  *
  * A deployed secret can be written or deleted, and it cannot be read back.
  * With one variable for each key, a rotation adds a variable, moves the
  * pointer, then deletes the old variable, so that no step needs an old value.
+ * The date in the name is the day the key was added, so that the name shows
+ * the age of the key. The date is YYYYMMDD rather than YYYY-MM-DD, so that
+ * the name is a valid environment variable name.
  * The procedure is in docs/key-rotation.md.
  */
 
 /**
- * Captures the key number from the name of a signing key variable
+ * Captures the key date from the name of a signing key variable
  */
 const JWKS_KEY_NAME = /^OIDC_JWKS_KEY_(\d+)$/
 
 /**
- * Captures the key number from the name of a cookie key variable
+ * Captures the key date from the name of a cookie key variable
  */
 const COOKIE_KEY_NAME = /^OIDC_COOKIE_KEY_(\d+)$/
 
@@ -30,17 +33,39 @@ const COOKIE_KEY_NAME = /^OIDC_COOKIE_KEY_(\d+)$/
 const jwkSchema = Joi.object({ kid: Joi.string().required() }).unknown()
 
 /**
- * Reads and parses the keys of one set, from the lowest number to the
- * highest.
+ * Whether the digits are a real calendar date as YYYYMMDD. Date.UTC rolls
+ * an out-of-range day or month into the next one, so a date that does not
+ * exist comes back as a different date.
+ * @param {string} digits
+ */
+function isCalendarDate(digits) {
+  if (digits.length !== 8) {
+    return false
+  }
+
+  const year = Number(digits.slice(0, 4))
+  const month = Number(digits.slice(4, 6))
+  const day = Number(digits.slice(6, 8))
+  const date = new Date(Date.UTC(year, month - 1, day))
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  )
+}
+
+/**
+ * Reads and parses the keys of one set, from the oldest date to the newest.
  * @template Value
  * @param {NodeJS.ProcessEnv} env
- * @param {RegExp} namePattern - captures the key number from a variable name
+ * @param {RegExp} namePattern - captures the key date from a variable name
  * @param {ParseKey<Value>} parse - turns the value of
  *   one variable into the key that the provider takes
  */
-function readNumberedKeys(env, namePattern, parse) {
-  /** @type {Map<number, NumberedKey<Value>>} */
-  const keyByNumber = new Map()
+function readDatedKeys(env, namePattern, parse) {
+  /** @type {DatedKey<Value>[]} */
+  const keys = []
 
   for (const [name, value] of Object.entries(env)) {
     const digits = namePattern.exec(name)?.[1]
@@ -49,38 +74,37 @@ function readNumberedKeys(env, namePattern, parse) {
       continue
     }
 
+    // A name with a typo in the date stops the start, rather than the key
+    // being left out with no error
+    if (!isCalendarDate(digits)) {
+      throw new Error(`${name} must end with a date as YYYYMMDD`)
+    }
+
     if (!value?.trim()) {
       throw new Error(`${name} is empty`)
     }
 
-    const number = Number(digits)
-    if (keyByNumber.get(number)) {
-      throw new Error(
-        `${keyByNumber.get(number)?.name} and ${name} have the same key number`
-      )
-    }
-
-    keyByNumber.set(number, { number, name, value: parse(name, value) })
+    keys.push({ date: Number(digits), name, value: parse(name, value) })
   }
 
   // Environment variables come in no set order. Sorted, the startup log and
   // the JWKS endpoint list the keys in the same order in each container.
-  return [...keyByNumber.values()].sort((a, b) => a.number - b.number)
+  return keys.sort((a, b) => a.date - b.date)
 }
 
 /**
  * Moves the key that the pointer names to the front. The provider signs with
  * the first key in its list and accepts all of them.
  * @template Value
- * @param {NumberedKey<Value>[]} keys - from the lowest number to the highest
- * @param {number} signingNumber - the value of the pointer
- * @returns {NumberedKey<Value>[]}
+ * @param {DatedKey<Value>[]} keys - from the oldest date to the newest
+ * @param {number} signingDate - the value of the pointer
+ * @returns {DatedKey<Value>[]}
  */
-function signingKeyFirst(keys, signingNumber) {
-  const signingKey = keys.find((key) => key.number === signingNumber)
+function signingKeyFirst(keys, signingDate) {
+  const signingKey = keys.find((key) => key.date === signingDate)
 
   if (!signingKey) {
-    throw new Error(`No key found with signing number ${signingNumber}`)
+    throw new Error(`No key found with signing date ${signingDate}`)
   }
 
   const otherKeys = keys.filter((key) => key !== signingKey)
@@ -91,7 +115,7 @@ function signingKeyFirst(keys, signingNumber) {
 /**
  * Stops when two keys have the same `kid`, because a reader of a token could
  * then choose the wrong key.
- * @param {NumberedKey<SigningJwk>[]} keys
+ * @param {DatedKey<SigningJwk>[]} keys
  */
 function verifyNoDuplicateKeys(keys) {
   /** @type {Map<string, string>} */
@@ -138,14 +162,14 @@ function parseJwk(name, value) {
  * The private keys that sign ID tokens and access tokens, signing key first,
  * in the form that the provider takes. Logs which keys are loaded.
  * @param {NodeJS.ProcessEnv} env
- * @param {number} signingNumber - the value of OIDC_JWKS_SIGNING_KEY
+ * @param {number} signingDate - the value of OIDC_JWKS_SIGNING_KEY
  */
-export function signingJwks(env, signingNumber) {
-  const unvalidatedKeys = readNumberedKeys(env, JWKS_KEY_NAME, parseJwk)
+export function signingJwks(env, signingDate) {
+  const unvalidatedKeys = readDatedKeys(env, JWKS_KEY_NAME, parseJwk)
 
   verifyNoDuplicateKeys(unvalidatedKeys)
 
-  const keys = signingKeyFirst(unvalidatedKeys, signingNumber)
+  const keys = signingKeyFirst(unvalidatedKeys, signingDate)
 
   logger.info(`[oidcKeys] ${keys.length} signing keys loaded`)
   logger.info(`[oidcKeys] Signing with ${keys[0].name}`)
@@ -162,16 +186,16 @@ export function signingJwks(env, signingNumber) {
  * The keys that sign the provider cookies, signing key first, in the form
  * that the provider takes. Logs which keys are loaded.
  * @param {NodeJS.ProcessEnv} env
- * @param {number} signingNumber - the value of OIDC_COOKIE_SIGNING_KEY
+ * @param {number} signingDate - the value of OIDC_COOKIE_SIGNING_KEY
  */
-export function cookieKeys(env, signingNumber) {
+export function cookieKeys(env, signingDate) {
   // The provider takes a cookie key as the text that is set
-  const unvalidatedKeys = readNumberedKeys(
+  const unvalidatedKeys = readDatedKeys(
     env,
     COOKIE_KEY_NAME,
     (_name, value) => value
   )
-  const keys = signingKeyFirst(unvalidatedKeys, signingNumber)
+  const keys = signingKeyFirst(unvalidatedKeys, signingDate)
 
   logger.info(`[oidcKeys] ${keys.length} cookie keys loaded`)
   logger.info(`[oidcKeys] Signing with ${keys[0].name}`)
@@ -186,8 +210,9 @@ export function cookieKeys(env, signingNumber) {
 
 /**
  * @template Value
- * @typedef {object} NumberedKey
- * @property {number} number - the number at the end of the variable name
+ * @typedef {object} DatedKey
+ * @property {number} date - the date at the end of the variable name, as
+ *   the number YYYYMMDD
  * @property {string} name - the full variable name
  * @property {Value} value - the key, parsed from the variable
  */
