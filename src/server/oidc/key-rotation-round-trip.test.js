@@ -56,6 +56,17 @@ function setKeys(prefix, pointerName, keys, signingKey) {
 }
 
 /**
+ * Writes each JWK as JSON, as an operator pastes it into a secret
+ * @param {Record<number, JWK>} keys - the JWK of each key, by number
+ * @returns {Record<number, string>}
+ */
+function asSecretValues(keys) {
+  return Object.fromEntries(
+    Object.entries(keys).map(([number, jwk]) => [number, JSON.stringify(jwk)])
+  )
+}
+
+/**
  * @param {string} token
  */
 function kidOf(token) {
@@ -78,12 +89,7 @@ describe('signing key rotation', () => {
     setKeys(
       'OIDC_JWKS_KEY_',
       'OIDC_JWKS_SIGNING_KEY',
-      Object.fromEntries(
-        Object.entries(keys).map(([number, jwk]) => [
-          number,
-          JSON.stringify(jwk)
-        ])
-      ),
+      asSecretValues(keys),
       signingKey
     )
     await redeploy()
