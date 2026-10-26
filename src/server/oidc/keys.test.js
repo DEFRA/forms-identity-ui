@@ -93,13 +93,28 @@ describe('signingJwks', () => {
     const env = {
       OIDC_JWKS_KEY_1: jwk('one'),
       OIDC_JWKS_KEY_: jwk('no-number'),
-      OIDC_JWKS_KEY_01: jwk('leading-zero'),
-      OIDC_JWKS_KEY_0: jwk('zero'),
       OIDC_JWKS_KEY_1A: jwk('letter'),
       MY_OIDC_JWKS_KEY_3: jwk('longer-name')
     }
 
     expect(signingJwks(env, 1).map((key) => key.kid)).toEqual(['one'])
+  })
+
+  it('reads a number with a leading zero as the same number', () => {
+    const env = { OIDC_JWKS_KEY_07: jwk('seven') }
+
+    expect(signingJwks(env, 7).map((key) => key.kid)).toEqual(['seven'])
+  })
+
+  it('refuses two names with the same number, and names the two settings', () => {
+    const env = {
+      OIDC_JWKS_KEY_1: jwk('one'),
+      OIDC_JWKS_KEY_01: jwk('leading-zero')
+    }
+
+    expect(() => signingJwks(env, 1)).toThrow(
+      'OIDC_JWKS_KEY_1 and OIDC_JWKS_KEY_01 have the same key number'
+    )
   })
 
   it('treats an empty value as a key that is not there', () => {

@@ -13,18 +13,9 @@ import { logger } from '~/src/server/common/helpers/logging/logger.js'
  */
 
 const JWKS_KEYS = {
+  namePattern: /^OIDC_JWKS_KEY_(\d+)$/,
   prefix: 'OIDC_JWKS_KEY_',
   pointerName: 'OIDC_JWKS_SIGNING_KEY'
-}
-
-/**
- * Matches a variable name of one set and captures its key number. A key
- * number is a whole number from 1, written without a leading zero, so that
- * each number has one variable name.
- * @param {string} prefix
- */
-function keyNamePattern(prefix) {
-  return new RegExp(`^${prefix}([1-9]\\d*)$`)
 }
 
 /**
@@ -36,26 +27,38 @@ const jwkSchema = Joi.object({ kid: Joi.string().required() }).unknown()
 
 /**
  * Reads and parses the keys of one set, from the lowest number to the
- * highest.
+ * highest. Stops when two names have the same number, such as `_1` and
+ * `_01`, because an operator could then change one and leave the other.
  * @template Value
  * @param {NodeJS.ProcessEnv} env
- * @param {string} prefix
+ * @param {RegExp} namePattern - captures the key number from a variable name
  * @param {(name: string, value: string) => Value} parse - turns the value of
  *   one variable into the key that the provider takes
  */
-function readNumberedKeys(env, prefix, parse) {
-  const namePattern = keyNamePattern(prefix)
-
-  /** @type {NumberedKey<Value>[]} */
-  const keys = []
+function readNumberedKeys(env, namePattern, parse) {
+  /** @type {Map<number, NumberedKey<Value>>} */
+  const keyByNumber = new Map()
 
   for (const [name, value] of Object.entries(env)) {
-    const number = namePattern.exec(name)?.[1]
+    const digits = namePattern.exec(name)?.[1]
 
-    if (number && value?.trim()) {
-      keys.push({ number: Number(number), name, value: parse(name, value) })
+    if (!digits || !value?.trim()) {
+      continue
     }
+
+    const number = Number(digits)
+    const keyWithSameNumber = keyByNumber.get(number)
+
+    if (keyWithSameNumber) {
+      throw new Error(
+        `${keyWithSameNumber.name} and ${name} have the same key number`
+      )
+    }
+
+    keyByNumber.set(number, { number, name, value: parse(name, value) })
   }
+
+  const keys = [...keyByNumber.values()]
 
   // Environment variables come in no set order. Sorted, the startup log and
   // the JWKS endpoint list the keys in the same order in each container.
@@ -144,7 +147,7 @@ function parseJwk(name, value) {
  * @param {number} signingNumber - the value of OIDC_JWKS_SIGNING_KEY
  */
 export function signingJwks(env, signingNumber) {
-  const keys = readNumberedKeys(env, JWKS_KEYS.prefix, parseJwk)
+  const keys = readNumberedKeys(env, JWKS_KEYS.namePattern, parseJwk)
 
   verifyNoDuplicateKeys(keys)
 

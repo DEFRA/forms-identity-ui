@@ -304,6 +304,7 @@ does not start and the deploy fails. Correct the setting and deploy again.
 | `OIDC_JWKS_SIGNING_KEY is 1, but no OIDC_JWKS_KEY_<n> is set`       | The set has no keys                                                  | Do [Task 1](#task-1-add-a-new-key) with the number that the pointer holds. Deploy.    |
 | `OIDC_JWKS_KEY_2 must be one JWK, as JSON, with a kid`              | The value was not pasted in full, or is not the output of the script | Make a new key and write the secret again. Deploy.                                    |
 | `OIDC_JWKS_KEY_1 and OIDC_JWKS_KEY_2 have the same kid`             | One value was pasted into two settings                               | Delete the one that the pointer does not name. Make a new key if you need it. Deploy. |
+| `OIDC_JWKS_KEY_1 and OIDC_JWKS_KEY_01 have the same key number`     | Two settings have the same number, one with a leading zero           | Delete the one that you did not mean to add. Deploy.                                  |
 
 The numbers and names in your log will be different.
 
