@@ -230,7 +230,7 @@ rotation to a new key.
 
 Do this as fast as you can. Do not wait between the tasks.
 
-1. Do [Task 1](#task-1-add-a-new-key). Deploy.
+1. Do [Task 1](#task-1-add-a-new-key). Deploy. If a key with today's date is already set, use the next day that no key has. The date only names the key, so a future date is correct.
 2. Do [Task 2](#task-2-move-the-pointer) without the wait. Deploy.
 3. Do [Task 3](#task-3-delete-an-old-key) for the stolen key without the wait. Deploy.
 4. Tell the security contact for the service.
