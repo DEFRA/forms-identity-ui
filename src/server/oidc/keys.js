@@ -20,7 +20,7 @@ const JWKS_KEY_NAME = /^OIDC_JWKS_KEY_(\d+)$/
 /**
  * A reader of a token finds the key by its `kid`, so each signing key has
  * one. The provider checks the rest of the key when it starts.
- * @type {ObjectSchema<JWK & { kid: string }>}
+ * @type {ObjectSchema<SigningJwk>}
  */
 const jwkSchema = Joi.object({ kid: Joi.string().required() }).unknown()
 
@@ -31,7 +31,7 @@ const jwkSchema = Joi.object({ kid: Joi.string().required() }).unknown()
  * @template Value
  * @param {NodeJS.ProcessEnv} env
  * @param {RegExp} namePattern - captures the key number from a variable name
- * @param {(name: string, value: string) => Value} parse - turns the value of
+ * @param {ParseKey<Value>} parse - turns the value of
  *   one variable into the key that the provider takes
  */
 function readNumberedKeys(env, namePattern, parse) {
@@ -72,10 +72,10 @@ function readNumberedKeys(env, namePattern, parse) {
 /**
  * Moves the key that the pointer names to the front. The provider signs with
  * the first key in its list and accepts all of them.
- * @template {{ number: number }} Key
- * @param {Key[]} keys - from the lowest number to the highest
+ * @template Value
+ * @param {NumberedKey<Value>[]} keys - from the lowest number to the highest
  * @param {number} signingNumber - the value of the pointer
- * @returns {Key[]}
+ * @returns {NumberedKey<Value>[]}
  */
 function signingKeyFirst(keys, signingNumber) {
   const signingKey = keys.find((key) => key.number === signingNumber)
@@ -92,7 +92,7 @@ function signingKeyFirst(keys, signingNumber) {
 /**
  * Stops when two keys have the same `kid`, because a reader of a token could
  * then choose the wrong key.
- * @param {NumberedKey<{ kid: string }>[]} keys
+ * @param {NumberedKey<SigningJwk>[]} keys
  */
 function verifyNoDuplicateKeys(keys) {
   /** @type {Map<string, string>} */
@@ -165,6 +165,15 @@ export function signingJwks(env, signingNumber) {
  * @property {number} number - the number at the end of the variable name
  * @property {string} name - the full variable name
  * @property {Value} value - the key, parsed from the variable
+ */
+
+/**
+ * @template Value
+ * @typedef {(name: string, value: string) => Value} ParseKey
+ */
+
+/**
+ * @typedef {JWK & { kid: string }} SigningJwk
  */
 
 /**

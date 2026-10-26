@@ -38,7 +38,7 @@ const RESOURCE = 'urn:defra:forms:forms-submission-api'
  * that set that are not given
  * @param {string} prefix
  * @param {string} pointerName
- * @param {Record<number, string>} keys - the value of each key, by number
+ * @param {SecretValuesByNumber} keys - the value of each key, by number
  * @param {number} signingKey - the number that the pointer holds
  */
 function setKeys(prefix, pointerName, keys, signingKey) {
@@ -57,8 +57,8 @@ function setKeys(prefix, pointerName, keys, signingKey) {
 
 /**
  * Writes each JWK as JSON, as an operator pastes it into a secret
- * @param {Record<number, JWK>} keys - the JWK of each key, by number
- * @returns {Record<number, string>}
+ * @param {JwksByNumber} keys - the JWK of each key, by number
+ * @returns {SecretValuesByNumber}
  */
 function asSecretValues(keys) {
   return Object.fromEntries(
@@ -82,7 +82,7 @@ describe('signing key rotation', () => {
   const newKey = generateSigningJwk()
 
   /**
-   * @param {Record<number, JWK>} keys
+   * @param {JwksByNumber} keys
    * @param {number} signingKey
    */
   async function deploy(keys, signingKey) {
@@ -102,7 +102,7 @@ describe('signing key rotation', () => {
     // The server changes with each deploy
     const res = await roundTrip.server.inject({ method: 'GET', url: '/jwks' })
 
-    return /** @type {{ keys: JWK[] }} */ (JSON.parse(res.payload))
+    return /** @type {JSONWebKeySet} */ (JSON.parse(res.payload))
   }
 
   /**
@@ -148,9 +148,7 @@ describe('signing key rotation', () => {
     })
     expect(res.statusCode).toBe(200)
 
-    return /** @type {Tokens & { refresh_token: string }} */ (
-      JSON.parse(res.payload)
-    )
+    return /** @type {SignInTokens} */ (JSON.parse(res.payload))
   }
 
   /**
@@ -241,5 +239,17 @@ describe('signing key rotation', () => {
  */
 
 /**
- * @import { JWK } from 'jose'
+ * @typedef {Tokens & { refresh_token: string }} SignInTokens
+ */
+
+/**
+ * @typedef {Record<number, JWK>} JwksByNumber
+ */
+
+/**
+ * @typedef {Record<number, string>} SecretValuesByNumber
+ */
+
+/**
+ * @import { JSONWebKeySet, JWK } from 'jose'
  */

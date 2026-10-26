@@ -117,7 +117,7 @@ describe('oidc plugin', () => {
     const res = await server.inject({ method: 'GET', url: '/jwks' })
 
     const { keys } = JSON.parse(res.payload)
-    expect(keys.map((/** @type {{ kid: string }} */ key) => key.kid)).toEqual([
+    expect(keys.map((/** @type {JWK} */ key) => key.kid)).toEqual([
       JSON.parse(String(process.env.OIDC_JWKS_KEY_2)).kid,
       JSON.parse(String(process.env.OIDC_JWKS_KEY_1)).kid
     ])
@@ -133,4 +133,5 @@ describe('oidc plugin', () => {
 
 /**
  * @import { Server } from '@hapi/hapi'
+ * @import { JWK } from 'jose'
  */
