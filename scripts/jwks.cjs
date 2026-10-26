@@ -31,21 +31,22 @@ function generateKeyPair(role) {
   /**
    * @param {crypto.KeyObject} key
    */
-  const jwks = (key) => ({
-    keys: [
-      { ...key.export({ format: 'jwk' }), use: 'sig', alg: SIGNING_ALG, kid }
-    ]
+  const jwk = (key) => ({
+    ...key.export({ format: 'jwk' }),
+    use: 'sig',
+    alg: SIGNING_ALG,
+    kid
   })
 
-  return { private: jwks(privateKey), public: jwks(publicKey) }
+  return { private: jwk(privateKey), public: jwk(publicKey) }
 }
 
 /**
- * The provider's own signing JWKS (private). It signs ID tokens and access
- * tokens; the public half is published at the JWKS endpoint for clients and
- * APIs to verify against.
+ * One private key for the provider to sign ID tokens and access tokens with.
+ * The public half is published at the JWKS endpoint for clients and APIs to
+ * verify against.
  */
-function generateJwks() {
+function generateSigningJwk() {
   return generateKeyPair('sig').private
 }
 
@@ -53,9 +54,17 @@ function generateJwks() {
  * A client's assertion keypair. The client keeps the private half and proves
  * itself with it (private_key_jwt); this service is configured with the
  * public half alone, so nothing here can forge the client.
+ *
+ * Each half is a JWKS, because OIDC_RUNNER_JWKS is a list that holds the old
+ * and the new public half during a rotation.
  */
 function generateClientKeypair() {
-  return generateKeyPair('runner')
+  const keyPair = generateKeyPair('runner')
+
+  return {
+    private: { keys: [keyPair.private] },
+    public: { keys: [keyPair.public] }
+  }
 }
 
-module.exports = { generateClientKeypair, generateJwks }
+module.exports = { generateClientKeypair, generateSigningJwk }

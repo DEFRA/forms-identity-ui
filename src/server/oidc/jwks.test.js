@@ -1,9 +1,9 @@
-import { generateClientKeypair, generateJwks } from '~/scripts/jwks.cjs'
+import { generateClientKeypair, generateSigningJwk } from '~/scripts/jwks.cjs'
 
 describe('key generation', () => {
   describe('the provider signing key', () => {
     it('is an RS256 key', () => {
-      const [key] = generateJwks().keys
+      const key = generateSigningJwk()
 
       expect(key.kty).toBe('RSA')
       expect(key.alg).toBe('RS256')
@@ -12,7 +12,7 @@ describe('key generation', () => {
     })
 
     it('is private, carrying the material that signs', () => {
-      const [key] = generateJwks().keys
+      const key = generateSigningJwk()
 
       expect(key.d).toBeDefined()
     })
