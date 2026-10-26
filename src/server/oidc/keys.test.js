@@ -117,15 +117,10 @@ describe('signingJwks', () => {
     )
   })
 
-  it('treats an empty value as a key that is not there', () => {
-    const env = {
-      OIDC_JWKS_KEY_1: jwk('one'),
-      OIDC_JWKS_KEY_2: '',
-      OIDC_JWKS_KEY_3: '   ',
-      OIDC_JWKS_KEY_4: undefined
-    }
+  it('refuses an empty key, and names the setting', () => {
+    const env = { OIDC_JWKS_KEY_1: jwk('one'), OIDC_JWKS_KEY_2: '   ' }
 
-    expect(signingJwks(env, 1).map((key) => key.kid)).toEqual(['one'])
+    expect(() => signingJwks(env, 1)).toThrow('OIDC_JWKS_KEY_2 is empty')
   })
 
   it('refuses a pointer to a key that is not there, and lists the keys that are', () => {

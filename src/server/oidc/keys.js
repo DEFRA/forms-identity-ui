@@ -42,8 +42,13 @@ function readNumberedKeys(env, namePattern, parse) {
   for (const [name, value] of Object.entries(env)) {
     const digits = namePattern.exec(name)?.[1]
 
-    if (!digits || !value?.trim()) {
+    if (!digits) {
       continue
+    }
+
+    // An empty key is most likely a secret that was created and not filled
+    if (!value?.trim()) {
+      throw new Error(`${name} is empty`)
     }
 
     const number = Number(digits)
