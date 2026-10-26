@@ -18,10 +18,14 @@ const JWKS_KEYS = {
 }
 
 /**
- * A key number is a whole number from 1, written without a leading zero, so
- * that each number has one variable name.
+ * Matches a variable name of one set and captures its key number. A key
+ * number is a whole number from 1, written without a leading zero, so that
+ * each number has one variable name.
+ * @param {string} prefix
  */
-const KEY_NUMBER = /^[1-9]\d*$/
+function keyNamePattern(prefix) {
+  return new RegExp(`^${prefix}([1-9]\\d*)$`)
+}
 
 /**
  * A reader of a token finds the key by its `kid`, so each signing key has
@@ -31,23 +35,25 @@ const KEY_NUMBER = /^[1-9]\d*$/
 const jwkSchema = Joi.object({ kid: Joi.string().required() }).unknown()
 
 /**
- * Reads the keys of one set, from the lowest number to the highest.
+ * Reads and parses the keys of one set, from the lowest number to the
+ * highest.
+ * @template Value
  * @param {NodeJS.ProcessEnv} env
  * @param {string} prefix
+ * @param {(name: string, value: string) => Value} parse - turns the value of
+ *   one variable into the key that the provider takes
  */
-function readNumberedKeys(env, prefix) {
-  /** @type {NumberedKey[]} */
+function readNumberedKeys(env, prefix, parse) {
+  const namePattern = keyNamePattern(prefix)
+
+  /** @type {NumberedKey<Value>[]} */
   const keys = []
 
   for (const [name, value] of Object.entries(env)) {
-    if (!name.startsWith(prefix) || !value?.trim()) {
-      continue
-    }
+    const number = namePattern.exec(name)?.[1]
 
-    const suffix = name.slice(prefix.length)
-
-    if (KEY_NUMBER.test(suffix)) {
-      keys.push({ number: Number(suffix), name, value })
+    if (number && value?.trim()) {
+      keys.push({ number: Number(number), name, value: parse(name, value) })
     }
   }
 
@@ -86,20 +92,20 @@ function signingKeyFirst(keys, { prefix, pointerName }, signingNumber) {
 /**
  * Stops when two keys have the same `kid`, because a reader of a token could
  * then choose the wrong key.
- * @param {{ name: string, jwk: { kid: string } }[]} keys
+ * @param {NumberedKey<{ kid: string }>[]} keys
  */
-function checkEachKidIsInOneKey(keys) {
+function verifyNoDuplicateKeys(keys) {
   /** @type {Map<string, string>} */
   const nameByKid = new Map()
 
-  for (const { name, jwk } of keys) {
-    const nameWithSameKid = nameByKid.get(jwk.kid)
+  for (const { name, value } of keys) {
+    const nameWithSameKid = nameByKid.get(value.kid)
 
     if (nameWithSameKid) {
       throw new Error(`${nameWithSameKid} and ${name} have the same kid`)
     }
 
-    nameByKid.set(jwk.kid, name)
+    nameByKid.set(value.kid, name)
   }
 }
 
@@ -122,7 +128,13 @@ function parseJwk(name, value) {
     throw notAJwk
   }
 
-  return Joi.attempt(json, jwkSchema, notAJwk)
+  const { error, value: jwk } = jwkSchema.validate(json)
+
+  if (error) {
+    throw notAJwk
+  }
+
+  return jwk
 }
 
 /**
@@ -132,35 +144,30 @@ function parseJwk(name, value) {
  * @param {number} signingNumber - the value of OIDC_JWKS_SIGNING_KEY
  */
 export function signingJwks(env, signingNumber) {
-  const keys = readNumberedKeys(env, JWKS_KEYS.prefix).map(
-    ({ number, name, value }) => ({
-      number,
-      name,
-      jwk: parseJwk(name, value)
-    })
-  )
+  const keys = readNumberedKeys(env, JWKS_KEYS.prefix, parseJwk)
 
-  checkEachKidIsInOneKey(keys)
+  verifyNoDuplicateKeys(keys)
 
   const signingFirst = signingKeyFirst(keys, JWKS_KEYS, signingNumber)
 
   // A `kid` is public, so the log can show which key is which
   const numbersAndKids = signingFirst
-    .map(({ number, jwk }) => `${number}: ${jwk.kid}`)
+    .map(({ number, value }) => `${number}: ${value.kid}`)
     .join(', ')
 
   logger.info(
     `[oidcKeys] Signing keys loaded - ${signingFirst[0].name} signs - ${numbersAndKids}`
   )
 
-  return signingFirst.map(({ jwk }) => jwk)
+  return signingFirst.map(({ value }) => value)
 }
 
 /**
+ * @template Value
  * @typedef {object} NumberedKey
  * @property {number} number - the number at the end of the variable name
  * @property {string} name - the full variable name
- * @property {string} value - the key, as it is set in the variable
+ * @property {Value} value - the key, parsed from the variable
  */
 
 /**
