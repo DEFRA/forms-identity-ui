@@ -1,7 +1,7 @@
 # Key rotation
 
-This document tells you how to change the keys that this service uses to
-sign tokens. You do not need to know OIDC to follow it.
+This document tells you how to change the keys that this service uses. You do
+not need to know OIDC to follow it.
 
 > **Check the live config before each task.** This document can be out of
 > date. Waiting times, key numbers and setting names come from the live
@@ -31,6 +31,7 @@ sign tokens. You do not need to know OIDC to follow it.
 | ------- | ------------------------------------------------------------------------------------------------------------------- |
 | Key     | A secret value that this service uses to sign things. A signature proves that this service made the item.           |
 | Token   | A signed item that this service gives to a user who signs in. Other services accept it as proof of who the user is. |
+| Cookie  | A signed item in the user's browser. It tells this service that the user is signed in.                              |
 | Session | The time that a user stays signed in.                                                                               |
 | Secret  | A setting that you can write or delete, but that you cannot read.                                                   |
 | Config  | A setting that you can read and change.                                                                             |
@@ -40,13 +41,14 @@ sign tokens. You do not need to know OIDC to follow it.
 
 ## The keys
 
-The signing keys sign tokens.
+This service has two sets of keys. Each set works the same way.
 
-| Set          | What it signs | Key settings (secret)                     | Pointer (config)        |
-| ------------ | ------------- | ----------------------------------------- | ----------------------- |
-| Signing keys | Tokens        | `OIDC_JWKS_KEY_1`, `OIDC_JWKS_KEY_2`, ... | `OIDC_JWKS_SIGNING_KEY` |
+| Set          | What it signs | Key settings (secret)                         | Pointer (config)          |
+| ------------ | ------------- | --------------------------------------------- | ------------------------- |
+| Signing keys | Tokens        | `OIDC_JWKS_KEY_1`, `OIDC_JWKS_KEY_2`, ...     | `OIDC_JWKS_SIGNING_KEY`   |
+| Cookie keys  | Cookies       | `OIDC_COOKIE_KEY_1`, `OIDC_COOKIE_KEY_2`, ... | `OIDC_COOKIE_SIGNING_KEY` |
 
-How the set works:
+How a set works:
 
 - Each key has a number. The number is the last part of the setting name.
 - The pointer holds one number. The key with that number signs all new items.
@@ -75,12 +77,13 @@ Do these checks in the environment that you will change.
 2. Look at the newest startup log of the service. It lists the key numbers that are loaded. Make sure that the list agrees with what you expect. See [How to read the startup log](#how-to-read-the-startup-log).
 3. Read the live value of each setting in this table. You need them for the waiting times.
 
-| Setting                  | Service           | What it controls                              |
-| ------------------------ | ----------------- | --------------------------------------------- |
-| `SESSION_TIMEOUT`        | forms-runner      | How long a user stays signed in to the runner |
-| `OIDC_TTL_ACCESS_TOKEN`  | forms-identity-ui | How long an access token works                |
-| `OIDC_TTL_ID_TOKEN`      | forms-identity-ui | How long an ID token works                    |
-| `OIDC_TTL_REFRESH_TOKEN` | forms-identity-ui | How long a refresh token works                |
+| Setting                  | Service           | What it controls                                |
+| ------------------------ | ----------------- | ----------------------------------------------- |
+| `SESSION_TIMEOUT`        | forms-runner      | How long a user stays signed in to the runner   |
+| `OIDC_TTL_SESSION`       | forms-identity-ui | How long a user stays signed in to this service |
+| `OIDC_TTL_ACCESS_TOKEN`  | forms-identity-ui | How long an access token works                  |
+| `OIDC_TTL_ID_TOKEN`      | forms-identity-ui | How long an ID token works                      |
+| `OIDC_TTL_REFRESH_TOKEN` | forms-identity-ui | How long a refresh token works                  |
 
 Check the units. Some settings are in seconds and some are in milliseconds.
 The description of each setting in the config file of its service gives the
@@ -96,36 +99,40 @@ this:
 [oidcKeys] Signing with OIDC_JWKS_KEY_5
 [oidcKeys] Loaded OIDC_JWKS_KEY_5: sig-rs256-4c1f8ab390d7
 [oidcKeys] Loaded OIDC_JWKS_KEY_4: sig-rs256-9e2b71c0aa13
+[oidcKeys] 2 cookie keys loaded
+[oidcKeys] Signing with OIDC_COOKIE_KEY_2
+[oidcKeys] Loaded OIDC_COOKIE_KEY_2
+[oidcKeys] Loaded OIDC_COOKIE_KEY_1
 ```
 
-The lines say that keys 5 and 4 are loaded and that key 5 signs. The key
-that signs is listed first. The text after the name of each key is the
-public name of the key. It is not secret.
+The first lines say that signing keys 5 and 4 are loaded and that key 5
+signs. The key that signs is listed first. The text after the name of each
+signing key is the public name of the key. It is not secret.
 
 ## Set up an environment for the first time
 
 Use this for a new environment, and one time for each environment that still
-has the old setting `OIDC_JWKS`.
+has the old settings `OIDC_JWKS` and `OIDC_COOKIE_KEYS`.
 
 1. Run `node scripts/generate-jwks.mjs` in this repository. Add the output as the secret `OIDC_JWKS_KEY_1`.
-2. Set the config `OIDC_JWKS_SIGNING_KEY` to `1`.
-3. Deploy forms-identity-ui.
-4. Look at the startup log. Make sure that key 1 signs.
-5. Delete the secret `OIDC_JWKS` if the environment has it. The service does not read it.
+2. Run `openssl rand -hex 32`. Add the output as the secret `OIDC_COOKIE_KEY_1`.
+3. Set the config `OIDC_JWKS_SIGNING_KEY` to `1` and `OIDC_COOKIE_SIGNING_KEY` to `1`.
+4. Deploy forms-identity-ui.
+5. Look at the startup log. Make sure that key 1 signs in each set.
+6. Delete the secrets `OIDC_JWKS` and `OIDC_COOKIE_KEYS` if the environment has them. The service does not read them.
 
-In an environment that had the old setting, the old key cannot be copied,
-because a secret cannot be read. The new key replaces it. Tokens from before
-the change stop working. Signed-in users can see an error at sign out until
-their session gets a new token or ends. Tell the users of that environment
-before you start.
+In an environment that had the old settings, the old keys cannot be copied,
+because a secret cannot be read. The new keys replace them. All users must
+sign in again, and tokens from before the change stop working. Tell the
+users of that environment before you start.
 
 ## Task 1: Add a new key
 
 This task adds a key. The new key does not sign anything yet.
 
 1. Read the pointer. It is `N`. The new key number is `N+1`.
-2. Make the key value. Run `node scripts/generate-jwks.mjs` in this repository. Copy the output.
-3. Add a secret with the new number and paste the value. The name is `OIDC_JWKS_KEY_<N+1>`.
+2. Make the key value. For a signing key, run `node scripts/generate-jwks.mjs` in this repository. For a cookie key, run `openssl rand -hex 32`. Copy the output.
+3. Add a secret with the new number and paste the value. The name is `OIDC_JWKS_KEY_<N+1>` for a signing key, or `OIDC_COOKIE_KEY_<N+1>` for a cookie key.
 4. Deploy forms-identity-ui.
 5. Look at the startup log. Make sure that it lists the new key number.
 6. Close the terminal window, so that the key value is not kept on screen.
@@ -137,8 +144,8 @@ Do not change the pointer in this task.
 This task makes the new key sign. Do it only after Task 1 is complete.
 
 1. Make sure that the startup log lists key `N+1`. If it does not, stop and do Task 1 again.
-2. Wait until the other services have the new key. See [How long to wait before you move the pointer](#how-long-to-wait-before-you-move-the-pointer).
-3. Change the pointer `OIDC_JWKS_SIGNING_KEY` from `N` to `N+1`.
+2. Signing keys only: wait until the other services have the new key. See [How long to wait before you move the pointer](#how-long-to-wait-before-you-move-the-pointer).
+3. Change the pointer from `N` to `N+1`. The pointer is `OIDC_JWKS_SIGNING_KEY` for signing keys, or `OIDC_COOKIE_SIGNING_KEY` for cookie keys.
 4. Deploy forms-identity-ui.
 5. Look at the startup log. Make sure that it shows key `N+1` as the key that signs.
 6. Sign in through the runner in that environment. Make sure that sign in and sign out work.
@@ -154,6 +161,7 @@ keys. A service with an old copy does not know the new key.
 - Wait until each of these services has a fresh copy.
 - The time depends on each service. Ask the team that owns the service if
   you do not know.
+- Cookie keys need no wait. Only this service reads them.
 
 ## Task 3: Delete an old key
 
@@ -172,9 +180,10 @@ hours or days, as the live config sets it.
 
 Start the wait at the time that Task 2 was deployed.
 
-| Set          | Wait for at least                                   | Why                                                                                                                       |
-| ------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Signing keys | The live value of `SESSION_TIMEOUT` in forms-runner | The runner keeps a token for the full session and sends it back at sign out. If the key is gone, sign out shows an error. |
+| Set          | Wait for at least                                         | Why                                                                                                                       |
+| ------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Signing keys | The live value of `SESSION_TIMEOUT` in forms-runner       | The runner keeps a token for the full session and sends it back at sign out. If the key is gone, sign out shows an error. |
+| Cookie keys  | The live value of `OIDC_TTL_SESSION` in forms-identity-ui | A user with an older cookie must sign in again if the key is gone.                                                        |
 
 Example only: if the live `SESSION_TIMEOUT` is 4 hours, wait at least 4
 hours after Task 2 before you delete the old signing key.
@@ -186,7 +195,7 @@ keeps a refresh token only for the length of its session, so the runner
 session sets the wait.
 
 If you delete a key too early, no data is lost. Some users see an error at
-sign out.
+sign out, or must sign in again.
 
 ## Full rotation
 
@@ -195,6 +204,8 @@ A full rotation is the three tasks in order.
 1. [Task 1: Add a new key](#task-1-add-a-new-key). Deploy.
 2. Wait. Then [Task 2: Move the pointer](#task-2-move-the-pointer). Deploy.
 3. Wait. Then [Task 3: Delete an old key](#task-3-delete-an-old-key). Deploy.
+
+Rotate the signing keys and the cookie keys as two separate rotations.
 
 ## Go back to the old key
 
@@ -220,8 +231,11 @@ Do this as fast as you can. Do not wait between the tasks.
 3. Do [Task 3](#task-3-delete-an-old-key) for the stolen key without the wait. Deploy.
 4. Tell the security contact for the service.
 
-What users see: tokens from that key stop working. Signed-in users can see
-an error at sign out until their session gets a new token or ends.
+What users see:
+
+- Stolen signing key: tokens from that key stop working. Signed-in users can
+  see an error at sign out until their session gets a new token or ends.
+- Stolen cookie key: users who signed in with that key must sign in again.
 
 This is correct. A stolen key must stop working at once.
 
@@ -282,6 +296,7 @@ To revoke a token is to make it stop working before its normal end.
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | End the tokens of one user                               | The user signs out in the runner. The runner tells this service to end the refresh token of the user and all tokens that came from it. |
 | End all access tokens and ID tokens from one signing key | Delete that key. Do [Task 3](#task-3-delete-an-old-key). Each API refuses the tokens when it gets a fresh copy of our public keys.     |
+| Make all users sign in to this service again             | Rotate the cookie keys and delete the old cookie key without the wait.                                                                 |
 
 Limits that you must know:
 
@@ -308,6 +323,9 @@ does not start and the deploy fails. Correct the setting and deploy again.
 | `OIDC_JWKS_KEY_1 and OIDC_JWKS_KEY_01 have the same key number` | Two settings have the same number, one with a leading zero        | Delete the one that you did not mean to add. Deploy.                                                                |
 | `OIDC_JWKS_KEY_2 is empty`                                      | The secret was added with no value                                | Write the key value into the secret, or delete the secret. Deploy.                                                  |
 
-The numbers and names in your log will be different.
+The numbers and names in your log will be different. The cookie keys give
+the same messages with `OIDC_COOKIE` in the names. The message
+`No key found with signing number` is the same for both sets, so check both
+pointers.
 
 An error message gives the name of the setting. It never shows a key value.

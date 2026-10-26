@@ -38,11 +38,12 @@ node scripts/generate-jwks.mjs            # OIDC_JWKS_KEY_1 — signs our ID and
 node scripts/generate-client-keypair.mjs  # the client's keypair, both halves
 ```
 
-The signing keys are numbered: `OIDC_JWKS_KEY_1`, `OIDC_JWKS_KEY_2` and so
-on, with one key in each. `OIDC_JWKS_SIGNING_KEY` holds the number of the key
-that signs, and the service accepts tokens from each key that is set.
-[docs/key-rotation.md](docs/key-rotation.md) tells you how to change a key in
-a deployed environment.
+The signing keys and the cookie keys are numbered: `OIDC_JWKS_KEY_1`,
+`OIDC_JWKS_KEY_2` and so on, with one key in each. `OIDC_JWKS_SIGNING_KEY`
+holds the number of the key that signs, and the service accepts tokens from
+each key that is set. `OIDC_COOKIE_KEY_<n>` and `OIDC_COOKIE_SIGNING_KEY` work
+the same way. [docs/key-rotation.md](docs/key-rotation.md) tells you how to
+change a key in a deployed environment.
 
 The second prints two values. `OIDC_RUNNER_JWKS` is the public half and belongs
 here. `OIDC_CLIENT_PRIVATE_JWK` is the private half, as one key, held by the
