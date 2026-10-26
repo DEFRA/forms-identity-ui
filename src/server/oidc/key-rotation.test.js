@@ -4,14 +4,17 @@
  *
  * Each scenario sets the keys, then redeploys the service, as an operator
  * does. The stub keeps the sessions and grants across each deploy, so a
- * token from one deploy is used in the next.
+ * token or a cookie from one deploy is used in the next.
  */
+import { createHash, randomBytes } from 'node:crypto'
+
 import { createLocalJWKSet, jwtVerify } from 'jose'
 
 import { generateSigningJwk } from '~/scripts/jwks.cjs'
 import {
   CLIENT_ASSERTION_TYPE,
   ISSUER,
+  REDIRECT_URI,
   clientAssertion,
   useRoundTrip
 } from '~/test/helpers/round-trip.js'
@@ -241,6 +244,160 @@ describe('signing key rotation', () => {
     await expect(
       verify(oldTokens.access_token, RESOURCE)
     ).rejects.toMatchObject({ code: 'ERR_JWKS_NO_MATCHING_KEY' })
+  })
+})
+
+describe('cookie key rotation', () => {
+  const { browse, follow, jar, redeploy, signInAndRedeem } =
+    useRoundTrip(mockStsSend)
+
+  const oldKey = randomBytes(32).toString('hex')
+  const newKey = randomBytes(32).toString('hex')
+
+  /**
+   * @param {Record<number, string>} keys
+   * @param {number} signingKey
+   */
+  async function deploy(keys, signingKey) {
+    setKeys('OIDC_COOKIE_KEY_', 'OIDC_COOKIE_SIGNING_KEY', keys, signingKey)
+    await redeploy()
+  }
+
+  /**
+   * Signs a user in and returns a copy of their cookies, so that the test can
+   * hold more than one browser
+   * @param {string} email
+   */
+  async function signIn(email) {
+    expect((await signInAndRedeem(email)).statusCode).toBe(200)
+
+    return new Map(jar)
+  }
+
+  /**
+   * Opens a browser with the cookies of a user
+   * @param {Map<string, { value: string, path: string }>} cookies
+   */
+  function useBrowser(cookies) {
+    jar.clear()
+
+    for (const [name, cookie] of cookies) {
+      jar.set(name, cookie)
+    }
+  }
+
+  /**
+   * Asks the provider for a sign in with no page. The provider answers with
+   * a code when the user is signed in, and with `login_required` when the
+   * user is not.
+   */
+  async function silentSignIn() {
+    const verifier = randomBytes(32).toString('base64url')
+    const challenge = createHash('sha256').update(verifier).digest('base64url')
+
+    const res = await follow(
+      await browse(
+        `/auth?${new URLSearchParams({
+          client_id: 'runner',
+          response_type: 'code',
+          scope: 'openid email',
+          prompt: 'none',
+          redirect_uri: REDIRECT_URI,
+          state: 'state',
+          nonce: 'nonce',
+          code_challenge: challenge,
+          code_challenge_method: 'S256'
+        }).toString()}`
+      )
+    )
+
+    return new URL(String(res.headers.location)).searchParams
+  }
+
+  /**
+   * @param {URLSearchParams} answer
+   */
+  function signedIn(answer) {
+    return answer.has('code')
+  }
+
+  it('Add a new cookie key', async () => {
+    await deploy({ 1: oldKey }, 1)
+    const user = await signIn('add-cookie-key@example.com')
+
+    await deploy({ 1: oldKey, 2: newKey }, 1)
+
+    useBrowser(user)
+    expect(signedIn(await silentSignIn())).toBe(true)
+
+    // A cookie that the current key signed needs no new signature
+    const signature = jar.get('_session.sig')?.value
+    expect(signature).toBe(user.get('_session.sig')?.value)
+  })
+
+  it('Move the pointer to the new cookie key', async () => {
+    await deploy({ 1: oldKey, 2: newKey }, 1)
+    const user = await signIn('move-cookie-pointer@example.com')
+
+    await deploy({ 1: oldKey, 2: newKey }, 2)
+
+    useBrowser(user)
+    expect(signedIn(await silentSignIn())).toBe(true)
+
+    // The new key signs the cookie again, so the cookie works with the new
+    // key only
+    expect(jar.get('_session.sig')?.value).not.toBe(
+      user.get('_session.sig')?.value
+    )
+    const resigned = new Map(jar)
+
+    await deploy({ 2: newKey }, 2)
+
+    useBrowser(resigned)
+    expect(signedIn(await silentSignIn())).toBe(true)
+  })
+
+  it('Move the pointer back to the old cookie key', async () => {
+    await deploy({ 1: oldKey, 2: newKey }, 2)
+    const user = await signIn('move-cookie-pointer-back@example.com')
+
+    await deploy({ 1: oldKey, 2: newKey }, 1)
+
+    useBrowser(user)
+    expect(signedIn(await silentSignIn())).toBe(true)
+
+    // The old key signs the cookie again, so the cookie works with the old
+    // key only
+    expect(jar.get('_session.sig')?.value).not.toBe(
+      user.get('_session.sig')?.value
+    )
+    const resigned = new Map(jar)
+
+    await deploy({ 1: oldKey }, 1)
+
+    useBrowser(resigned)
+    expect(signedIn(await silentSignIn())).toBe(true)
+  })
+
+  it('Delete the old cookie key', async () => {
+    await deploy({ 1: oldKey, 2: newKey }, 1)
+    const visitor = await signIn('cookie-visitor@example.com')
+    const absentee = await signIn('cookie-absentee@example.com')
+
+    await deploy({ 1: oldKey, 2: newKey }, 2)
+
+    useBrowser(visitor)
+    expect(signedIn(await silentSignIn())).toBe(true)
+    const visited = new Map(jar)
+
+    await deploy({ 2: newKey }, 2)
+
+    useBrowser(visited)
+    expect(signedIn(await silentSignIn())).toBe(true)
+
+    useBrowser(absentee)
+    const answer = await silentSignIn()
+    expect(answer.get('error')).toBe('login_required')
   })
 })
 
