@@ -255,7 +255,8 @@ describe('cookie key rotation', () => {
   const newKey = randomBytes(32).toString('hex')
 
   /**
-   * @param {Record<number, string>} keys
+   * Start the service with a new set of cookie keys
+   * @param {SecretValuesByNumber} keys
    * @param {number} signingKey
    */
   async function deploy(keys, signingKey) {
@@ -276,7 +277,7 @@ describe('cookie key rotation', () => {
 
   /**
    * Opens a browser with the cookies of a user
-   * @param {Map<string, { value: string, path: string }>} cookies
+   * @param {Cookies} cookies
    */
   function useBrowser(cookies) {
     jar.clear()
@@ -321,7 +322,7 @@ describe('cookie key rotation', () => {
     return answer.has('code')
   }
 
-  it('Add a new cookie key', async () => {
+  it("Adds a new cookie key but doesn't use it without the pointer", async () => {
     await deploy({ 1: oldKey }, 1)
     const user = await signIn('add-cookie-key@example.com')
 
@@ -415,6 +416,10 @@ describe('cookie key rotation', () => {
 
 /**
  * @typedef {Record<number, string>} SecretValuesByNumber
+ */
+
+/**
+ * @typedef {Map<string, { value: string, path: string }>} Cookies
  */
 
 /**
