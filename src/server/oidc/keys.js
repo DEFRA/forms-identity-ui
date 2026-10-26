@@ -150,14 +150,13 @@ export function signingJwks(env, signingNumber) {
 
   const signingFirst = signingKeyFirst(keys, JWKS_KEYS, signingNumber)
 
-  // A `kid` is public, so the log can show which key is which
-  const numbersAndKids = signingFirst
-    .map(({ number, value }) => `${number}: ${value.kid}`)
-    .join(', ')
+  logger.info(`[oidcKeys] ${keys.length} signing keys loaded`)
+  logger.info(`[oidcKeys] Signing with ${signingFirst[0].name}`)
 
-  logger.info(
-    `[oidcKeys] Signing keys loaded - ${signingFirst[0].name} signs - ${numbersAndKids}`
-  )
+  // A `kid` is public, so the log can show which key is which
+  for (const { name, value } of keys) {
+    logger.info(`[oidcKeys] Loaded ${name}: ${value.kid}`)
+  }
 
   return signingFirst.map(({ value }) => value)
 }

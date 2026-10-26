@@ -21,7 +21,7 @@ describe('signingJwks', () => {
     ])
   })
 
-  it('logs the number and the kid of each key, and which key signs', () => {
+  it('logs how many keys are loaded, which key signs, and the kid of each key', () => {
     const info = jest.spyOn(logger, 'info')
     const env = {
       OIDC_JWKS_KEY_4: jwk('kid-4'),
@@ -30,9 +30,12 @@ describe('signingJwks', () => {
 
     signingJwks(env, 5)
 
-    expect(info).toHaveBeenCalledWith(
-      '[oidcKeys] Signing keys loaded - OIDC_JWKS_KEY_5 signs - 5: kid-5, 4: kid-4'
-    )
+    expect(info.mock.calls).toEqual([
+      ['[oidcKeys] 2 signing keys loaded'],
+      ['[oidcKeys] Signing with OIDC_JWKS_KEY_5'],
+      ['[oidcKeys] Loaded OIDC_JWKS_KEY_4: kid-4'],
+      ['[oidcKeys] Loaded OIDC_JWKS_KEY_5: kid-5']
+    ])
   })
 
   it.each([

@@ -92,11 +92,14 @@ Search the log of forms-identity-ui for `[oidcKeys]`. The lines look like
 this:
 
 ```text
-[oidcKeys] Signing keys loaded - OIDC_JWKS_KEY_5 signs - 5: sig-rs256-4c1f8ab390d7, 4: sig-rs256-9e2b71c0aa13
+[oidcKeys] 2 signing keys loaded
+[oidcKeys] Signing with OIDC_JWKS_KEY_5
+[oidcKeys] Loaded OIDC_JWKS_KEY_4: sig-rs256-9e2b71c0aa13
+[oidcKeys] Loaded OIDC_JWKS_KEY_5: sig-rs256-4c1f8ab390d7
 ```
 
-The line says that keys 5 and 4 are loaded and that key 5 signs. The
-text after each number is the public name of the key. It is not secret.
+The lines say that keys 4 and 5 are loaded and that key 5 signs. The text
+after the name of each key is the public name of the key. It is not secret.
 
 ## Set up an environment for the first time
 
