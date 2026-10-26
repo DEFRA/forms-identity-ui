@@ -33,8 +33,8 @@ describe('signingJwks', () => {
     expect(info.mock.calls).toEqual([
       ['[oidcKeys] 2 signing keys loaded'],
       ['[oidcKeys] Signing with OIDC_JWKS_KEY_5'],
-      ['[oidcKeys] Loaded OIDC_JWKS_KEY_4: kid-4'],
-      ['[oidcKeys] Loaded OIDC_JWKS_KEY_5: kid-5']
+      ['[oidcKeys] Loaded OIDC_JWKS_KEY_5: kid-5'],
+      ['[oidcKeys] Loaded OIDC_JWKS_KEY_4: kid-4']
     ])
   })
 

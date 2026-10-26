@@ -142,21 +142,21 @@ function parseJwk(name, value) {
  * @param {number} signingNumber - the value of OIDC_JWKS_SIGNING_KEY
  */
 export function signingJwks(env, signingNumber) {
-  const keys = readNumberedKeys(env, JWKS_KEY_NAME, parseJwk)
+  const unvalidatedKeys = readNumberedKeys(env, JWKS_KEY_NAME, parseJwk)
 
-  verifyNoDuplicateKeys(keys)
+  verifyNoDuplicateKeys(unvalidatedKeys)
 
-  const signingFirst = signingKeyFirst(keys, signingNumber)
+  const keys = signingKeyFirst(unvalidatedKeys, signingNumber)
 
   logger.info(`[oidcKeys] ${keys.length} signing keys loaded`)
-  logger.info(`[oidcKeys] Signing with ${signingFirst[0].name}`)
+  logger.info(`[oidcKeys] Signing with ${keys[0].name}`)
 
   // A `kid` is public, so the log can show which key is which
   for (const { name, value } of keys) {
     logger.info(`[oidcKeys] Loaded ${name}: ${value.kid}`)
   }
 
-  return signingFirst.map(({ value }) => value)
+  return keys.map(({ value }) => value)
 }
 
 /**
