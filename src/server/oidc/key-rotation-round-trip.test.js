@@ -16,9 +16,7 @@ import {
   useRoundTrip
 } from '~/test/helpers/round-trip.js'
 
-// Each deploy registers the request logger again. The ECS format writes in
-// this thread, rather than in a new transport worker for each deploy, so
-// that the workers do not add up.
+// ECS logs in this thread, so the redeploys start no log transport workers
 process.env.LOG_FORMAT = 'ecs'
 
 const mockStsSend = jest.fn()
@@ -82,6 +80,7 @@ describe('signing key rotation', () => {
   const newKey = generateSigningJwk()
 
   /**
+   * Start the service with a new set of signing keys
    * @param {JwksByNumber} keys
    * @param {number} signingKey
    */
@@ -134,7 +133,10 @@ describe('signing key rotation', () => {
    * @param {Tokens} tokens
    */
   function signedBy(tokens) {
-    return [kidOf(tokens.id_token), kidOf(tokens.access_token)]
+    return {
+      idToken: kidOf(tokens.id_token),
+      accessToken: kidOf(tokens.access_token)
+    }
   }
 
   /**
@@ -168,7 +170,7 @@ describe('signing key rotation', () => {
     return /** @type {Tokens} */ (JSON.parse(res.payload))
   }
 
-  it('Add a new signing key', async () => {
+  it("Adds a new signing key but doesn't use it without the pointer", async () => {
     await deploy({ 1: oldKey }, 1)
     const { refresh_token: refreshToken } = await signIn('add-key@example.com')
 
@@ -180,10 +182,10 @@ describe('signing key rotation', () => {
       newKey.kid
     ])
 
-    expect(signedBy(await refresh(refreshToken))).toEqual([
-      oldKey.kid,
-      oldKey.kid
-    ])
+    expect(signedBy(await refresh(refreshToken))).toEqual({
+      idToken: oldKey.kid,
+      accessToken: oldKey.kid
+    })
   })
 
   it('Move the pointer to the new signing key', async () => {
@@ -192,11 +194,19 @@ describe('signing key rotation', () => {
 
     await deploy({ 1: oldKey, 2: newKey }, 2)
 
+    // Tokens with new keys can be verified
     const newTokens = await refresh(oldTokens.refresh_token)
-    expect(signedBy(newTokens)).toEqual([newKey.kid, newKey.kid])
+    expect(signedBy(newTokens)).toEqual({
+      idToken: newKey.kid,
+      accessToken: newKey.kid
+    })
     await expect(verifyBoth(newTokens)).resolves.toBeDefined()
 
-    expect(signedBy(oldTokens)).toEqual([oldKey.kid, oldKey.kid])
+    // Tokens with old keys can still be verified
+    expect(signedBy(oldTokens)).toEqual({
+      idToken: oldKey.kid,
+      accessToken: oldKey.kid
+    })
     await expect(verifyBoth(oldTokens)).resolves.toBeDefined()
   })
 
@@ -208,10 +218,10 @@ describe('signing key rotation', () => {
 
     await deploy({ 1: oldKey, 2: newKey }, 1)
 
-    expect(signedBy(await refresh(refreshToken))).toEqual([
-      oldKey.kid,
-      oldKey.kid
-    ])
+    expect(signedBy(await refresh(refreshToken))).toEqual({
+      idToken: oldKey.kid,
+      accessToken: oldKey.kid
+    })
   })
 
   it('Delete the old signing key', async () => {
