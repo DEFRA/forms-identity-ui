@@ -34,13 +34,16 @@ jest.mock('@aws-sdk/client-sts', () => ({
 
 const RESOURCE = 'urn:defra:forms:forms-submission-api'
 
+const OLD_KEY_DATE = 20261001
+const NEW_KEY_DATE = 20261026
+
 /**
- * Sets one set of numbered keys and its pointer, and removes the keys of
+ * Sets one set of dated keys and its pointer, and removes the keys of
  * that set that are not given
  * @param {string} prefix
  * @param {string} pointerName
- * @param {SecretValuesByNumber} keys - the value of each key, by number
- * @param {number} signingKey - the number that the pointer holds
+ * @param {SecretValuesByDate} keys - the value of each key, by date
+ * @param {number} signingKey - the date that the pointer holds
  */
 function setKeys(prefix, pointerName, keys, signingKey) {
   for (const name of Object.keys(process.env)) {
@@ -49,8 +52,8 @@ function setKeys(prefix, pointerName, keys, signingKey) {
     }
   }
 
-  for (const [number, value] of Object.entries(keys)) {
-    process.env[`${prefix}${number}`] = value
+  for (const [date, value] of Object.entries(keys)) {
+    process.env[`${prefix}${date}`] = value
   }
 
   process.env[pointerName] = String(signingKey)
@@ -58,12 +61,12 @@ function setKeys(prefix, pointerName, keys, signingKey) {
 
 /**
  * Writes each JWK as JSON, as an operator pastes it into a secret
- * @param {JwksByNumber} keys - the JWK of each key, by number
- * @returns {SecretValuesByNumber}
+ * @param {JwksByDate} keys - the JWK of each key, by date
+ * @returns {SecretValuesByDate}
  */
 function asSecretValues(keys) {
   return Object.fromEntries(
-    Object.entries(keys).map(([number, jwk]) => [number, JSON.stringify(jwk)])
+    Object.entries(keys).map(([date, jwk]) => [date, JSON.stringify(jwk)])
   )
 }
 
@@ -84,7 +87,7 @@ describe('signing key rotation', () => {
 
   /**
    * Start the service with a new set of signing keys
-   * @param {JwksByNumber} keys
+   * @param {JwksByDate} keys
    * @param {number} signingKey
    */
   async function deploy(keys, signingKey) {
@@ -174,10 +177,13 @@ describe('signing key rotation', () => {
   }
 
   it("Adds a new signing key but doesn't use it without the pointer", async () => {
-    await deploy({ 1: oldKey }, 1)
+    await deploy({ [OLD_KEY_DATE]: oldKey }, OLD_KEY_DATE)
     const { refresh_token: refreshToken } = await signIn('add-key@example.com')
 
-    await deploy({ 1: oldKey, 2: newKey }, 1)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      OLD_KEY_DATE
+    )
 
     const { keys } = await publishedKeys()
     expect(keys.map((key) => key.kid)).toIncludeSameMembers([
@@ -192,10 +198,16 @@ describe('signing key rotation', () => {
   })
 
   it('Move the pointer to the new signing key', async () => {
-    await deploy({ 1: oldKey, 2: newKey }, 1)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      OLD_KEY_DATE
+    )
     const oldTokens = await signIn('move-pointer@example.com')
 
-    await deploy({ 1: oldKey, 2: newKey }, 2)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      NEW_KEY_DATE
+    )
 
     // Tokens with new keys can be verified
     const newTokens = await refresh(oldTokens.refresh_token)
@@ -214,12 +226,18 @@ describe('signing key rotation', () => {
   })
 
   it('Move the pointer back to the old signing key', async () => {
-    await deploy({ 1: oldKey, 2: newKey }, 2)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      NEW_KEY_DATE
+    )
     const { refresh_token: refreshToken } = await signIn(
       'move-pointer-back@example.com'
     )
 
-    await deploy({ 1: oldKey, 2: newKey }, 1)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      OLD_KEY_DATE
+    )
 
     expect(signedBy(await refresh(refreshToken))).toEqual({
       idToken: oldKey.kid,
@@ -229,11 +247,17 @@ describe('signing key rotation', () => {
 
   it('Delete the old signing key', async () => {
     // Tokens from before the pointer moved, which the old key signed
-    await deploy({ 1: oldKey, 2: newKey }, 1)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      OLD_KEY_DATE
+    )
     const oldTokens = await signIn('delete-key@example.com')
 
-    await deploy({ 1: oldKey, 2: newKey }, 2)
-    await deploy({ 2: newKey }, 2)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      NEW_KEY_DATE
+    )
+    await deploy({ [NEW_KEY_DATE]: newKey }, NEW_KEY_DATE)
 
     const { keys } = await publishedKeys()
     expect(keys.map((key) => key.kid)).toEqual([newKey.kid])
@@ -256,7 +280,7 @@ describe('cookie key rotation', () => {
 
   /**
    * Start the service with a new set of cookie keys
-   * @param {SecretValuesByNumber} keys
+   * @param {SecretValuesByDate} keys
    * @param {number} signingKey
    */
   async function deploy(keys, signingKey) {
@@ -323,10 +347,13 @@ describe('cookie key rotation', () => {
   }
 
   it("Adds a new cookie key but doesn't use it without the pointer", async () => {
-    await deploy({ 1: oldKey }, 1)
+    await deploy({ [OLD_KEY_DATE]: oldKey }, OLD_KEY_DATE)
     const user = await signIn('add-cookie-key@example.com')
 
-    await deploy({ 1: oldKey, 2: newKey }, 1)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      OLD_KEY_DATE
+    )
 
     useBrowser(user)
     expect(signedIn(await silentSignIn())).toBe(true)
@@ -337,10 +364,16 @@ describe('cookie key rotation', () => {
   })
 
   it('Move the pointer to the new cookie key', async () => {
-    await deploy({ 1: oldKey, 2: newKey }, 1)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      OLD_KEY_DATE
+    )
     const user = await signIn('move-cookie-pointer@example.com')
 
-    await deploy({ 1: oldKey, 2: newKey }, 2)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      NEW_KEY_DATE
+    )
 
     useBrowser(user)
     expect(signedIn(await silentSignIn())).toBe(true)
@@ -352,17 +385,23 @@ describe('cookie key rotation', () => {
     )
     const resigned = new Map(jar)
 
-    await deploy({ 2: newKey }, 2)
+    await deploy({ [NEW_KEY_DATE]: newKey }, NEW_KEY_DATE)
 
     useBrowser(resigned)
     expect(signedIn(await silentSignIn())).toBe(true)
   })
 
   it('Move the pointer back to the old cookie key', async () => {
-    await deploy({ 1: oldKey, 2: newKey }, 2)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      NEW_KEY_DATE
+    )
     const user = await signIn('move-cookie-pointer-back@example.com')
 
-    await deploy({ 1: oldKey, 2: newKey }, 1)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      OLD_KEY_DATE
+    )
 
     useBrowser(user)
     expect(signedIn(await silentSignIn())).toBe(true)
@@ -374,24 +413,30 @@ describe('cookie key rotation', () => {
     )
     const resigned = new Map(jar)
 
-    await deploy({ 1: oldKey }, 1)
+    await deploy({ [OLD_KEY_DATE]: oldKey }, OLD_KEY_DATE)
 
     useBrowser(resigned)
     expect(signedIn(await silentSignIn())).toBe(true)
   })
 
   it('Delete the old cookie key', async () => {
-    await deploy({ 1: oldKey, 2: newKey }, 1)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      OLD_KEY_DATE
+    )
     const visitor = await signIn('cookie-visitor@example.com')
     const absentee = await signIn('cookie-absentee@example.com')
 
-    await deploy({ 1: oldKey, 2: newKey }, 2)
+    await deploy(
+      { [OLD_KEY_DATE]: oldKey, [NEW_KEY_DATE]: newKey },
+      NEW_KEY_DATE
+    )
 
     useBrowser(visitor)
     expect(signedIn(await silentSignIn())).toBe(true)
     const visited = new Map(jar)
 
-    await deploy({ 2: newKey }, 2)
+    await deploy({ [NEW_KEY_DATE]: newKey }, NEW_KEY_DATE)
 
     useBrowser(visited)
     expect(signedIn(await silentSignIn())).toBe(true)
@@ -411,11 +456,11 @@ describe('cookie key rotation', () => {
  */
 
 /**
- * @typedef {Record<number, JWK>} JwksByNumber
+ * @typedef {Record<number, JWK>} JwksByDate
  */
 
 /**
- * @typedef {Record<number, string>} SecretValuesByNumber
+ * @typedef {Record<number, string>} SecretValuesByDate
  */
 
 /**

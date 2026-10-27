@@ -4,7 +4,7 @@ This document tells you how to change the keys that this service uses. You do
 not need to know OIDC to follow it.
 
 > **Check the live config before each task.** This document can be out of
-> date. Waiting times, key numbers and setting names come from the live
+> date. Waiting times, key dates and setting names come from the live
 > config of each environment, and the live config is always correct. Where
 > this document gives a time, it is an example only.
 
@@ -35,7 +35,7 @@ not need to know OIDC to follow it.
 | Session | The time that a user stays signed in.                                                                               |
 | Secret  | A setting that you can write or delete, but that you cannot read.                                                   |
 | Config  | A setting that you can read and change.                                                                             |
-| Pointer | A config setting that holds the number of the key that signs.                                                       |
+| Pointer | A config setting that holds the date of the key that signs.                                                         |
 | Deploy  | Restart the service so that it reads the settings again.                                                            |
 | Runner  | The forms-runner service. Users fill in forms there.                                                                |
 
@@ -43,21 +43,24 @@ not need to know OIDC to follow it.
 
 This service has two sets of keys. Each set works the same way.
 
-| Set          | What it signs | Key settings (secret)                         | Pointer (config)          |
-| ------------ | ------------- | --------------------------------------------- | ------------------------- |
-| Signing keys | Tokens        | `OIDC_JWKS_KEY_1`, `OIDC_JWKS_KEY_2`, ...     | `OIDC_JWKS_SIGNING_KEY`   |
-| Cookie keys  | Cookies       | `OIDC_COOKIE_KEY_1`, `OIDC_COOKIE_KEY_2`, ... | `OIDC_COOKIE_SIGNING_KEY` |
+| Set          | What it signs | Key settings (secret)                                       | Pointer (config)          |
+| ------------ | ------------- | ----------------------------------------------------------- | ------------------------- |
+| Signing keys | Tokens        | `OIDC_JWKS_KEY_20260701`, `OIDC_JWKS_KEY_20261026`, ...     | `OIDC_JWKS_SIGNING_KEY`   |
+| Cookie keys  | Cookies       | `OIDC_COOKIE_KEY_20260701`, `OIDC_COOKIE_KEY_20261026`, ... | `OIDC_COOKIE_SIGNING_KEY` |
 
 How a set works:
 
-- Each key has a number. The number is the last part of the setting name.
-- The pointer holds one number. The key with that number signs all new items.
+- Each key has a date. The date is the last part of the setting name. It is
+  the day that the key was added, written as `YYYYMMDD` with no dashes. For
+  example, 26 October 2026 is `20261026`. A setting name cannot contain a
+  dash, so the date has none.
+- The pointer holds one date. The key with that date signs all new items.
 - The service accepts items that were signed by any key in the set.
 - When you delete a key, the service refuses all items that the key signed.
 
-Example: the keys are `OIDC_JWKS_KEY_4` and `OIDC_JWKS_KEY_5`, and
-`OIDC_JWKS_SIGNING_KEY` is `5`. Key 5 signs new tokens. Tokens from key 4
-are still accepted.
+Example: the keys are `OIDC_JWKS_KEY_20260701` and `OIDC_JWKS_KEY_20261026`,
+and `OIDC_JWKS_SIGNING_KEY` is `20261026`. Key `20261026` signs new tokens.
+Tokens from key `20260701` are still accepted.
 
 ## Rules
 
@@ -65,7 +68,7 @@ are still accepted.
 2. Add a key before you point at it.
 3. Move the pointer before you delete the old key.
 4. Never delete the key that the pointer names.
-5. Never use a key number again. The next number is the highest key number in the startup log plus 1. Usually that is the pointer number plus 1.
+5. Name a new key with the date that you add it. If a key with that date is already set, use the next day that no key has. Never use a key date again.
 6. Do the work in one environment at a time. Do a test environment first.
 7. Never put a key value in a ticket, a chat message, a commit or a log.
 
@@ -73,8 +76,8 @@ are still accepted.
 
 Do these checks in the environment that you will change.
 
-1. Read the pointer in the live config. Write down the number. This document calls it `N`.
-2. Look at the newest startup log of the service. It lists the key numbers that are loaded. Make sure that the list agrees with what you expect. See [How to read the startup log](#how-to-read-the-startup-log).
+1. Read the pointer in the live config. Write down the date. This document calls it `OLD`.
+2. Look at the newest startup log of the service. It lists the key dates that are loaded. Make sure that the list agrees with what you expect. See [How to read the startup log](#how-to-read-the-startup-log).
 3. Read the live value of each setting in this table. You need them for the waiting times.
 
 | Setting                  | Service           | What it controls                                |
@@ -96,29 +99,30 @@ this:
 
 ```text
 [oidcKeys] 2 signing keys loaded
-[oidcKeys] Signing with OIDC_JWKS_KEY_5
-[oidcKeys] Loaded OIDC_JWKS_KEY_5: sig-rs256-4c1f8ab390d7
-[oidcKeys] Loaded OIDC_JWKS_KEY_4: sig-rs256-9e2b71c0aa13
+[oidcKeys] Signing with OIDC_JWKS_KEY_20261026
+[oidcKeys] Loaded OIDC_JWKS_KEY_20261026: sig-rs256-4c1f8ab390d7
+[oidcKeys] Loaded OIDC_JWKS_KEY_20260701: sig-rs256-9e2b71c0aa13
 [oidcKeys] 2 cookie keys loaded
-[oidcKeys] Signing with OIDC_COOKIE_KEY_2
-[oidcKeys] Loaded OIDC_COOKIE_KEY_2
-[oidcKeys] Loaded OIDC_COOKIE_KEY_1
+[oidcKeys] Signing with OIDC_COOKIE_KEY_20261026
+[oidcKeys] Loaded OIDC_COOKIE_KEY_20261026
+[oidcKeys] Loaded OIDC_COOKIE_KEY_20260701
 ```
 
-The first lines say that signing keys 5 and 4 are loaded and that key 5
-signs. The key that signs is listed first. The text after the name of each
+The first lines say that signing keys `20261026` and `20260701` are loaded
+and that key `20261026` signs. The key that signs is listed first. The text after the name of each
 signing key is the public name of the key. It is not secret.
 
 ## Set up an environment for the first time
 
 Use this for a new environment, and one time for each environment that still
-has the old settings `OIDC_JWKS` and `OIDC_COOKIE_KEYS`.
+has the old settings `OIDC_JWKS` and `OIDC_COOKIE_KEYS`. The steps use
+today's date as `YYYYMMDD`. This section calls it `TODAY`.
 
-1. Run `node scripts/generate-jwks.mjs` in this repository. Add the output as the secret `OIDC_JWKS_KEY_1`.
-2. Run `openssl rand -hex 32`. Add the output as the secret `OIDC_COOKIE_KEY_1`.
-3. Set the config `OIDC_JWKS_SIGNING_KEY` to `1` and `OIDC_COOKIE_SIGNING_KEY` to `1`.
+1. Run `node scripts/generate-jwks.mjs` in this repository. Add the output as the secret `OIDC_JWKS_KEY_<TODAY>`.
+2. Run `openssl rand -hex 32`. Add the output as the secret `OIDC_COOKIE_KEY_<TODAY>`.
+3. Set the config `OIDC_JWKS_SIGNING_KEY` to `TODAY` and `OIDC_COOKIE_SIGNING_KEY` to `TODAY`.
 4. Deploy forms-identity-ui.
-5. Look at the startup log. Make sure that key 1 signs in each set.
+5. Look at the startup log. Make sure that key `TODAY` signs in each set.
 6. Delete the secrets `OIDC_JWKS` and `OIDC_COOKIE_KEYS` if the environment has them. The service does not read them.
 
 In an environment that had the old settings, the old keys cannot be copied,
@@ -130,11 +134,11 @@ users of that environment before you start.
 
 This task adds a key. The new key does not sign anything yet.
 
-1. Read the pointer. It is `N`. The new key number is `N+1`.
+1. Read the pointer. It is `OLD`. The new key date is today's date as `YYYYMMDD`. This document calls it `NEW`. If a key with that date is already set, use the next day that no key has.
 2. Make the key value. For a signing key, run `node scripts/generate-jwks.mjs` in this repository. For a cookie key, run `openssl rand -hex 32`. Copy the output.
-3. Add a secret with the new number and paste the value. The name is `OIDC_JWKS_KEY_<N+1>` for a signing key, or `OIDC_COOKIE_KEY_<N+1>` for a cookie key.
+3. Add a secret with the new date and paste the value. The name is `OIDC_JWKS_KEY_<NEW>` for a signing key, or `OIDC_COOKIE_KEY_<NEW>` for a cookie key.
 4. Deploy forms-identity-ui.
-5. Look at the startup log. Make sure that it lists the new key number.
+5. Look at the startup log. Make sure that it lists the new key date.
 6. Close the terminal window, so that the key value is not kept on screen.
 
 Do not change the pointer in this task.
@@ -143,14 +147,14 @@ Do not change the pointer in this task.
 
 This task makes the new key sign. Do it only after Task 1 is complete.
 
-1. Make sure that the startup log lists key `N+1`. If it does not, stop and do Task 1 again.
+1. Make sure that the startup log lists key `NEW`. If it does not, stop and do Task 1 again.
 2. Signing keys only: wait until the other services have the new key. See [How long to wait before you move the pointer](#how-long-to-wait-before-you-move-the-pointer).
-3. Change the pointer from `N` to `N+1`. The pointer is `OIDC_JWKS_SIGNING_KEY` for signing keys, or `OIDC_COOKIE_SIGNING_KEY` for cookie keys.
+3. Change the pointer from `OLD` to `NEW`. The pointer is `OIDC_JWKS_SIGNING_KEY` for signing keys, or `OIDC_COOKIE_SIGNING_KEY` for cookie keys.
 4. Deploy forms-identity-ui.
-5. Look at the startup log. Make sure that it shows key `N+1` as the key that signs.
+5. Look at the startup log. Make sure that it shows key `NEW` as the key that signs.
 6. Sign in through the runner in that environment. Make sure that sign in and sign out work.
 
-If the pointer names a number that has no key, the service does not start.
+If the pointer names a date that has no key, the service does not start.
 See [Startup errors](#startup-errors).
 
 ### How long to wait before you move the pointer
@@ -173,7 +177,7 @@ hours or days, as the live config sets it.
 2. Wait until no user holds an item that the old key signed. See [How long to wait before you delete a key](#how-long-to-wait-before-you-delete-a-key).
 3. Delete the secret of the old key.
 4. Deploy forms-identity-ui.
-5. Look at the startup log. Make sure that the old key number is not in the list.
+5. Look at the startup log. Make sure that the old key date is not in the list.
 6. Sign in through the runner in that environment. Make sure that sign in and sign out work.
 
 ### How long to wait before you delete a key
@@ -211,13 +215,13 @@ Rotate the signing keys and the cookie keys as two separate rotations.
 
 Use this if there is a problem after Task 2, and you have not done Task 3.
 
-1. Change the pointer back to `N`.
+1. Change the pointer back to `OLD`.
 2. Deploy forms-identity-ui.
-3. Leave key `N+1` in place. Tokens that it signed are still accepted.
+3. Leave key `NEW` in place. Tokens that it signed are still accepted.
 4. Tell a developer about the problem before you try again.
 
-If key `N+1` is the cause of the problem, delete it after the wait in
-[Task 3](#task-3-delete-an-old-key). Use `N+2` for the next new key.
+If key `NEW` is the cause of the problem, delete it after the wait in
+[Task 3](#task-3-delete-an-old-key). Use a new date for the next new key.
 
 You cannot go back after Task 3, because the old key is deleted. Do a full
 rotation to a new key.
@@ -226,7 +230,7 @@ rotation to a new key.
 
 Do this as fast as you can. Do not wait between the tasks.
 
-1. Do [Task 1](#task-1-add-a-new-key). Deploy.
+1. Do [Task 1](#task-1-add-a-new-key). Deploy. If a key with today's date is already set, use the next day that no key has. The date only names the key, so a future date is correct.
 2. Do [Task 2](#task-2-move-the-pointer) without the wait. Deploy.
 3. Do [Task 3](#task-3-delete-an-old-key) for the stolen key without the wait. Deploy.
 4. Tell the security contact for the service.
@@ -314,18 +318,18 @@ Limits that you must know:
 The service checks the keys when it starts. If a check fails, the service
 does not start and the deploy fails. Correct the setting and deploy again.
 
-| The log says                                                    | Cause                                                             | What to do                                                                                                          |
-| --------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `No key found with signing number 100`                          | The pointer names a key that is not there, or the set has no keys | Set the pointer to the number of a key that is set, or do [Task 1](#task-1-add-a-new-key) with that number. Deploy. |
-| `Couldn't parse JWK as JSON in OIDC_JWKS_KEY_2`                 | The value was not pasted in full                                  | Make a new key and write the secret again. Deploy.                                                                  |
-| `JWK in OIDC_JWKS_KEY_2 must be an object with a kid`           | The value is not the output of the script                         | Make a new key and write the secret again. Deploy.                                                                  |
-| `OIDC_JWKS_KEY_1 and OIDC_JWKS_KEY_2 have the same kid`         | One value was pasted into two settings                            | Delete the one that the pointer does not name. Make a new key if you need it. Deploy.                               |
-| `OIDC_JWKS_KEY_1 and OIDC_JWKS_KEY_01 have the same key number` | Two settings have the same number, one with a leading zero        | Delete the one that you did not mean to add. Deploy.                                                                |
-| `OIDC_JWKS_KEY_2 is empty`                                      | The secret was added with no value                                | Write the key value into the secret, or delete the secret. Deploy.                                                  |
+| The log says                                                          | Cause                                                             | What to do                                                                                                      |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `No key found with signing date 20261026`                             | The pointer names a key that is not there, or the set has no keys | Set the pointer to the date of a key that is set, or do [Task 1](#task-1-add-a-new-key) with that date. Deploy. |
+| `OIDC_JWKS_KEY_2026126 must end with a date as YYYYMMDD`              | The date in the setting name is not a real date in `YYYYMMDD`     | Delete the secret and add it again with a correct date. Deploy.                                                 |
+| `Couldn't parse JWK as JSON in OIDC_JWKS_KEY_20261026`                | The value was not pasted in full                                  | Make a new key and write the secret again. Deploy.                                                              |
+| `JWK in OIDC_JWKS_KEY_20261026 must be an object with a kid`          | The value is not the output of the script                         | Make a new key and write the secret again. Deploy.                                                              |
+| `OIDC_JWKS_KEY_20260701 and OIDC_JWKS_KEY_20261026 have the same kid` | One value was pasted into two settings                            | Delete the one that the pointer does not name. Make a new key if you need it. Deploy.                           |
+| `OIDC_JWKS_KEY_20261026 is empty`                                     | The secret was added with no value                                | Write the key value into the secret, or delete the secret. Deploy.                                              |
 
-The numbers and names in your log will be different. The cookie keys give
+The dates and names in your log will be different. The cookie keys give
 the same messages with `OIDC_COOKIE` in the names. The message
-`No key found with signing number` is the same for both sets, so check both
+`No key found with signing date` is the same for both sets, so check both
 pointers.
 
 An error message gives the name of the setting. It never shows a key value.

@@ -225,7 +225,9 @@ describe('sign-in round trip', () => {
 
       // The pointer names the key that signs, and the other key is there
       // only to check tokens it signed before
-      const signingKid = JSON.parse(String(process.env.OIDC_JWKS_KEY_2)).kid
+      const signingKid = JSON.parse(
+        String(process.env.OIDC_JWKS_KEY_20261026)
+      ).kid
       expect(decodeSegment(accessToken, 0)).toMatchObject({ kid: signingKid })
       expect(decodeSegment(String(body.id_token), 0)).toMatchObject({
         kid: signingKid
