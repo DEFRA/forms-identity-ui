@@ -28,14 +28,18 @@ describe('fetch helpers', () => {
     )
   })
 
-  it('sends the correlation ID and user ID of the log context', async () => {
+  it('sends the correlation ID, user ID and session ID of the log context to forms-identity-api', async () => {
     jest
       .mocked(Wreck.request)
       .mockResolvedValue(/** @type {never} */ ({ statusCode: 200 }))
     jest.mocked(Wreck.read).mockResolvedValue(/** @type {never} */ ({}))
 
     await runWithLogContext(
-      createLogContext({ correlationId: 'correlation-1', userId: 'acc-1' }),
+      createLogContext({
+        correlationId: 'correlation-1',
+        userId: 'acc-1',
+        sessionId: 'session-1'
+      }),
       () =>
         getJson(new URL('http://localhost:3010/x'), {
           headers: { Authorization: 'Bearer token-1' }
@@ -50,10 +54,32 @@ describe('fetch helpers', () => {
         headers: {
           Authorization: 'Bearer token-1',
           'x-cdp-request-id': 'correlation-1',
-          'x-forms-user-id': 'acc-1'
+          'x-forms-user-id': 'acc-1',
+          'x-forms-session-id': 'session-1'
         }
       }
     )
+  })
+
+  it('sends only the correlation ID to a service outside forms', async () => {
+    jest
+      .mocked(Wreck.request)
+      .mockResolvedValue(/** @type {never} */ ({ statusCode: 200 }))
+    jest.mocked(Wreck.read).mockResolvedValue(/** @type {never} */ ({}))
+
+    await runWithLogContext(
+      createLogContext({
+        correlationId: 'correlation-1',
+        userId: 'acc-1',
+        sessionId: 'session-1'
+      }),
+      () => getJson(new URL('https://example.com/x'))
+    )
+
+    expect(Wreck.request).toHaveBeenCalledWith('get', 'https://example.com/x', {
+      json: true,
+      headers: { 'x-cdp-request-id': 'correlation-1' }
+    })
   })
 
   it('throws Boom on non-2xx with the body message', async () => {

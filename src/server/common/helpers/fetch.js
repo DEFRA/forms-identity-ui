@@ -1,7 +1,10 @@
 import Boom from '@hapi/boom'
 import Wreck from '@hapi/wreck'
 
-import { applyLogContextHeaders } from '~/src/server/common/helpers/request-tracing.js'
+import {
+  applyLogContextHeaders,
+  applyTraceHeaders
+} from '~/src/server/common/helpers/request-tracing.js'
 
 const MIN_OK_STATUS = 200
 const MAX_OK_STATUS = 299
@@ -46,7 +49,7 @@ export function bearerHeaders(token) {
 export async function request(method, url, options) {
   const { headers: requestHeaders } =
     /** @type {{ headers?: Record<string, string> }} */ (options)
-  const headers = applyLogContextHeaders(requestHeaders)
+  const headers = applyLogContextHeaders(url, applyTraceHeaders(requestHeaders))
 
   if (headers) {
     options = { ...options, headers }
