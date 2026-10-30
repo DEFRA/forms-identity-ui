@@ -1,4 +1,4 @@
-import { addLogContextToMessage, logContextMixin } from '@defra/forms-common'
+import { logContextMixin } from '@defra/forms-common'
 import { ecsFormat } from '@elastic/ecs-pino-format'
 
 import { config } from '~/src/config/index.js'
@@ -42,10 +42,7 @@ export const loggerOptions = {
   },
   level: logConfig.level,
   ...formatters[logConfig.format],
-  mixin: logContextMixin,
-  hooks: {
-    logMethod: addLogContextToMessage
-  }
+  mixin: logContextMixin
 }
 
 /**
