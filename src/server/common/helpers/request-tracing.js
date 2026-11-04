@@ -2,6 +2,7 @@ import {
   applyLogContextHeaders as applyLogContextHeader,
   applyTraceHeaders as applyTraceHeader,
   applyUserIdHeader,
+  getRequestSessionId,
   requestTracing as requestTracingPlugin
 } from '@defra/forms-common'
 import { tracing } from '@defra/hapi-tracing'
@@ -46,18 +47,6 @@ export function applyLogContextHeaders(url, headers) {
 }
 
 /**
- * Gets the ID of the yar session, which the session plugin loads in `onPreAuth`
- * @param {Request} request
- * @returns {string | null | undefined}
- */
-export function getRequestSessionId(request) {
-  // `request.yar` is only set when the yar plugin is registered
-  const { yar } = /** @type {Partial<Pick<Request, 'yar'>>} */ (request)
-
-  return yar?.id
-}
-
-/**
  * Starts a log context for every request, holding the correlation ID from the
  * tracing header (or a new ID when the caller sent none) and the ID of the yar
  * session. The account ID is added with `setUserId` once the sign-in or the
@@ -78,5 +67,5 @@ export const requestTracing = {
 
 /**
  * @import { RequestTracingOptions } from '@defra/forms-common'
- * @import { Request, ServerRegisterPluginObject } from '@hapi/hapi'
+ * @import { ServerRegisterPluginObject } from '@hapi/hapi'
  */

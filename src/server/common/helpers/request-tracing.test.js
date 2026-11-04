@@ -17,7 +17,6 @@ import yar from '@hapi/yar'
 import {
   applyLogContextHeaders,
   applyTraceHeaders,
-  getRequestSessionId,
   requestTracing
 } from '~/src/server/common/helpers/request-tracing.js'
 
@@ -165,22 +164,6 @@ describe('request-tracing', () => {
     })
   })
 
-  describe('getRequestSessionId', () => {
-    it('should return the ID of the yar session', () => {
-      const request = /** @type {Request} */ (
-        /** @type {unknown} */ ({ yar: { id: sessionId } })
-      )
-
-      expect(getRequestSessionId(request)).toBe(sessionId)
-    })
-
-    it('should return undefined when yar is not registered', () => {
-      const request = /** @type {Request} */ (/** @type {unknown} */ ({}))
-
-      expect(getRequestSessionId(request)).toBeUndefined()
-    })
-  })
-
   describe('applyTraceHeaders', () => {
     const headers = { Authorization: 'Bearer token' }
 
@@ -235,5 +218,5 @@ describe('request-tracing', () => {
 })
 
 /**
- * @import { Request, Server } from '@hapi/hapi'
+ * @import { Server } from '@hapi/hapi'
  */
