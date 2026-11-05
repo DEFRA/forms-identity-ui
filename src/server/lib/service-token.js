@@ -4,6 +4,7 @@ import { ProxyAgent } from 'proxy-agent'
 
 import { config } from '~/src/config/index.js'
 import { bearerHeaders } from '~/src/server/common/helpers/fetch.js'
+import { logger } from '~/src/server/common/helpers/logging/logger.js'
 
 const CACHE_SEGMENT = 'service-token'
 const CACHE_KEY = 'identity-api'
@@ -23,6 +24,58 @@ let tokenCache
 // The shortest token duration that STS accepts.
 const MIN_TOKEN_DURATION_SECONDS = 60
 
+// The token duration to request when the STS session allows it, and the time
+// that a token must leave before the end of the session.
+const TOKEN_DURATION_SECONDS = config.get('identityApi.tokenDurationSeconds')
+const TOKEN_DURATION_BUFFER_SECONDS = config.get(
+  'identityApi.tokenDurationBufferSeconds'
+)
+
+/**
+ * Whole seconds from now until the given time
+ * @param {Date} time
+ * @returns {number}
+ */
+function secondsUntil(time) {
+  return Math.floor((time.getTime() - Date.now()) / 1000)
+}
+
+/**
+ * Gets the expiry of the STS session that signs the token request.
+ *
+ * The SDK keeps the container credentials in memory. If they last long enough
+ * for the token and the buffer, their expiry is used and there is no network
+ * call. If not, the SDK reads the credentials again (`forceRefresh`), because
+ * the container credentials endpoint can already serve a new session. The SDK
+ * signs the token request with the credentials it holds after this call, so the
+ * expiry agrees with the session that signs the token.
+ *
+ * If the forced read fails, the SDK keeps the credentials it already holds and
+ * signs with them. Thus their expiry still applies, and a failure of the
+ * credentials endpoint does not stop the token request.
+ * @param {STSClient} sts
+ * @param {number} neededSeconds - the session time that the configured token needs
+ * @returns {Promise<Date | undefined>} undefined for credentials that do not expire
+ */
+async function signingSessionExpiry(sts, neededSeconds) {
+  const held = await sts.config.credentials()
+
+  if (!held.expiration || secondsUntil(held.expiration) > neededSeconds) {
+    return held.expiration
+  }
+
+  try {
+    const refreshed = await sts.config.credentials({ forceRefresh: true })
+    return refreshed.expiration
+  } catch (err) {
+    logger.warn(
+      err,
+      `[serviceTokenCredentials] Could not read new STS credentials, so the token request uses the current session, which ends in ${secondsUntil(held.expiration)}s`
+    )
+    return held.expiration
+  }
+}
+
 /**
  * Gets the token duration to request from STS.
  *
@@ -31,33 +84,45 @@ const MIN_TOKEN_DURATION_SECONDS = 60
  * session, minus a buffer, whichever is shorter.
  *
  * The duration is never less than the STS minimum, because STS always rejects
- * a shorter duration. If the session has only a little more time left than the
- * minimum, a token with the minimum duration still expires before the session.
+ * a shorter duration. If the session has less time left than the minimum, no
+ * duration is valid and STS rejects the request. The next request succeeds
+ * when the credentials endpoint serves a new session.
  *
- * `forceRefresh` gets the credentials that the token call uses, so the expiry
- * agrees with the session that signs the token. Static local credentials have
- * no expiry, so the configured duration applies.
+ * Static local credentials have no expiry, so the configured duration applies.
  * @param {STSClient} sts
- * @returns {Promise<number>}
+ * @returns {Promise<{ durationSeconds: number, sessionSecondsLeft?: number }>}
  */
-async function cappedDurationSeconds(sts) {
-  const configuredSeconds = config.get('identityApi.tokenDurationSeconds')
-  const bufferSeconds = config.get('identityApi.tokenDurationBufferSeconds')
-
-  const { expiration } = await sts.config.credentials({ forceRefresh: true })
+async function tokenDuration(sts) {
+  const expiration = await signingSessionExpiry(
+    sts,
+    TOKEN_DURATION_SECONDS + TOKEN_DURATION_BUFFER_SECONDS
+  )
 
   if (!expiration) {
-    return configuredSeconds
+    return { durationSeconds: TOKEN_DURATION_SECONDS }
   }
 
-  const sessionSecondsLeft = Math.floor(
-    (expiration.getTime() - Date.now()) / 1000
+  const sessionSecondsLeft = secondsUntil(expiration)
+
+  const durationSeconds = Math.max(
+    MIN_TOKEN_DURATION_SECONDS,
+    Math.min(
+      TOKEN_DURATION_SECONDS,
+      sessionSecondsLeft - TOKEN_DURATION_BUFFER_SECONDS
+    )
   )
 
-  return Math.max(
-    MIN_TOKEN_DURATION_SECONDS,
-    Math.min(configuredSeconds, sessionSecondsLeft - bufferSeconds)
-  )
+  if (durationSeconds > sessionSecondsLeft) {
+    logger.warn(
+      `[serviceTokenDuration] The STS session ends in ${sessionSecondsLeft}s, which is less than the minimum token duration of ${MIN_TOKEN_DURATION_SECONDS}s, so STS rejects the token request`
+    )
+  } else if (durationSeconds < TOKEN_DURATION_SECONDS) {
+    logger.info(
+      `[serviceTokenDuration] Requesting a ${durationSeconds}s token because the STS session ends in ${sessionSecondsLeft}s`
+    )
+  }
+
+  return { durationSeconds, sessionSecondsLeft }
 }
 
 /**
@@ -72,15 +137,31 @@ async function cappedDurationSeconds(sts) {
  * @returns {Promise<{ token: string, durationSeconds: number }>}
  */
 async function retrieveToken(sts) {
-  const durationSeconds = await cappedDurationSeconds(sts)
+  const { durationSeconds, sessionSecondsLeft } = await tokenDuration(sts)
 
-  const { WebIdentityToken } = await sts.send(
-    new GetWebIdentityTokenCommand({
-      SigningAlgorithm: 'RS256',
-      Audience: [config.get('identityApi.audience')],
-      DurationSeconds: durationSeconds
-    })
-  )
+  /** @type {GetWebIdentityTokenCommandOutput} */
+  let response
+  try {
+    response = await sts.send(
+      new GetWebIdentityTokenCommand({
+        SigningAlgorithm: 'RS256',
+        Audience: [config.get('identityApi.audience')],
+        DurationSeconds: durationSeconds
+      })
+    )
+  } catch (err) {
+    const sessionText =
+      sessionSecondsLeft === undefined
+        ? 'credentials with no expiry'
+        : `a session that ends in ${sessionSecondsLeft}s`
+    logger.error(
+      err,
+      `[serviceTokenRequest] STS did not issue a ${durationSeconds}s token signed by ${sessionText}`
+    )
+    throw err
+  }
+
+  const { WebIdentityToken } = response
 
   if (!WebIdentityToken) {
     throw new Error('STS returned no web identity token')
@@ -143,9 +224,8 @@ export const serviceToken = {
       tokenCache = server.cache({
         cache: CACHE_SEGMENT,
         segment: CACHE_SEGMENT,
-        expiresIn:
-          config.get('identityApi.tokenDurationSeconds') * 1000 -
-          TTL_SAFETY_BUFFER_MS,
+        // A fallback only: generateFunc sets the TTL of each token.
+        expiresIn: TOKEN_DURATION_SECONDS * 1000 - TTL_SAFETY_BUFFER_MS,
         generateTimeout: 5000,
         // Near the end of the STS session, the token duration can be shorter
         // than the configured value. Thus the cache uses the duration of each
@@ -172,4 +252,5 @@ export const serviceToken = {
 /**
  * @import { ServerRegisterPluginObject } from '@hapi/hapi'
  * @import { Policy, PolicyOptions } from '@hapi/catbox'
+ * @import { GetWebIdentityTokenCommandOutput } from '@aws-sdk/client-sts'
  */
