@@ -14,8 +14,14 @@ jest.mock('@aws-sdk/client-sts', () => ({
   GetWebIdentityTokenCommand: jest.fn((input) => ({ input }))
 }))
 
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000
+
 /** The single mocked client instance's send */
 const sendOf = () => jest.mocked(STSClient).mock.results[0].value.send
+
+/** The single mocked client instance's resolved credentials provider */
+const credentialsOf = () =>
+  jest.mocked(STSClient).mock.results[0].value.config.credentials
 
 async function buildServer() {
   const server = Hapi.server({
@@ -33,11 +39,23 @@ describe('service-token', () => {
     // The repo-wide `resetMocks` config wipes a jest.fn() factory
     // implementation before every test, so the client shape is reinstated
     // here rather than relied on from the jest.mock() call above.
-    jest
-      .mocked(STSClient)
-      .mockImplementation(
-        () => /** @type {never} */ ({ send: jest.fn(), destroy: jest.fn() })
-      )
+    jest.mocked(STSClient).mockImplementation(
+      () =>
+        /** @type {never} */ ({
+          send: jest.fn(),
+          destroy: jest.fn(),
+          // A long-lived STS session, so the configured lifetime stands unless a
+          // test gives the credentials a nearer expiry. The expiry is computed
+          // per call, so it tracks the faked clock in the lifetime tests.
+          config: {
+            credentials: jest.fn(() =>
+              Promise.resolve({
+                expiration: new Date(Date.now() + SIX_HOURS_MS)
+              })
+            )
+          }
+        })
+    )
   })
 
   it('asks STS for a token addressed to the identity API', async () => {
@@ -94,6 +112,47 @@ describe('service-token', () => {
     await server.stop()
   })
 
+  describe('token duration', () => {
+    beforeEach(() => {
+      jest.useFakeTimers()
+    })
+
+    afterEach(() => {
+      jest.useRealTimers()
+    })
+
+    it('caps the requested lifetime to the STS session, less the buffer', async () => {
+      const server = await buildServer()
+      sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
+      credentialsOf().mockResolvedValue({
+        expiration: new Date(Date.now() + 120_000)
+      })
+
+      await getServiceToken()
+
+      expect(credentialsOf()).toHaveBeenCalledWith({ forceRefresh: true })
+      expect(GetWebIdentityTokenCommand).toHaveBeenCalledWith(
+        expect.objectContaining({ DurationSeconds: 110 })
+      )
+      await server.stop()
+    })
+
+    it('requests the configured lifetime when the session has no expiry', async () => {
+      const server = await buildServer()
+      sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
+      credentialsOf().mockResolvedValue({})
+
+      await getServiceToken()
+
+      expect(GetWebIdentityTokenCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          DurationSeconds: config.get('identityApi.tokenDurationSeconds')
+        })
+      )
+      await server.stop()
+    })
+  })
+
   describe('token lifetime', () => {
     beforeEach(() => {
       jest.useFakeTimers()
@@ -137,6 +196,25 @@ describe('service-token', () => {
 
       await getServiceToken()
       jest.advanceTimersByTime(5 * 60_000 + 1000)
+
+      await expect(getServiceToken()).resolves.toBe('token-2')
+      expect(sendOf()).toHaveBeenCalledTimes(2)
+      await server.stop()
+    })
+
+    it('retires a capped token at its own shorter lifetime', async () => {
+      const server = await buildServer()
+      sendOf()
+        .mockResolvedValueOnce({ WebIdentityToken: 'token-1' })
+        .mockResolvedValueOnce({ WebIdentityToken: 'token-2' })
+      // A session with two minutes left issues a 110-second token, retired a
+      // minute early, so the cache holds it for fifty seconds.
+      credentialsOf().mockResolvedValue({
+        expiration: new Date(Date.now() + 120_000)
+      })
+
+      await getServiceToken()
+      jest.advanceTimersByTime(50_000 + 1000)
 
       await expect(getServiceToken()).resolves.toBe('token-2')
       expect(sendOf()).toHaveBeenCalledTimes(2)

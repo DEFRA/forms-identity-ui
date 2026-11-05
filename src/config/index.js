@@ -346,6 +346,11 @@ export const config = convict({
       doc: 'Lifetime to request for a caller token',
       format: 'nat',
       default: 300
+    },
+    tokenDurationBufferSeconds: {
+      doc: 'Seconds to keep the requested token lifetime inside the container STS session, so AWS issues the token',
+      format: 'nat',
+      default: 10
     }
   },
 
