@@ -26,7 +26,10 @@ const mockStsSend = jest.fn()
 jest.mock('@aws-sdk/client-sts', () => ({
   STSClient: jest.fn().mockImplementation(() => ({
     send: mockStsSend,
-    destroy: jest.fn()
+    destroy: jest.fn(),
+    // The token fetch reads the client credentials to get the STS session
+    // expiry. This stub has no expiry, so the configured duration applies.
+    config: { credentials: () => Promise.resolve({}) }
   })),
   GetWebIdentityTokenCommand: jest.fn((input) => ({ input }))
 }))
