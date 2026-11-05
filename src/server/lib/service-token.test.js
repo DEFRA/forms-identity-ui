@@ -3,6 +3,7 @@ import { Engine as CatboxMemory } from '@hapi/catbox-memory'
 import Hapi from '@hapi/hapi'
 
 import { config } from '~/src/config/index.js'
+import { logger } from '~/src/server/common/helpers/logging/logger.js'
 import {
   getServiceToken,
   serviceAuthHeaders,
@@ -121,8 +122,49 @@ describe('service-token', () => {
       jest.useRealTimers()
     })
 
+    it('uses the held credentials without a new read when they cover the configured token', async () => {
+      const server = await buildServer()
+      sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
+
+      await getServiceToken()
+
+      expect(credentialsOf()).toHaveBeenCalledTimes(1)
+      expect(credentialsOf()).not.toHaveBeenCalledWith({ forceRefresh: true })
+      expect(GetWebIdentityTokenCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          DurationSeconds: config.get('identityApi.tokenDurationSeconds')
+        })
+      )
+      await server.stop()
+    })
+
+    it('reads the credentials again, before the token request, when the held session is too short', async () => {
+      const server = await buildServer()
+      sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
+      credentialsOf()
+        .mockResolvedValueOnce({ expiration: new Date(Date.now() + 240_000) })
+        .mockResolvedValueOnce({
+          expiration: new Date(Date.now() + SIX_HOURS_MS)
+        })
+
+      await getServiceToken()
+
+      expect(credentialsOf()).toHaveBeenLastCalledWith({ forceRefresh: true })
+      expect(credentialsOf().mock.invocationCallOrder[1]).toBeLessThan(
+        sendOf().mock.invocationCallOrder[0]
+      )
+      // The new session lasts six hours, so the configured duration applies.
+      expect(GetWebIdentityTokenCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          DurationSeconds: config.get('identityApi.tokenDurationSeconds')
+        })
+      )
+      await server.stop()
+    })
+
     it('caps the requested lifetime to the STS session, less the buffer', async () => {
       const server = await buildServer()
+      const info = jest.spyOn(logger, 'info').mockReturnValue(undefined)
       sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
       credentialsOf().mockResolvedValue({
         expiration: new Date(Date.now() + 120_000)
@@ -134,11 +176,36 @@ describe('service-token', () => {
       expect(GetWebIdentityTokenCommand).toHaveBeenCalledWith(
         expect.objectContaining({ DurationSeconds: 110 })
       )
+      expect(info).toHaveBeenCalledWith(
+        '[serviceTokenDuration] Requesting a 110s token because the STS session ends in 120s'
+      )
+      await server.stop()
+    })
+
+    it('uses the held credentials when the new read fails', async () => {
+      const server = await buildServer()
+      const warn = jest.spyOn(logger, 'warn').mockReturnValue(undefined)
+      const readError = new Error('credentials endpoint unavailable')
+      sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
+      credentialsOf()
+        .mockResolvedValueOnce({ expiration: new Date(Date.now() + 120_000) })
+        .mockRejectedValueOnce(readError)
+
+      await expect(getServiceToken()).resolves.toBe('token-1')
+
+      expect(GetWebIdentityTokenCommand).toHaveBeenCalledWith(
+        expect.objectContaining({ DurationSeconds: 110 })
+      )
+      expect(warn).toHaveBeenCalledWith(
+        readError,
+        '[serviceTokenCredentials] Could not read new STS credentials, so the token request uses the current session, which ends in 120s'
+      )
       await server.stop()
     })
 
     it('requests the STS minimum when the session has less time left than the minimum plus the buffer', async () => {
       const server = await buildServer()
+      const warn = jest.spyOn(logger, 'warn').mockReturnValue(undefined)
       sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
       credentialsOf().mockResolvedValue({
         expiration: new Date(Date.now() + 65_000)
@@ -148,6 +215,61 @@ describe('service-token', () => {
 
       expect(GetWebIdentityTokenCommand).toHaveBeenCalledWith(
         expect.objectContaining({ DurationSeconds: 60 })
+      )
+      // A 60-second token still expires before a 65-second session.
+      expect(warn).not.toHaveBeenCalled()
+      await server.stop()
+    })
+
+    it('warns when the session has less time left than the STS minimum', async () => {
+      const server = await buildServer()
+      const warn = jest.spyOn(logger, 'warn').mockReturnValue(undefined)
+      sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
+      credentialsOf().mockResolvedValue({
+        expiration: new Date(Date.now() + 50_000)
+      })
+
+      await getServiceToken()
+
+      expect(GetWebIdentityTokenCommand).toHaveBeenCalledWith(
+        expect.objectContaining({ DurationSeconds: 60 })
+      )
+      expect(warn).toHaveBeenCalledWith(
+        '[serviceTokenDuration] The STS session ends in 50s, which is less than the minimum token duration of 60s, so STS rejects the token request'
+      )
+      await server.stop()
+    })
+
+    it('logs a failed token request with the session time left, and passes the error on', async () => {
+      const server = await buildServer()
+      const error = jest.spyOn(logger, 'error').mockReturnValue(undefined)
+      const stsError = new Error('SessionDurationEscalationException')
+      sendOf().mockRejectedValue(stsError)
+      credentialsOf().mockResolvedValue({
+        expiration: new Date(Date.now() + 120_000)
+      })
+
+      await expect(getServiceToken()).rejects.toThrow(stsError)
+
+      expect(error).toHaveBeenCalledWith(
+        stsError,
+        '[serviceTokenRequest] STS did not issue a 110s token signed by a session that ends in 120s'
+      )
+      await server.stop()
+    })
+
+    it('logs a failed token request for credentials with no expiry', async () => {
+      const server = await buildServer()
+      const error = jest.spyOn(logger, 'error').mockReturnValue(undefined)
+      const stsError = new Error('AccessDenied')
+      sendOf().mockRejectedValue(stsError)
+      credentialsOf().mockResolvedValue({})
+
+      await expect(getServiceToken()).rejects.toThrow(stsError)
+
+      expect(error).toHaveBeenCalledWith(
+        stsError,
+        `[serviceTokenRequest] STS did not issue a ${config.get('identityApi.tokenDurationSeconds')}s token signed by credentials with no expiry`
       )
       await server.stop()
     })
