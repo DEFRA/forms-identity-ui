@@ -44,9 +44,9 @@ describe('service-token', () => {
         /** @type {never} */ ({
           send: jest.fn(),
           destroy: jest.fn(),
-          // A long-lived STS session, so the configured lifetime stands unless a
-          // test gives the credentials a nearer expiry. The expiry is computed
-          // per call, so it tracks the faked clock in the lifetime tests.
+          // A six-hour STS session, so the configured duration applies. A test
+          // can set an earlier expiry. Each call calculates the expiry again,
+          // so the expiry follows the fake clock in the lifetime tests.
           config: {
             credentials: jest.fn(() =>
               Promise.resolve({
@@ -137,6 +137,21 @@ describe('service-token', () => {
       await server.stop()
     })
 
+    it('requests the STS minimum when the session has less time left than the minimum plus the buffer', async () => {
+      const server = await buildServer()
+      sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
+      credentialsOf().mockResolvedValue({
+        expiration: new Date(Date.now() + 65_000)
+      })
+
+      await getServiceToken()
+
+      expect(GetWebIdentityTokenCommand).toHaveBeenCalledWith(
+        expect.objectContaining({ DurationSeconds: 60 })
+      )
+      await server.stop()
+    })
+
     it('requests the configured lifetime when the session has no expiry', async () => {
       const server = await buildServer()
       sendOf().mockResolvedValue({ WebIdentityToken: 'token-1' })
@@ -207,8 +222,8 @@ describe('service-token', () => {
       sendOf()
         .mockResolvedValueOnce({ WebIdentityToken: 'token-1' })
         .mockResolvedValueOnce({ WebIdentityToken: 'token-2' })
-      // A session with two minutes left issues a 110-second token, retired a
-      // minute early, so the cache holds it for fifty seconds.
+      // A session with two minutes left gives a 110-second token. The cache
+      // removes it one minute early, so it keeps the token for 50 seconds.
       credentialsOf().mockResolvedValue({
         expiration: new Date(Date.now() + 120_000)
       })

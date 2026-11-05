@@ -20,20 +20,27 @@ const TTL_SAFETY_BUFFER_MS = 60_000
  */
 let tokenCache
 
+// The shortest token duration that STS accepts.
+const MIN_TOKEN_DURATION_SECONDS = 60
+
 /**
- * The token lifetime to request, kept inside the container's own STS session.
+ * Gets the token duration to request from STS.
  *
- * AWS issues a web identity token only when its lifetime ends before the STS
- * session that signs it, so the configured lifetime is capped to the time the
- * session has left, less a buffer for the request in flight and clock skew.
+ * STS issues a token only if the token expires before the STS session that
+ * signs it. Thus the duration is the configured value or the time left in the
+ * session, minus a buffer, whichever is shorter.
  *
- * `forceRefresh` resolves the same credentials the token call will use, so the
- * expiry read here matches the session that issues the token. Static local
- * credentials carry no expiry, so there the configured lifetime stands.
+ * The duration is never less than the STS minimum, because STS always rejects
+ * a shorter duration. If the session has only a little more time left than the
+ * minimum, a token with the minimum duration still expires before the session.
+ *
+ * `forceRefresh` gets the credentials that the token call uses, so the expiry
+ * agrees with the session that signs the token. Static local credentials have
+ * no expiry, so the configured duration applies.
  * @param {STSClient} sts
  * @returns {Promise<number>}
  */
-async function tokenDurationSeconds(sts) {
+async function cappedDurationSeconds(sts) {
   const configuredSeconds = config.get('identityApi.tokenDurationSeconds')
   const bufferSeconds = config.get('identityApi.tokenDurationBufferSeconds')
 
@@ -47,12 +54,16 @@ async function tokenDurationSeconds(sts) {
     (expiration.getTime() - Date.now()) / 1000
   )
 
-  return Math.min(configuredSeconds, sessionSecondsLeft - bufferSeconds)
+  return Math.max(
+    MIN_TOKEN_DURATION_SECONDS,
+    Math.min(configuredSeconds, sessionSecondsLeft - bufferSeconds)
+  )
 }
 
 /**
- * Retrieves a token identifying this service to forms-identity-api, with the
- * lifetime it was issued so the cache can retire it before STS expires it.
+ * Gets a token that identifies this service to forms-identity-api. It also
+ * gives the token duration, so that the cache removes the token before STS
+ * expires it.
  *
  * The subject is set by STS from the container's own credentials, so the
  * receiving service can tell who called rather than only that the caller knew
@@ -61,7 +72,7 @@ async function tokenDurationSeconds(sts) {
  * @returns {Promise<{ token: string, durationSeconds: number }>}
  */
 async function retrieveToken(sts) {
-  const durationSeconds = await tokenDurationSeconds(sts)
+  const durationSeconds = await cappedDurationSeconds(sts)
 
   const { WebIdentityToken } = await sts.send(
     new GetWebIdentityTokenCommand({
@@ -136,10 +147,10 @@ export const serviceToken = {
           config.get('identityApi.tokenDurationSeconds') * 1000 -
           TTL_SAFETY_BUFFER_MS,
         generateTimeout: 5000,
-        // The issued lifetime can be shorter than the configured one when the
-        // STS session is near its own expiry, so the cache follows the lifetime
-        // of each token rather than a fixed duration. A zero or negative TTL
-        // keeps the token out of the cache, so the next call fetches a fresh one.
+        // Near the end of the STS session, the token duration can be shorter
+        // than the configured value. Thus the cache uses the duration of each
+        // token. A TTL of zero keeps the token out of the cache, so the next
+        // call gets a new token.
         generateFunc: async (_id, flags) => {
           const { token, durationSeconds } = await retrieveToken(sts)
           flags.ttl = Math.max(durationSeconds * 1000 - TTL_SAFETY_BUFFER_MS, 0)

@@ -348,7 +348,7 @@ export const config = convict({
       default: 300
     },
     tokenDurationBufferSeconds: {
-      doc: 'Seconds to keep the requested token lifetime inside the container STS session, so AWS issues the token',
+      doc: 'Seconds between the end of the requested token and the end of the container STS session. STS issues a token only if it expires before the session.',
       format: 'nat',
       default: 10
     }
