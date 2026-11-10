@@ -153,6 +153,10 @@ test.describe.serial('citizen sign-in', () => {
     await expect(
       detail(page, 'Access token claims', `sub ${firstSub}`)
     ).toBeVisible()
+    // with OIDC_EMAIL_CLAIM_RESOURCE_SERVERS as in .env.sample
+    await expect(
+      detail(page, 'Access token claims', `email ${EMAIL.toLowerCase()}`)
+    ).toBeVisible()
   })
 
   test('signs straight back in on the provider session (SSO)', async () => {

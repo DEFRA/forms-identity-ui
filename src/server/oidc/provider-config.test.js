@@ -6,7 +6,10 @@ import {
 
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
-import { buildProviderConfig } from '~/src/server/oidc/provider-config.js'
+import {
+  buildProviderConfig,
+  extraTokenClaims
+} from '~/src/server/oidc/provider-config.js'
 
 jest.mock('~/src/server/lib/identity-api.js', () => ({
   getAccount: jest.fn()
@@ -128,6 +131,119 @@ describe('buildProviderConfig', () => {
           /** @type {never} */ (null)
         )
       ).toThrow('invalid_target')
+    })
+  })
+
+  describe('extraTokenClaims', () => {
+    const submissionApi = 'urn:defra:forms:forms-submission-api'
+
+    /**
+     * A context with the account the provider loaded for the token request
+     * @param {{ accountId: string, email?: string } | undefined} account
+     */
+    function contextWith(account) {
+      return /** @type {never} */ ({
+        oidc: {
+          account: account && {
+            accountId: account.accountId,
+            claims: () =>
+              Promise.resolve({ sub: account.accountId, email: account.email })
+          }
+        }
+      })
+    }
+
+    /**
+     * @param {Record<string, unknown>} [overrides]
+     */
+    function accessToken(overrides = {}) {
+      return /** @type {never} */ ({
+        kind: 'AccessToken',
+        aud: submissionApi,
+        accountId: 'acc-1',
+        ...overrides
+      })
+    }
+
+    describe('OIDC_EMAIL_CLAIM_RESOURCE_SERVERS', () => {
+      const original = process.env.OIDC_EMAIL_CLAIM_RESOURCE_SERVERS
+
+      afterEach(() => {
+        process.env.OIDC_EMAIL_CLAIM_RESOURCE_SERVERS = original
+        jest.resetModules()
+      })
+
+      it('refuses to load when it names an API that is not a resource server', async () => {
+        process.env.OIDC_EMAIL_CLAIM_RESOURCE_SERVERS =
+          'urn:defra:forms:somewhere-else'
+        jest.resetModules()
+
+        await expect(
+          import('~/src/server/oidc/provider-config.js')
+        ).rejects.toThrow(
+          'OIDC_EMAIL_CLAIM_RESOURCE_SERVERS names urn:defra:forms:somewhere-else, which is not in OIDC_RESOURCE_SERVERS'
+        )
+      })
+
+      it('adds no email to any access token when it is empty', async () => {
+        process.env.OIDC_EMAIL_CLAIM_RESOURCE_SERVERS = ''
+        jest.resetModules()
+
+        const fresh = await import('~/src/server/oidc/provider-config.js')
+        const ctx = contextWith({ accountId: 'acc-1', email: 'a@b.com' })
+
+        await expect(
+          fresh.extraTokenClaims(ctx, accessToken())
+        ).resolves.toBeUndefined()
+      })
+    })
+
+    it('is the claims hook of the provider', () => {
+      const cfg = buildProviderConfig(fakeAdapter)
+
+      expect(cfg.extraTokenClaims).toBe(extraTokenClaims)
+    })
+
+    it('adds the email of the account to an access token for an API that needs it', async () => {
+      const ctx = contextWith({ accountId: 'acc-1', email: 'a@b.com' })
+
+      await expect(extraTokenClaims(ctx, accessToken())).resolves.toEqual({
+        email: 'a@b.com'
+      })
+      expect(getAccount).not.toHaveBeenCalled()
+    })
+
+    it('adds no email to an access token for another API', async () => {
+      const ctx = contextWith({ accountId: 'acc-1', email: 'a@b.com' })
+
+      await expect(
+        extraTokenClaims(
+          ctx,
+          accessToken({ aud: 'urn:defra:forms:another-api' })
+        )
+      ).resolves.toBeUndefined()
+    })
+
+    it('adds no email to a token that is not an access token', async () => {
+      const ctx = contextWith({ accountId: 'acc-1', email: 'a@b.com' })
+
+      await expect(
+        extraTokenClaims(ctx, accessToken({ kind: 'ClientCredentials' }))
+      ).resolves.toBeUndefined()
+    })
+
+    it.each([
+      ['no account is loaded', undefined],
+      [
+        'the loaded account is another account',
+        { accountId: 'acc-2', email: 'c@d.com' }
+      ],
+      ['the account has no email', { accountId: 'acc-1' }],
+      ['the account has an empty email', { accountId: 'acc-1', email: '' }]
+    ])('adds no email when %s', async (_name, account) => {
+      await expect(
+        extraTokenClaims(contextWith(account), accessToken())
+      ).resolves.toBeUndefined()
     })
   })
 
