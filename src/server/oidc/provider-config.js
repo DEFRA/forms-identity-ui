@@ -44,6 +44,21 @@ export const REGISTERED_CLIENT_IDS = new Set([RUNNER_CLIENT_ID])
  */
 const RESOURCE_SERVERS = new Set(config.get('oidc.resourceServers'))
 
+/**
+ * The APIs whose access tokens carry the email of the account
+ */
+const EMAIL_CLAIM_RESOURCE_SERVERS = new Set(
+  config.get('oidc.emailClaimResourceServers')
+)
+
+for (const resourceServer of EMAIL_CLAIM_RESOURCE_SERVERS) {
+  if (!RESOURCE_SERVERS.has(resourceServer)) {
+    throw new Error(
+      `OIDC_EMAIL_CLAIM_RESOURCE_SERVERS names ${resourceServer}, which is not in OIDC_RESOURCE_SERVERS`
+    )
+  }
+}
+
 const TTL_SECONDS = {
   AuthorizationCode: config.get('oidc.ttl.authorizationCode'),
   IdToken: config.get('oidc.ttl.idToken'),
@@ -99,6 +114,50 @@ function uiLocales(ctx) {
   }
 
   return 'en-GB'
+}
+
+/**
+ * The claims added to an access token. The email of the account is added to
+ * the access tokens of the APIs that need it, so that they can trust it rather
+ * than take it from the request.
+ *
+ * The provider loads the account before it issues an access token, through
+ * `findAccount`, so the email comes from that account with no further call to
+ * forms-identity-api.
+ * @param {KoaContextWithOIDC} ctx
+ * @param {AccessToken | ClientCredentials} token
+ * @returns {Promise<{ email: string } | undefined>}
+ */
+export async function extraTokenClaims(ctx, token) {
+  if (
+    token.kind !== 'AccessToken' ||
+    // The provider sets a single audience, the API the token is for
+    typeof token.aud !== 'string' ||
+    !EMAIL_CLAIM_RESOURCE_SERVERS.has(token.aud)
+  ) {
+    return undefined
+  }
+
+  const account = ctx.oidc.account
+
+  // Only the account the token is for can give the email
+  if (!token.accountId || account?.accountId !== token.accountId) {
+    logger.warn(
+      `[accessTokenEmailMissing] no account loaded for the access token of ${token.aud}, so the token has no email`
+    )
+    return undefined
+  }
+
+  const { email } = await account.claims('access_token', '', {}, [])
+
+  if (typeof email !== 'string' || !email) {
+    logger.warn(
+      `[accessTokenEmailMissing] the account has no email, so the access token of ${token.aud} has no email`
+    )
+    return undefined
+  }
+
+  return { email }
 }
 
 /**
@@ -239,6 +298,7 @@ export function buildProviderConfig(adapter) {
     },
     ttl: TTL_SECONDS,
     claims: { openid: ['sub'], email: ['email'] },
+    extraTokenClaims,
     async findAccount(_ctx, id) {
       setUserId(id)
 
@@ -278,5 +338,5 @@ export function buildProviderConfig(adapter) {
 }
 
 /**
- * @import { AdapterConstructor, Configuration, JWK, KoaContextWithOIDC } from 'oidc-provider'
+ * @import { AccessToken, AdapterConstructor, ClientCredentials, Configuration, JWK, KoaContextWithOIDC } from 'oidc-provider'
  */
