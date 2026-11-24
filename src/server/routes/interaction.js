@@ -94,8 +94,7 @@ export async function requireInteraction(request, h) {
       request.raw.res
     )
 
-    // The client says which language the user was using there, so the pages
-    // open in it
+    // The language can be overridden by the client's ui_locales parameter
     overrideLanguageFromUiLocales(request, details)
 
     // The user is already signed in when the interaction only asks for consent

@@ -89,9 +89,9 @@ const OVERRIDE_LANGUAGE_FROM_UI_LOCALES = 'overrideLanguageFromUiLocales'
 /**
  * Sets the session language from the client's `ui_locales`, once per
  * interaction. Applying it only once means a user who then switches language
- * on a page keeps their choice for the rest of the sign in, and a new sign in
- * from the client starts in the language the client asks for. A `language`
- * query on the same request is the user's own choice, so it wins.
+ * on a page keeps their choice for the rest of the sign in. A `language`
+ * query on the same request will override the client's `ui_locales` so allows
+ * the user to explicitly switch during sign-in.
  * @param {Pick<Request, 'query' | 'yar'>} request
  * @param {{ uid: string, params: Record<string, unknown> }} details
  */
