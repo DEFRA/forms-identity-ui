@@ -4,7 +4,7 @@ import convict from 'convict'
 
 import 'dotenv/config'
 
-import { csvFormat } from '~/src/config/csv-format.js'
+import { csvFormat, optionalCsvFormat } from '~/src/config/csv-format.js'
 
 const isProduction = process.env.NODE_ENV === 'production'
 const isDev = process.env.NODE_ENV !== 'production'
@@ -14,6 +14,7 @@ const fourHoursMs = 14400000
 const oneWeekSeconds = 604800
 
 convict.addFormat(csvFormat)
+convict.addFormat(optionalCsvFormat)
 
 export const config = convict({
   appDir: {
@@ -253,6 +254,12 @@ export const config = convict({
       format: 'csv',
       default: /** @type {string[] | null} */ (null),
       env: 'OIDC_RESOURCE_SERVERS'
+    },
+    emailClaimResourceServers: {
+      doc: 'Comma-separated names of the APIs whose access tokens carry the email of the account, as the `email` claim. Each name must also be in OIDC_RESOURCE_SERVERS. Empty by default, so no access token carries the email.',
+      format: 'optional-csv',
+      default: /** @type {string[]} */ ([]),
+      env: 'OIDC_EMAIL_CLAIM_RESOURCE_SERVERS'
     },
     runnerJwks: {
       doc: 'Public JWKS of the `runner` client, whose private half signs the assertion it authenticates with (run `node scripts/generate-client-keypair.mjs`). Public key material, so not a secret.',
