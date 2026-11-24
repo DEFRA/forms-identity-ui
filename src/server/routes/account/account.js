@@ -4,6 +4,7 @@ import { PURPOSE } from '~/src/server/common/constants/purposes.js'
 import { sessionNames } from '~/src/server/common/constants/session-names.js'
 import { formatHoursUntil } from '~/src/server/common/helpers/duration.js'
 import { getBackLink } from '~/src/server/common/helpers/navigation.js'
+import { CY, EN_GB } from '~/src/server/constants.js'
 import { getLanguage, setLanguage } from '~/src/server/i18n/index.js'
 import * as identityApi from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
@@ -47,7 +48,7 @@ const accountAction = 'delete-account'
 const queryParamsSchema = Joi.object({
   client_id: Joi.string(),
   returnUrl: Joi.string(),
-  language: Joi.string().valid('en-GB', 'cy')
+  language: Joi.string().valid(EN_GB, CY)
 })
 
 /* eslint-disable jsdoc/reject-any-type -- hapi request refs are invariant, so only any-ref helpers can be shared by payload-narrowed routes */
@@ -279,7 +280,10 @@ export default /** @type {ServerRoute[]} */ (
           uid,
           account.email,
           PURPOSE.ACCOUNT_DELETE_ACCOUNT_VERIFY_EMAIL,
-          account.id
+          {
+            accountId: account.id,
+            language: getLanguage(request.query, request.yar)
+          }
         )
 
         if (result.outcome === LOCKED_OUT) {

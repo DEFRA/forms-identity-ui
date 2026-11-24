@@ -20,16 +20,17 @@ const LOGGED_HOST_MAX_LENGTH = 100
  * Paths owned by oidc-provider. Mounted explicitly (no catch-all) so
  * unknown URLs still fall through to the GDS 404 page. Crumb is disabled on
  * every protocol route: CSRF there is handled by OIDC itself (state/PKCE at
- * the RP, client auth at the token and revocation endpoints) and those two
- * are server-to-server POSTs that could never carry a crumb. GET routes must
- * not set payload options, so methods are listed explicitly rather than via
- * '*'.
+ * the RP, client auth at the pushed authorization request, token and
+ * revocation endpoints) and those three are server-to-server POSTs that
+ * could never carry a crumb. GET routes must not set payload options, so
+ * methods are listed explicitly rather than via '*'.
  * @type {{ methods: RouteDefMethods[], path: string, payload: boolean }[]}
  */
 const PROTOCOL_ROUTES = [
   { methods: ['GET'], path: '/auth', payload: false },
   { methods: ['POST'], path: '/auth', payload: true },
   { methods: ['GET'], path: '/auth/{p*}', payload: false },
+  { methods: ['POST'], path: '/request', payload: true },
   { methods: ['POST'], path: '/token', payload: true },
   { methods: ['POST'], path: '/token/revocation', payload: true },
   { methods: ['GET'], path: '/me', payload: false },

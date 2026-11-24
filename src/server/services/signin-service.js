@@ -41,11 +41,12 @@ const emailSchema = Joi.string().email().required()
  * too often, and says when the lockout lifts. Any verdict other than those
  * two is treated as a fault rather than as a code sent, so the user is never
  * told to check for an email that is not coming.
- * @param {string} uid
+ * @param {InteractionDetails} details
  * @param {string | undefined} email
+ * @param {string} language
  * @returns {Promise<EmailOutcome>}
  */
-export async function submitEmail(uid, email) {
+export async function submitEmail(details, email, language) {
   const trimmed = (email ?? '').trim()
   const { error } = emailSchema.validate(trimmed)
 
@@ -60,9 +61,15 @@ export async function submitEmail(uid, email) {
   }
 
   const result = await requestOtpViaEmail(
-    uid,
+    details.uid,
     trimmed,
-    PURPOSE.SIGNIN_VERIFY_EMAIL
+    PURPOSE.SIGNIN_VERIFY_EMAIL,
+    {
+      language,
+      serviceName: /** @type { string | undefined } */ (
+        details.params.service_name
+      )
+    }
   )
   return result
 }
@@ -149,3 +156,7 @@ export async function submitPhone(uid, phone) {
 export async function getSigninEmail(uid) {
   return (await identityApi.getOtpTarget(uid, await getServiceToken())) ?? ''
 }
+
+/**
+ * @import { InteractionDetails } from '~/src/server/routes/interaction.js'
+ */

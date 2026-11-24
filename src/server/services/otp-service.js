@@ -13,12 +13,21 @@ import {
  * @param {string} uid
  * @param {string} email
  * @param {PurposeType} purpose
- * @param {string} [accountId]
+ * @param {{ accountId?: string, language: string, serviceName?: string }} options
+ * Options:
+ * accountId: the ID of the account
+ * language: the language preference
+ * serviceName: optional service name
  * @returns {Promise<{ outcome: 'code-sent', email: string } | { outcome: 'locked-out', lockedUntil: Date }>}
  */
-export async function requestOtpViaEmail(uid, email, purpose, accountId) {
+export async function requestOtpViaEmail(
+  uid,
+  email,
+  purpose,
+  { accountId, serviceName, language }
+) {
   const result = await identityApi.requestOtpViaEmail(
-    { uid, email, purpose, accountId },
+    { uid, email, purpose, accountId, serviceName, language },
     await getServiceToken()
   )
 
@@ -38,12 +47,20 @@ export async function requestOtpViaEmail(uid, email, purpose, accountId) {
  * Wrapper for requesting an OTP via SMS
  * @param {string} uid
  * @param {PurposeType} purpose
- * @param {string} accountId
+ * @param {{ accountId: string, language: string, serviceName?: string }} options
+ * Options:
+ * accountId: the ID of the account
+ * language: the language preference
+ * serviceName: optional service name
  * @returns {Promise<{ outcome: 'code-sent' } | { outcome: 'locked-out', lockedUntil: Date }>}
  */
-export async function requestOtpViaSms(uid, purpose, accountId) {
+export async function requestOtpViaSms(
+  uid,
+  purpose,
+  { accountId, language, serviceName }
+) {
   const result = await identityApi.requestOtpViaSms(
-    { uid, purpose, accountId },
+    { uid, purpose, accountId, language, serviceName },
     await getServiceToken()
   )
 

@@ -109,7 +109,10 @@ export default /** @type {ServerRoute[]} */ (
           uid,
           account.email,
           PURPOSE.ACCOUNT_CHANGE_PHONE_VERIFY_EMAIL,
-          account.id
+          {
+            accountId: account.id,
+            language: getLanguage(request.query, request.yar)
+          }
         )
 
         if (result.outcome === LOCKED_OUT) {

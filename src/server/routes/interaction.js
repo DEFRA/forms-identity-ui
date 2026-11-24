@@ -10,7 +10,12 @@ import {
   formatDuration,
   formatHoursUntil
 } from '~/src/server/common/helpers/duration.js'
-import { getLanguage, setLanguage } from '~/src/server/i18n/index.js'
+import { CY, EN_GB } from '~/src/server/constants.js'
+import {
+  getLanguage,
+  overrideLanguageFromUiLocales,
+  setLanguage
+} from '~/src/server/i18n/index.js'
 import { signinFormCsp } from '~/src/server/plugins/blankie.js'
 import * as accountService from '~/src/server/services/account-service.js'
 import {
@@ -33,7 +38,7 @@ const SESSION_TTL_SECONDS = config.get('oidc.ttl.session')
 
 const uidParams = Joi.object({ uid: Joi.string().required() })
 const emailQuery = Joi.object({ resend: Joi.boolean().optional() })
-const languageSchema = Joi.string().valid('en-GB', 'cy').optional()
+const languageSchema = Joi.string().valid(EN_GB, CY).optional()
 const querySchema = Joi.object()
   .keys({ language: languageSchema })
   .unknown(true)
@@ -88,6 +93,10 @@ export async function requireInteraction(request, h) {
       request.raw.req,
       request.raw.res
     )
+
+    // The client says which language the user was using there, so the pages
+    // open in it
+    overrideLanguageFromUiLocales(request, details)
 
     // The user is already signed in when the interaction only asks for consent
     setUserId(details.session?.accountId)
@@ -416,8 +425,9 @@ export default /** @type {ServerRoute[]} */ (
         }
 
         const result = await signinService.submitEmail(
-          details.uid,
-          account.email
+          details,
+          account.email,
+          getLanguage(request.query, request.yar)
         )
 
         return codeRequestResponse(request, h, details.uid, result)
@@ -455,7 +465,11 @@ export default /** @type {ServerRoute[]} */ (
       async handler(request, h) {
         const details = request.pre.details
         const { email } = request.payload
-        const result = await signinService.submitEmail(details.uid, email)
+        const result = await signinService.submitEmail(
+          details,
+          email,
+          getLanguage(request.query, request.yar)
+        )
 
         return codeRequestResponse(request, h, details.uid, result)
       }
@@ -606,6 +620,6 @@ export default /** @type {ServerRoute[]} */ (
  * @import { Request, ResponseObject, ResponseToolkit, Server, ServerRoute } from '@hapi/hapi'
  * @import { Provider } from 'oidc-provider'
  * @import { EmailOutcome } from '~/src/server/services/signin-service.js'
- * @typedef {Awaited<ReturnType<Provider['interactionDetails']>>} InteractionDetails
+ * @typedef {Awaited<ReturnType<Provider['interactionDetails']>> & { service_name: string, ui_locales?: string }} InteractionDetails
  * @typedef {{ details: InteractionDetails }} InteractionPres
  */
