@@ -13,6 +13,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
+import { pushAuthorizationRequest } from '~/test/helpers/round-trip.js'
 
 const mockStsSend = jest.fn()
 
@@ -129,9 +130,10 @@ function oidcStore(method, segments, body) {
     artifacts.delete(key)
     return NO_CONTENT
   }
+  // absent is a 204, as the real store answers it
   return artifacts.has(key)
     ? { status: 200, body: artifacts.get(key) }
-    : NOT_FOUND
+    : NO_CONTENT
 }
 
 /**
@@ -471,8 +473,7 @@ describe('change-email round trip', () => {
   async function signIn(email, phone) {
     const verifier = randomBytes(32).toString('base64url')
     const challenge = createHash('sha256').update(verifier).digest('base64url')
-    const authorize = `/auth?${new URLSearchParams({
-      client_id: 'runner',
+    const authorize = await pushAuthorizationRequest(server, {
       response_type: 'code',
       scope: 'openid email',
       redirect_uri: REDIRECT_URI,
@@ -480,7 +481,7 @@ describe('change-email round trip', () => {
       nonce: 'nonce-1',
       code_challenge: challenge,
       code_challenge_method: 'S256'
-    }).toString()}`
+    })
 
     const start = await browse(authorize)
     const interaction = String(start.headers.location)

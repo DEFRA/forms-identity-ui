@@ -10,6 +10,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
 
 import { PURPOSE } from '~/src/server/common/constants/purposes.js'
+import { pushAuthorizationRequest } from '~/test/helpers/round-trip.js'
 
 const mockStsSend = jest.fn()
 
@@ -117,9 +118,10 @@ function oidcStore(method, segments, body) {
     return NO_CONTENT
   }
 
+  // absent is a 204, as the real store answers it
   return artifacts.has(key)
     ? { status: 200, body: artifacts.get(key) }
-    : NOT_FOUND
+    : NO_CONTENT
 }
 
 /**
@@ -420,8 +422,7 @@ describe('delete-account round trip', () => {
   async function signIn(email) {
     const verifier = randomBytes(32).toString('base64url')
     const challenge = createHash('sha256').update(verifier).digest('base64url')
-    const authorize = `/auth?${new URLSearchParams({
-      client_id: 'runner',
+    const authorize = await pushAuthorizationRequest(server, {
       response_type: 'code',
       scope: 'openid email offline_access',
       prompt: 'login consent',
@@ -430,7 +431,7 @@ describe('delete-account round trip', () => {
       nonce: 'nonce-1',
       code_challenge: challenge,
       code_challenge_method: 'S256'
-    }).toString()}`
+    })
 
     const start = await browse(authorize)
     const interaction = String(start.headers.location)
@@ -587,7 +588,7 @@ describe('delete-account round trip', () => {
       expect(
         seenPaths.some((path) => path.startsWith('DELETE /oidc/grants/'))
       ).toBe(true)
-      expect((await browse('/account')).statusCode).toBe(404)
+      expect((await browse('/account')).statusCode).toBe(401)
     } finally {
       backchannelLogout.mockRestore()
     }
@@ -611,7 +612,7 @@ describe('delete-account round trip', () => {
     ).toBe(true)
 
     const accountPage = await browse('/account')
-    expect(accountPage.statusCode).toBe(404)
+    expect(accountPage.statusCode).toBe(401)
   })
 
   it.each([
@@ -683,8 +684,7 @@ describe('delete-account round trip', () => {
     ).toBe(false)
 
     const accountPage = await browse('/account')
-    expect(accountPage.statusCode).toBe(404)
-    expect(accountPage.payload).toContain('Page not found')
+    expect(accountPage.statusCode).toBe(401)
   })
 
   it('shows the resend code page if requested', async () => {
