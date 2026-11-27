@@ -31,7 +31,8 @@ cp .env.sample .env
 
 Every setting in `.env.sample` needs a value — the service refuses to start
 without them, so a misconfigured environment fails at boot rather than at first
-sign-in. Two need generating:
+sign-in. The one exception is `OIDC_EMAIL_CLAIM_RESOURCE_SERVERS`, which can be
+left out or empty (see below). Two need generating:
 
 ```sh
 node scripts/generate-jwks.mjs            # OIDC_JWKS_KEY_<YYYYMMDD> — signs our ID and access tokens
@@ -63,6 +64,22 @@ and replace the values.
 becomes the `aud` of the token, and a client names one in the `resource`
 parameter of the authorization request. `OIDC_TTL_ACCESS_TOKEN` is short, and
 the client gets a new access token with its refresh token.
+
+`OIDC_EMAIL_CLAIM_RESOURCE_SERVERS` lists the APIs whose access tokens carry
+the email of the account as the `email` claim. An API on this list can trust
+the email in the token rather than take it from the request. forms-submission-api
+needs it to link earlier submissions to the account of the signed-in user.
+Each name must also be in `OIDC_RESOURCE_SERVERS`, or the service refuses to
+start. It is empty by default, so no access token carries the email. The email
+is read from the account when the token is issued, so a token issued before
+the user changes their email keeps the old email until it expires
+(`OIDC_TTL_ACCESS_TOKEN`). If the account has no email, the token is issued
+without the claim and the service logs `[accessTokenEmailMissing]`.
+
+| Setting                             | Required | Default | Example                                |
+| ----------------------------------- | -------- | ------- | -------------------------------------- |
+| `OIDC_RESOURCE_SERVERS`             | yes      | none    | `urn:defra:forms:forms-submission-api` |
+| `OIDC_EMAIL_CLAIM_RESOURCE_SERVERS` | no       | empty   | `urn:defra:forms:forms-submission-api` |
 
 A client gets a refresh token when it asks for the `offline_access` scope with
 `prompt=consent`. The refresh token lasts for `OIDC_TTL_REFRESH_TOKEN`, after
