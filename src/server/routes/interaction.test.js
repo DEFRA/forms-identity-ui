@@ -199,7 +199,10 @@ describe('interaction pages', () => {
       {
         uid: 'uid-1',
         email: 'Citizen@Example.com',
-        purpose: 'SIGNIN_VERIFY_EMAIL'
+        purpose: 'SIGNIN_VERIFY_EMAIL',
+        accountId: undefined,
+        language: 'en-GB',
+        serviceName: undefined
       },
       'token-1'
     )
@@ -240,6 +243,26 @@ describe('interaction pages', () => {
       expect(container.getByText('Try again in 2 hours.')).toBeInTheDocument()
     }
   )
+
+  it('GET email opens in the language the client asked for in ui_locales', async () => {
+    detailsSpy.mockResolvedValue(
+      /** @type {never} */ ({
+        uid: 'uid-1',
+        prompt: { name: 'login' },
+        params: { ui_locales: 'cy' },
+        session: undefined
+      })
+    )
+
+    const { container } = await renderResponse(server, {
+      method: 'GET',
+      url: '/interaction/uid-1/email'
+    })
+
+    expect(
+      container.getByRole('button', { name: 'Parhau' })
+    ).toBeInTheDocument()
+  })
 
   it('POST email shows the locked-out page in Welsh when the session is in Welsh', async () => {
     jest.mocked(identityApi.requestOtpViaEmail).mockResolvedValue({
@@ -504,7 +527,10 @@ describe('interaction pages', () => {
         {
           uid: 'uid-1',
           email: 'current@example.com',
-          purpose: 'SIGNIN_VERIFY_EMAIL'
+          purpose: 'SIGNIN_VERIFY_EMAIL',
+          accountId: undefined,
+          language: 'en-GB',
+          serviceName: undefined
         },
         'token-1'
       )

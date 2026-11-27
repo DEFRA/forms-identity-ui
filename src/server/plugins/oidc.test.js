@@ -46,6 +46,32 @@ describe('oidc plugin', () => {
     ])
   })
 
+  it('advertises the pushed authorization request endpoint', async () => {
+    const res = await server.inject({
+      method: 'GET',
+      url: '/.well-known/openid-configuration'
+    })
+
+    const doc = JSON.parse(res.payload)
+    expect(doc.pushed_authorization_request_endpoint).toBe(
+      'http://localhost:3011/request'
+    )
+  })
+
+  it('mounts the pushed authorization request endpoint that discovery advertises', async () => {
+    // Without client authentication the provider refuses the request, but it
+    // answers with an OAuth error rather than the 404 page
+    const res = await server.inject({
+      method: 'POST',
+      url: '/request',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: 'client_id=runner&response_type=code'
+    })
+
+    expect(res.statusCode).not.toBe(404)
+    expect(JSON.parse(res.payload).error).toEqual(expect.any(String))
+  })
+
   it('builds endpoint URLs from the issuer, not from the caller headers', async () => {
     // A caller who could name the origin could name the jwks_uri, and a
     // relying party that resolved keys from it would accept tokens signed by

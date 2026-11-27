@@ -113,13 +113,19 @@ export default /** @type {ServerRoute[]} */ (
           ? await requestOtpViaSms(
               uid,
               PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_PHONE,
-              account.id
+              {
+                accountId: account.id,
+                language: getLanguage(request.query, request.yar)
+              }
             )
           : await requestOtpViaEmail(
               uid,
               /** @type {string} */ (request.yar.get(SESSION_KEY_NEW_EMAIL)),
               PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_EMAIL,
-              account.id
+              {
+                accountId: account.id,
+                language: getLanguage(request.query, request.yar)
+              }
             )
 
         if (result.outcome === LOCKED_OUT) {
@@ -280,7 +286,10 @@ export default /** @type {ServerRoute[]} */ (
           uid,
           trimmed,
           PURPOSE.ACCOUNT_CHANGE_EMAIL_VERIFY_EMAIL,
-          account.id
+          {
+            accountId: account.id,
+            language: getLanguage(request.query, request.yar)
+          }
         )
 
         if (result.outcome === LOCKED_OUT) {

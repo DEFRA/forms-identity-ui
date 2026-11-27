@@ -32,12 +32,12 @@ const baseUrl = config.get('identityApi.url')
 /**
  * Mints and emails a security code for the interaction, unless the address
  * has asked for too many and is locked out
- * @param {{ uid: string, email: string, purpose: PurposeType, accountId?: string }} input
+ * @param {{ uid: string, email: string, purpose: PurposeType, accountId?: string, serviceName?: string, language: string }} input
  * @param {string} token
  * @returns {Promise<RequestResult>}
  */
 export async function requestOtpViaEmail(
-  { uid, email, purpose, accountId },
+  { uid, email, purpose, accountId, serviceName, language },
   token
 ) {
   const { body } = await postJson(new URL('/otp/request', baseUrl), {
@@ -46,7 +46,9 @@ export async function requestOtpViaEmail(
       target: email,
       transport: TRANSPORT.EMAIL.toUpperCase(),
       purpose,
-      accountId
+      accountId,
+      serviceName,
+      language
     },
     headers: bearerHeaders(token)
   })
@@ -56,17 +58,22 @@ export async function requestOtpViaEmail(
 /**
  * Mints and emails a security code for the interaction.
  * The phone number is not passed here, but read from the account record in the DB.
- * @param {{ uid: string, accountId: string, purpose: PurposeType }} input
+ * @param {{ uid: string, accountId: string, purpose: PurposeType, language: string, serviceName?: string }} input
  * @param {string} token
  * @returns {Promise<RequestResult>}
  */
-export async function requestOtpViaSms({ uid, accountId, purpose }, token) {
+export async function requestOtpViaSms(
+  { uid, accountId, purpose, language, serviceName },
+  token
+) {
   const { body } = await postJson(new URL('/otp/request', baseUrl), {
     payload: {
       uid: hashId(uid),
       accountId,
       transport: TRANSPORT.SMS.toUpperCase(),
-      purpose
+      purpose,
+      language,
+      serviceName
     },
     headers: bearerHeaders(token)
   })

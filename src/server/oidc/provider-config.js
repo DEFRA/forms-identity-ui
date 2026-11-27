@@ -2,10 +2,13 @@ import { setUserId } from '@defra/forms-common'
 import { errors } from 'oidc-provider'
 
 import { config } from '~/src/config/index.js'
-import { allAvailableLanguages } from '~/src/server/common/constants/languages.js'
 import { logger } from '~/src/server/common/helpers/logging/logger.js'
-import { CLIENT_AUTH_METHOD, SIGNING_ALG } from '~/src/server/constants.js'
-import { t } from '~/src/server/i18n/index.js'
+import {
+  CLIENT_AUTH_METHOD,
+  EN_GB,
+  SIGNING_ALG
+} from '~/src/server/constants.js'
+import { languageFromUiLocales, t } from '~/src/server/i18n/index.js'
 import { getAccount } from '~/src/server/lib/identity-api.js'
 import { getServiceToken } from '~/src/server/lib/service-token.js'
 import { cookieKeys, signingJwks } from '~/src/server/oidc/keys.js'
@@ -105,15 +108,7 @@ function cancelUriFor(ctx) {
  * @returns {string}
  */
 function uiLocales(ctx) {
-  const lang = ctx.oidc.params?.ui_locales
-
-  const availableLanguages = new Set(allAvailableLanguages.map((l) => l.code))
-
-  if (typeof lang === 'string' && availableLanguages.has(lang)) {
-    return lang
-  }
-
-  return 'en-GB'
+  return languageFromUiLocales(ctx.oidc.params?.ui_locales) ?? EN_GB
 }
 
 /**
@@ -212,6 +207,9 @@ export function buildProviderConfig(adapter) {
     // the user signs out. Without `offline_access`, every token ends with the
     // provider session.
     scopes: ['openid', 'offline_access'],
+    // The client may pass a service name the sign in is for, so the security code email
+    // can display it.
+    extraParams: ['service_name'],
     enabledJWA: {
       idTokenSigningAlgValues: [SIGNING_ALG],
       clientAuthSigningAlgValues: [SIGNING_ALG]
@@ -269,8 +267,11 @@ export function buildProviderConfig(adapter) {
       backchannelLogout: { enabled: true },
       revocation: { enabled: true },
       devInteractions: { enabled: false },
-      // On by default, and its endpoint is deliberately not mounted
-      pushedAuthorizationRequests: { enabled: false },
+      // To allow signed params to be passed in pushed authorization requests
+      pushedAuthorizationRequests: {
+        enabled: true,
+        requirePushedAuthorizationRequests: true
+      },
       resourceIndicators: {
         enabled: true,
         useGrantedResource: () => true,

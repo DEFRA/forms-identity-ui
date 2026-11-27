@@ -48,6 +48,7 @@ describe('sign-in round trip', () => {
   const {
     accounts,
     artifacts,
+    authorizeUrl,
     browse,
     crumb,
     follow,
@@ -69,8 +70,7 @@ describe('sign-in round trip', () => {
   it('signs a user in end to end and leaks nothing into a request path', async () => {
     const verifier = randomBytes(32).toString('base64url')
     const challenge = createHash('sha256').update(verifier).digest('base64url')
-    const authorize = `/auth?${new URLSearchParams({
-      client_id: 'runner',
+    const authorize = await authorizeUrl({
       response_type: 'code',
       scope: 'openid email',
       redirect_uri: REDIRECT_URI,
@@ -78,7 +78,7 @@ describe('sign-in round trip', () => {
       nonce: 'nonce-1',
       code_challenge: challenge,
       code_challenge_method: 'S256'
-    }).toString()}`
+    })
 
     // the provider parks the request and sends the browser to the email page
     const start = await browse(authorize)
@@ -318,8 +318,7 @@ describe('sign-in round trip', () => {
     const verifier = randomBytes(32).toString('base64url')
     const challenge = createHash('sha256').update(verifier).digest('base64url')
     const start = await browse(
-      `/auth?${new URLSearchParams({
-        client_id: 'runner',
+      await authorizeUrl({
         response_type: 'code',
         scope: CLIENT_SCOPE,
         prompt: 'consent',
@@ -329,7 +328,7 @@ describe('sign-in round trip', () => {
         code_challenge: challenge,
         code_challenge_method: 'S256',
         ...(resource && { resource })
-      }).toString()}`
+      })
     )
     const finished = await follow(start)
     const callback = new URL(String(finished.headers.location))
@@ -480,8 +479,7 @@ describe('sign-in round trip', () => {
         .digest('base64url')
 
       const start = await browse(
-        `/auth?${new URLSearchParams({
-          client_id: 'runner',
+        await authorizeUrl({
           response_type: 'code',
           scope: CLIENT_SCOPE,
           prompt: 'login consent',
@@ -491,7 +489,7 @@ describe('sign-in round trip', () => {
           code_challenge: challenge,
           code_challenge_method: 'S256',
           id_token_hint: idToken
-        }).toString()}`
+        })
       )
       expect(start.statusCode).toBe(303)
 

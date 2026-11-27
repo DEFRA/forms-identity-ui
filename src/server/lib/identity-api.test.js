@@ -53,7 +53,12 @@ describe('identity-api client', () => {
       )
 
     await requestOtpViaEmail(
-      { uid: 'uid-1', email: 'a@b.com', purpose: PURPOSE.SIGNIN_VERIFY_EMAIL },
+      {
+        uid: 'uid-1',
+        email: 'a@b.com',
+        purpose: PURPOSE.SIGNIN_VERIFY_EMAIL,
+        language: 'en-GB'
+      },
       'token-1'
     )
 
@@ -67,7 +72,8 @@ describe('identity-api client', () => {
       uid: hashId('uid-1'),
       target: 'a@b.com',
       transport: 'EMAIL',
-      purpose: 'SIGNIN_VERIFY_EMAIL'
+      purpose: 'SIGNIN_VERIFY_EMAIL',
+      language: 'en-GB'
     })
   })
 
@@ -85,7 +91,8 @@ describe('identity-api client', () => {
         {
           uid: 'uid-1',
           email: 'a@b.com',
-          purpose: PURPOSE.SIGNIN_VERIFY_EMAIL
+          purpose: PURPOSE.SIGNIN_VERIFY_EMAIL,
+          language: 'en-GB'
         },
         'token-1'
       )
@@ -182,7 +189,12 @@ describe('identity-api client', () => {
       .mockResolvedValue(/** @type {never} */ ({ body: { email: 'a@b.com' } }))
 
     await requestOtpViaEmail(
-      { uid: 'uid-1', email: 'a@b.com', purpose: 'SIGNIN_VERIFY_EMAIL' },
+      {
+        uid: 'uid-1',
+        email: 'a@b.com',
+        purpose: 'SIGNIN_VERIFY_EMAIL',
+        language: 'en-GB'
+      },
       'token-1'
     )
     await verifyOtp({ uid: 'uid-1', code: '123456' }, 'token-1')
@@ -209,7 +221,12 @@ describe('identity-api client', () => {
       )
 
     await requestOtpViaEmail(
-      { uid: 'uid-1', email: 'a@b.com', purpose: 'SIGNIN_VERIFY_EMAIL' },
+      {
+        uid: 'uid-1',
+        email: 'a@b.com',
+        purpose: 'SIGNIN_VERIFY_EMAIL',
+        language: 'en-GB'
+      },
       'token-1'
     )
     await verifyOtp({ uid: 'uid-1', code: '123456' }, 'token-1')

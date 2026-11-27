@@ -275,7 +275,7 @@ describe('signing key rotation', () => {
 })
 
 describe('cookie key rotation', () => {
-  const { browse, follow, jar, redeploy, signInAndRedeem } =
+  const { authorizeUrl, browse, follow, jar, redeploy, signInAndRedeem } =
     useRoundTrip(mockStsSend)
 
   const oldKey = randomBytes(32).toString('hex')
@@ -325,8 +325,7 @@ describe('cookie key rotation', () => {
 
     const res = await follow(
       await browse(
-        `/auth?${new URLSearchParams({
-          client_id: 'runner',
+        await authorizeUrl({
           response_type: 'code',
           scope: 'openid email',
           prompt: 'none',
@@ -335,7 +334,7 @@ describe('cookie key rotation', () => {
           nonce: 'nonce',
           code_challenge: challenge,
           code_challenge_method: 'S256'
-        }).toString()}`
+        })
       )
     )
 

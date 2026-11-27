@@ -23,13 +23,17 @@ describe('otp service', () => {
   describe.each([
     [
       'requestOtpViaEmail',
-      () => requestOtpViaEmail(uid, 'a@example.com', purpose, accountId),
+      () =>
+        requestOtpViaEmail(uid, 'a@example.com', purpose, {
+          accountId,
+          language: 'en-GB'
+        }),
       () => jest.mocked(identityApi.requestOtpViaEmail),
       { outcome: 'code-sent', email: 'a@example.com' }
     ],
     [
       'requestOtpViaSms',
-      () => requestOtpViaSms(uid, purpose, accountId),
+      () => requestOtpViaSms(uid, purpose, { accountId, language: 'en-GB' }),
       () => jest.mocked(identityApi.requestOtpViaSms),
       { outcome: 'code-sent' }
     ]

@@ -275,6 +275,43 @@ export async function clientAssertion() {
 }
 
 /**
+ * Pushes the authorization parameters to the pushed authorization request
+ * endpoint as the runner, and returns the authorization URL the browser then
+ * opens. The provider accepts only pushed requests, so the URL carries just
+ * the client and the request URI.
+ * @param {Server} server
+ * @param {Record<string, string>} params - the authorization parameters,
+ * without `client_id`
+ * @returns {Promise<string>} the authorization path
+ */
+export async function pushAuthorizationRequest(server, params) {
+  const res = await server.inject({
+    method: 'POST',
+    url: '/request',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    payload: new URLSearchParams({
+      client_id: 'runner',
+      client_assertion_type: CLIENT_ASSERTION_TYPE,
+      client_assertion: await clientAssertion(),
+      ...params
+    }).toString()
+  })
+
+  if (res.statusCode !== 201) {
+    throw new Error(
+      `pushed authorization request failed with ${res.statusCode}: ${res.payload}`
+    )
+  }
+
+  const { request_uri: requestUri } = JSON.parse(res.payload)
+
+  return `/auth?${new URLSearchParams({
+    client_id: 'runner',
+    request_uri: requestUri
+  }).toString()}`
+}
+
+/**
  * Starts the stub API and the service for the enclosing describe block.
  * Returns a browser with its own cookie jar. Call it in `describe`, before
  * the other hooks of the block. The service then starts before those hooks
@@ -439,6 +476,15 @@ export function useRoundTrip(mockStsSend) {
   }
 
   /**
+   * Pushes the authorization parameters for the running service and returns
+   * the authorization path
+   * @param {Record<string, string>} params
+   */
+  function authorizeUrl(params) {
+    return pushAuthorizationRequest(server, params)
+  }
+
+  /**
    * Posts a form to the token endpoint as the runner
    * @param {Record<string, string>} params
    */
@@ -498,8 +544,7 @@ export function useRoundTrip(mockStsSend) {
     const verifier = randomBytes(32).toString('base64url')
     const challenge = createHash('sha256').update(verifier).digest('base64url')
 
-    const authorize = `/auth?${new URLSearchParams({
-      client_id: 'runner',
+    const authorize = await authorizeUrl({
       response_type: 'code',
       scope,
       prompt: 'login consent',
@@ -509,7 +554,7 @@ export function useRoundTrip(mockStsSend) {
       code_challenge: challenge,
       code_challenge_method: 'S256',
       ...(resource && { resource })
-    }).toString()}`
+    })
 
     const start = await browse(authorize)
     const interaction = String(start.headers.location)
@@ -551,6 +596,7 @@ export function useRoundTrip(mockStsSend) {
     browse,
     crumb,
     follow,
+    authorizeUrl,
     tokenRequest,
     revocationRequest,
     signInAndRedeem
