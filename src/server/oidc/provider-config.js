@@ -209,7 +209,10 @@ export function buildProviderConfig(adapter) {
       revocation: { enabled: true },
       devInteractions: { enabled: false },
       // To allow signed params to be passed in pushed authorization requests
-      pushedAuthorizationRequests: { enabled: true },
+      pushedAuthorizationRequests: {
+        enabled: true,
+        requirePushedAuthorizationRequests: true
+      },
       resourceIndicators: {
         enabled: true,
         useGrantedResource: () => true,
